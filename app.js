@@ -83,17 +83,134 @@
     sortBy: 'relevance',
     viewMode: 'grid', // 'grid' | 'table'
     computoCart: JSON.parse(localStorage.getItem('nexobra_computo') || '[]'),
-    excelProcessedRows: []
+    excelProcessedRows: [],
+    priceMonth: null // "YYYY-MM-01", mes elegido por el usuario para ver precios actualizados
   };
 
-  // Esta metadata concentra la trazabilidad de los valores de referencia.
-  // En la siguiente etapa será reemplazada por registros de la tabla index_values.
-  const REFERENCE_PRICE_INFO = {
-    period: 'abril de 2026',
-    updatedAt: '01/04/2026',
-    source: 'Carga manual NEXOBRA',
-    materialMethod: 'Factor de referencia aplicado sobre el precio base'
+  // Serie de índices IPC cargada desde public.index_values (tabla real, no valores fijos).
+  // Se completa en loadIndexSeries(); mientras no haya datos, se usa el factor estático
+  // heredado (precioVenta / precioBase) como respaldo para no romper el catálogo.
+  const indexState = {
+    seriesCode: 'ipc_materials_reference',
+    values: {},   // { "2025-04-01": 8402.26, ... }
+    months: [],   // ["2016-12-01", ..., "2026-02-01"] ordenado
+    loaded: false
   };
+
+  const REFERENCE_PRICE_INFO = {
+    period: 'sin datos de índice cargados',
+    updatedAt: '',
+    source: 'Carga manual NEXOBRA',
+    materialMethod: 'Precio base actualizado con la serie de IPC (INDEC) mes a mes'
+  };
+
+  function monthLabel(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(`${dateStr}T00:00:00`);
+    return d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+  }
+
+  async function loadIndexSeries() {
+    if (!supabaseClient) return;
+    const { data, error } = await supabaseClient
+      .from('index_values')
+      .select('reference_month, value, index_series!inner(code)')
+      .eq('index_series.code', indexState.seriesCode)
+      .eq('is_published', true)
+      .order('reference_month');
+
+    if (error || !data || data.length === 0) {
+      console.warn('No se pudo cargar la serie de IPC desde Supabase. Se usa el factor estático de respaldo.', error?.message);
+      return;
+    }
+
+    indexState.values = {};
+    data.forEach(row => { indexState.values[row.reference_month] = Number(row.value); });
+    indexState.months = data.map(row => row.reference_month);
+    indexState.loaded = true;
+
+    state.priceMonth = indexState.months[indexState.months.length - 1];
+    REFERENCE_PRICE_INFO.period = monthLabel(state.priceMonth);
+    REFERENCE_PRICE_INFO.updatedAt = new Date(`${state.priceMonth}T00:00:00`).toLocaleDateString('es-AR');
+    REFERENCE_PRICE_INFO.source = 'INDEC · IPC serie general (dic-16=100)';
+
+    populateMonthSelect();
+    renderIpcChart();
+    updateReferenceStatus();
+    renderProducts();
+  }
+
+  function populateMonthSelect() {
+    const select = document.getElementById('price-month-select');
+    if (!select) return;
+    select.innerHTML = indexState.months
+      .slice()
+      .reverse()
+      .map(m => `<option value="${m}">${monthLabel(m)}</option>`)
+      .join('');
+    select.value = state.priceMonth;
+  }
+
+  let ipcChartInstance = null;
+
+  function renderIpcChart() {
+    const canvas = document.getElementById('ipc-evolution-chart');
+    if (!canvas || typeof Chart === 'undefined' || indexState.months.length === 0) return;
+
+    const labels = indexState.months.map(monthLabel);
+    const data = indexState.months.map(m => indexState.values[m]);
+    const selectedIdx = indexState.months.indexOf(state.priceMonth);
+
+    if (ipcChartInstance) {
+      ipcChartInstance.data.labels = labels;
+      ipcChartInstance.data.datasets[0].data = data;
+      ipcChartInstance.data.datasets[0].pointBackgroundColor = indexState.months.map((_, i) =>
+        i === selectedIdx ? '#d97757' : 'rgba(217,119,87,0.25)');
+      ipcChartInstance.data.datasets[0].pointRadius = indexState.months.map((_, i) => i === selectedIdx ? 6 : 0);
+      ipcChartInstance.update();
+      return;
+    }
+
+    ipcChartInstance = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Índice IPC (dic-16 = 100)',
+          data,
+          borderColor: '#d97757',
+          backgroundColor: 'rgba(217,119,87,0.08)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.15,
+          pointRadius: indexState.months.map((_, i) => i === selectedIdx ? 6 : 0),
+          pointBackgroundColor: indexState.months.map((_, i) => i === selectedIdx ? '#d97757' : 'rgba(217,119,87,0.25)')
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 8 } },
+          y: { ticks: { callback: v => v.toLocaleString('es-AR') } }
+        },
+        onClick: (evt, elements) => {
+          if (!elements.length) return;
+          const idx = elements[0].index;
+          const month = indexState.months[idx];
+          state.priceMonth = month;
+          const select = document.getElementById('price-month-select');
+          if (select) select.value = month;
+          REFERENCE_PRICE_INFO.period = monthLabel(month);
+          REFERENCE_PRICE_INFO.updatedAt = new Date(`${month}T00:00:00`).toLocaleDateString('es-AR');
+          updateReferenceStatus();
+          renderProducts();
+          renderIpcChart();
+        }
+      }
+    });
+  }
 
   const supabaseSettings = window.NEXOBRA_SUPABASE;
   const hasSupabaseSettings = Boolean(
@@ -208,29 +325,59 @@
     }).format(factor);
   }
 
+  /** "abr-25" -> "2025-04-01" (para buscar el índice de mes base de cada material) */
+  function baseLabelToDate(label) {
+    const MESES = { ene:1, feb:2, mar:3, abr:4, may:5, jun:6, jul:7, ago:8, sep:9, sept:9, oct:10, nov:11, dic:12 };
+    const match = /^([a-záéíóú]{3,4})-(\d{2})$/i.exec((label || '').trim());
+    if (!match) return null;
+    const mes = MESES[match[1].toLowerCase()];
+    if (!mes) return null;
+    return `20${match[2]}-${String(mes).padStart(2, '0')}-01`;
+  }
+
   /**
-   * Los precios de venta actuales del catálogo son el valor de referencia publicado.
-   * El factor se obtiene respecto del precio base de cada material y se reutiliza
-   * para conservar la equivalencia entre venta comercial y cómputo métrico.
+   * Calcula el precio actualizado de un material al mes elegido por el usuario
+   * (state.priceMonth), usando la serie real de IPC cargada en indexState.
+   * Si todavía no hay serie cargada (Supabase sin datos, o carga en curso),
+   * cae al factor estático precioVenta/precioBase como respaldo para no romper
+   * la vista, pero deja marcado dynamic:false para que la UI lo aclare.
    */
   function getReferencePrice(item, mode = state.pricingMode) {
-    const currentPrice = mode === 'venta' ? Number(item.precioVenta) : Number(item.precioComputo);
     const ventaBase = Number(item.precioBase);
-    const ventaCurrent = Number(item.precioVenta);
-    const factor = ventaBase > 0 && ventaCurrent > 0 ? ventaCurrent / ventaBase : 1;
-    const basePrice = mode === 'venta' && ventaBase > 0 ? ventaBase : currentPrice / factor;
+    const baseDate = baseLabelToDate(item.mesBase);
+    const targetDate = state.priceMonth;
+    const indiceBase = baseDate ? indexState.values[baseDate] : undefined;
+    const indiceDestino = targetDate ? indexState.values[targetDate] : undefined;
+
+    let factor = 1;
+    let dynamic = false;
+    if (indexState.loaded && indiceBase && indiceDestino) {
+      factor = indiceDestino / indiceBase;
+      dynamic = true;
+    } else {
+      const ventaCurrent = Number(item.precioVenta);
+      factor = ventaBase > 0 && ventaCurrent > 0 ? ventaCurrent / ventaBase : 1;
+    }
+
+    const basePrice = mode === 'venta' ? ventaBase : ventaBase * (Number(item.precioComputo) / Number(item.precioVenta || 1));
+    const currentPrice = basePrice * factor;
 
     return {
       currentPrice,
       basePrice,
       factor,
+      dynamic,
       basePeriod: item.mesBase || 'período base no informado',
+      targetPeriod: targetDate ? monthLabel(targetDate) : REFERENCE_PRICE_INFO.period,
       unit: mode === 'venta' ? item.unidadVenta : item.unidadComputo
     };
   }
 
   function renderPriceTrace(item, mode = state.pricingMode) {
     const trace = getReferencePrice(item, mode);
+    const metodo = trace.dynamic
+      ? `Índice IPC (INDEC): ${trace.basePeriod} → ${trace.targetPeriod}`
+      : `Factor de referencia fijo (serie de IPC no disponible)`;
     return `
       <details class="price-trace">
         <summary>Ver cálculo y fuente</summary>
@@ -238,7 +385,8 @@
           <div><span>Base:</span> <strong>${formatMoney(trace.basePrice)} · ${trace.basePeriod}</strong></div>
           <div><span>Factor:</span> <strong>× ${formatFactor(trace.factor)}</strong></div>
           <div><span>Fórmula:</span> ${formatMoney(trace.basePrice)} × ${formatFactor(trace.factor)} = <strong>${formatMoney(trace.currentPrice)}</strong></div>
-          <div><span>Fuente:</span> ${REFERENCE_PRICE_INFO.source} · ${REFERENCE_PRICE_INFO.updatedAt}</div>
+          <div><span>Método:</span> ${metodo}</div>
+          <div><span>Fuente:</span> ${REFERENCE_PRICE_INFO.source}</div>
           <p>Valor orientativo. Confirmá precio final, disponibilidad, entrega y pago con el proveedor.</p>
         </div>
       </details>
@@ -408,6 +556,19 @@
     updateCartUI();
     updateReferenceStatus();
     loadCatalogFromSupabase();
+    loadIndexSeries();
+
+    const priceMonthSelect = document.getElementById('price-month-select');
+    if (priceMonthSelect) {
+      priceMonthSelect.addEventListener('change', (e) => {
+        state.priceMonth = e.target.value;
+        REFERENCE_PRICE_INFO.period = monthLabel(state.priceMonth);
+        REFERENCE_PRICE_INFO.updatedAt = new Date(`${state.priceMonth}T00:00:00`).toLocaleDateString('es-AR');
+        updateReferenceStatus();
+        renderProducts();
+        renderIpcChart();
+      });
+    }
 
     // Nav buttons
     navBrandLogo.addEventListener('click', (e) => {
