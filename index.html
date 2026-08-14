@@ -190,6 +190,16 @@
             <p class="pilar-text">Cuando estén disponibles, se mostrarán separadas del promedio, con corralón, sucursal, fecha informada y disponibilidad a confirmar.</p>
           </article>
         </div>
+
+        <div class="ipc-explainer">
+          <div class="ipc-explainer-text">
+            <h3 class="pilar-title">Cómo llevamos un precio de referencia al mes que necesitás</h3>
+            <p class="pilar-text">Cada material tiene un precio y un mes base (por ejemplo, abril de 2025). Para mostrarte un valor representativo en otro mes, aplicamos la variación real del Índice de Precios al Consumidor (IPC, INDEC) entre esos dos meses: <strong>precio actualizado = precio base × (índice del mes elegido ÷ índice del mes base)</strong>. Elegí un mes en el catálogo o hacé clic sobre un punto del gráfico para ver cómo cambia el factor.</p>
+          </div>
+          <div class="ipc-chart-wrapper">
+            <canvas id="ipc-evolution-chart" height="220"></canvas>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -364,6 +374,10 @@
           <span class="results-count" id="visible-count">0</span>
           <span> materiales</span>
           <span id="active-filter-label" style="font-weight: 600; color: var(--brand-dark);"></span>
+        </div>
+        <div class="price-month-picker">
+          <label for="price-month-select">Ver precios actualizados a:</label>
+          <select id="price-month-select" class="sort-select"><!-- se completa con la serie real de IPC --></select>
         </div>
         <div style="font-size: 0.8rem; color: var(--text-subtle);">
           <span id="reference-price-status">Valores de referencia · Base: <strong>Abril 2025</strong> · Metodología y actualización visibles en cada ítem</span>
@@ -592,6 +606,7 @@
 
   <!-- JAVASCRIPT LOGIC -->
   <!-- Cliente y configuración pública: sin claves secretas. -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="data.js"></script>
