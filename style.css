@@ -1632,3 +1632,43 @@ body {
     display: none;
   }
 }
+
+/* --- Selector de mes de precio (catálogo) --- */
+.price-month-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.price-month-picker label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.price-month-picker select {
+  min-width: 180px;
+}
+
+/* --- Explicador de actualización IPC (home) --- */
+.ipc-explainer {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 2rem;
+  align-items: center;
+  margin-top: 2.5rem;
+  padding: 1.75rem;
+  border-radius: 16px;
+  background: var(--surface-1, #f7f5f0);
+}
+.ipc-chart-wrapper {
+  position: relative;
+  height: 240px;
+}
+@media (max-width: 860px) {
+  .ipc-explainer {
+    grid-template-columns: 1fr;
+  }
+  .ipc-chart-wrapper {
+    height: 200px;
+  }
+}
