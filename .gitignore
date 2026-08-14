@@ -1,0 +1,6 @@
+# No guardar nunca claves secretas ni contraseñas locales.
+# supabase-config.js usa la publishable key de Supabase: está diseñada para el navegador
+# y se publica junto al sitio. La seguridad de los datos se aplica mediante RLS.
+
+# Archivo generado que superaba el límite del SQL Editor; usar las seis partes 002.
+supabase/migrations/002_seed_materials.sql

@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEXOBRA | Comparador técnico de precios para la construcción</title>
+  <meta name="description" content="Comparador técnico de precios, materiales y cómputos para la construcción en Argentina. Consultá valores de referencia trazables y ofertas de proveedores locales.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- SheetJS para lectura y exportación nativa de Excel (.xlsx) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- HEADER & NAVIGATION -->
+  <header class="header" id="main-header">
+    <div class="container header-container">
+      
+      <!-- LOGO NEXOBRA -->
+      <a href="#inicio" class="brand-wrapper" id="nav-brand-logo">
+        <div class="brand-logo-icon">
+          <svg width="36" height="36" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 15L45 45L75 15H90L52.5 52.5L90 90H75L45 60L15 90H0L37.5 52.5L0 15H15Z" fill="#F5B000"/>
+            <path d="M30 15L65 50L30 85H48L78 55L50 27L60 15H30Z" fill="#22262B"/>
+            <path d="M55 40L65 50L55 60L45 50L55 40Z" fill="#F5B000"/>
+          </svg>
+        </div>
+        <div class="brand-title-group">
+          <div class="brand-name">NEXO<span class="accent">OBRA</span></div>
+          <span class="brand-badge-tag">COMPARADOR TÉCNICO</span>
+        </div>
+      </a>
+
+      <!-- MAIN NAV LINKS -->
+      <nav class="nav-links-desktop">
+        <button class="nav-link active" id="nav-btn-home">Inicio</button>
+        <button class="nav-link" id="nav-btn-rubros">Rubros de Obra</button>
+        <button class="nav-link" id="nav-btn-catalogo">Catálogo Completo</button>
+      </nav>
+
+      <!-- HEADER ACTIONS -->
+      <div class="header-actions">
+        <button class="btn-excel-tool" id="btn-open-excel-modal" title="Subir listado de materiales en Excel y cotizar automáticamente">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="8" y1="13" x2="16" y2="13"></line>
+            <line x1="8" y1="17" x2="16" y2="17"></line>
+          </svg>
+          <span>Cotizar con Excel</span>
+        </button>
+
+        <button class="btn-computo" id="btn-open-drawer" title="Abrir mi presupuesto y cómputo de materiales">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+          <span>Mi Cómputo</span>
+          <span class="computo-counter" id="header-cart-count">0</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       VISTA 1: HOME / PRESENTACIÓN DE NEXOBRA & SELECCIÓN DE ÁREAS
+       ========================================================================= -->
+  <div id="home-view" class="view-section active">
+    
+    <!-- HERO PRINCIPAL -->
+    <section class="hero-home">
+      <div class="container hero-home-content">
+        <div class="hero-tagline-badge">Precios claros para decidir mejor tu obra</div>
+        <h1 class="hero-main-title">
+          Compará precios y armá tus cómputos <span class="accent-word">con datos claros y trazables</span>
+        </h1>
+        <p class="hero-main-desc">
+          <strong>NEXOBRA</strong> ayuda a arquitectos, ingenieros y constructores a comparar materiales y presupuestar. Consultá valores de referencia con su fecha, fuente y fórmula de actualización, y comparalos con precios informados por corralones de tu zona.
+        </p>
+
+        <!-- SEARCH BAR CENTRAL -->
+        <div class="hero-search-box">
+          <div class="search-input-wrapper">
+            <span class="search-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </span>
+            <input 
+              type="text" 
+              id="home-search-input" 
+              class="search-input" 
+              placeholder="Buscá cualquier material o marca (ej: durlock, cemento loma negra, vigueta, sika, chapa)..."
+              autocomplete="off"
+            >
+            <button class="btn-computo" id="home-search-submit" style="padding: 10px 22px; border-radius: var(--radius-md);">
+              Buscar
+            </button>
+          </div>
+
+          <!-- Quick tags in Hero -->
+          <div class="quick-tags-wrapper" style="margin-top: 14px;">
+            <span class="quick-tags-label">Búsquedas frecuentes:</span>
+            <button class="tag-pill" data-search="cemento">Cemento</button>
+            <button class="tag-pill" data-search="durlock">Durlock</button>
+            <button class="tag-pill" data-search="hierro">Hierro ADN420</button>
+            <button class="tag-pill" data-search="vigueta">Viguetas</button>
+            <button class="tag-pill" data-search="chapa">Chapas</button>
+            <button class="tag-pill" data-search="ladrillo">Ladrillos</button>
+            <button class="tag-pill" data-search="ferrum">Sanitarios</button>
+            <button class="tag-pill" data-search="sika">Sika</button>
+          </div>
+
+          <p class="quick-tags-label" style="margin-top: 12px;">
+            NEXOBRA no vende materiales ni garantiza stock: te muestra información para comparar y te conecta directamente con el proveedor.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PILARES DE INNOVACIÓN (QUÉ ES NEXOBRA) -->
+    <section class="section-pilares">
+      <div class="container">
+        <div class="section-heading-center">
+          <div class="subheading-accent">Nuestra Propuesta de Valor</div>
+          <h2 class="section-title">El núcleo de innovación de NEXOBRA</h2>
+          <p class="section-desc">Resolvemos el proceso analógico, lento y fragmentado de cotización de materiales en dos pilares fundamentales:</p>
+        </div>
+
+        <div class="pilares-grid">
+          <!-- Pilar 1 -->
+          <div class="pilar-card">
+            <div class="pilar-icon-box">🏷️</div>
+            <h3 class="pilar-title">1. Indexación Inteligente por Tags</h3>
+            <p class="pilar-text">
+              Eliminamos la disparidad entre nombres comerciales, marcas y nomenclaturas técnicas. Nuestro motor asocia términos coloquiales como <em>"durlock"</em>, <em>"ceresita"</em> o <em>"sintenax"</em> con el material técnico exacto de la base de datos.
+            </p>
+          </div>
+
+          <!-- Pilar 2 -->
+          <div class="pilar-card">
+            <div class="pilar-icon-box">📐</div>
+            <h3 class="pilar-title">2. Dualidad Venta vs. Cómputo</h3>
+            <p class="pilar-text">
+              Consultá tanto el precio comercial por bulto/envase (bolsa, lata, barra, rollo) como el valor por unidad de cómputo métrico (m², m³, ml, kg), agilizando el cálculo de rendimientos y presupuestos de obra.
+            </p>
+          </div>
+
+          <!-- Pilar 3 -->
+          <div class="pilar-card">
+            <div class="pilar-icon-box">📈</div>
+          <h3 class="pilar-title">3. Actualización Trazable</h3>
+            <p class="pilar-text">
+              Cada valor de referencia informa su precio y mes base, índice aplicado, fórmula, fuente y fecha de actualización. El IPC se usa como referencia para materiales; las escalas UOCRA se aplican exclusivamente a mano de obra.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- METODOLOGÍA Y TRAZABILIDAD DE PRECIOS -->
+    <section class="section-pilares" id="seccion-metodologia">
+      <div class="container">
+        <div class="section-heading-center">
+          <div class="subheading-accent">Transparencia de datos</div>
+          <h2 class="section-title">Sabé qué precio estás mirando y cómo se calcula</h2>
+          <p class="section-desc">Los valores de NEXOBRA son orientativos. Antes de decidir, podés revisar el origen del dato y consultar disponibilidad con cada proveedor.</p>
+        </div>
+
+        <div class="pilares-grid">
+          <article class="pilar-card">
+            <div class="pilar-icon-box">🧾</div>
+            <h3 class="pilar-title">Precio de referencia NEXOBRA</h3>
+            <p class="pilar-text">Parte de un precio y mes base. Mostramos el factor acumulado y la fórmula: <strong>precio base × factor de actualización</strong>.</p>
+          </article>
+          <article class="pilar-card">
+            <div class="pilar-icon-box">📅</div>
+            <h3 class="pilar-title">Índices con vigencia visible</h3>
+            <p class="pilar-text">Los índices se cargan y validan mes a mes. Cada actualización queda identificada por su fuente, período y fecha de publicación.</p>
+          </article>
+          <article class="pilar-card">
+            <div class="pilar-icon-box">🏪</div>
+            <h3 class="pilar-title">Ofertas de proveedores locales</h3>
+            <p class="pilar-text">Cuando estén disponibles, se mostrarán separadas del promedio, con corralón, sucursal, fecha informada y disponibilidad a confirmar.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- EXPLORAR POR RUBROS / SUBÁREAS DE LA CONSTRUCCIÓN -->
+    <section class="section-rubros" id="seccion-rubros">
+      <div class="container">
+        <div class="section-heading-between">
+          <div>
+            <div class="subheading-accent">Estructura por Especialidad</div>
+            <h2 class="section-title">Subáreas de la Construcción</h2>
+            <p class="section-desc">Seleccioná un rubro para explorar sus materiales, especificaciones técnicas y precios actualizados.</p>
+          </div>
+          <button class="btn-action-drawer btn-copy" id="btn-see-all-catalog" style="font-weight: 700;">
+            Ver catálogo completo (538 ítems) &rarr;
+          </button>
+        </div>
+
+        <div class="rubros-hub-grid" id="rubros-hub-grid">
+          <!-- Populated by JavaScript with rich cards -->
+        </div>
+
+      </div>
+    </section>
+
+    <!-- BANNER: PROCESADOR EXCEL MASIVO -->
+    <section class="section-excel-cta">
+      <div class="container">
+        <div class="excel-banner-card">
+          <div class="excel-banner-content">
+            <span class="excel-banner-badge">ETAPA 3 • PROCESAMIENTO MASIVO</span>
+            <h3 class="excel-banner-title">¿Ya tenés tu listado de materiales en Excel?</h3>
+            <p class="excel-banner-text">
+              Subí tu propia planilla de cómputo métrico (.xlsx o .csv) y NEXOBRA te devolverá el archivo cotizado y actualizado a la fecha o mes que elijas en segundos.
+            </p>
+            <div class="excel-banner-buttons">
+              <button class="btn-computo" onclick="document.getElementById('btn-open-excel-modal').click();">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <span>Subir y Cotizar Excel Ahora</span>
+              </button>
+            </div>
+          </div>
+          <div class="excel-banner-visual">
+            <div class="mock-excel-sheet">
+              <div class="mock-sheet-row head"><span>Item</span><span>Cant.</span><span>Precio Unit.</span><span>Subtotal</span></div>
+              <div class="mock-sheet-row"><span>Cemento Portland 50kg</span><span>30 bl</span><span>$ 17.292</span><span>$ 518.760</span></div>
+              <div class="mock-sheet-row"><span>Arena gruesa m3</span><span>6 m3</span><span>$ 31.703</span><span>$ 190.218</span></div>
+              <div class="mock-sheet-row"><span>Hierro ADN420 8mm</span><span>25 b</span><span>$ 13.877</span><span>$ 346.925</span></div>
+              <div class="mock-sheet-row total"><span>TOTAL GENERAL</span><span></span><span></span><span>$ 1.055.903</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- =========================================================================
+       VISTA 2: CATÁLOGO DE MATERIALES (FILTRADO POR RUBRO O BÚSQUEDA)
+       ========================================================================= -->
+  <div id="catalog-view" class="view-section" style="display: none;">
+    <main class="container" id="main-catalog-content" style="padding-top: 1.5rem;">
+      
+      <!-- BREADCRUMB / BACK TO HOME -->
+      <div class="catalog-breadcrumb">
+        <button class="btn-breadcrumb-home" id="btn-back-home">&larr; Volver al Inicio</button>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-current" id="catalog-current-rubro">Catálogo General</span>
+      </div>
+
+      <!-- CATALOG HEADER -->
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title" id="catalog-header-title">Todos los Materiales</h2>
+          <p class="catalog-subtitle" id="catalog-header-subtitle">Consultor técnico de precios y rendimientos de obra</p>
+        </div>
+        
+        <!-- Quick Search Inside Catalog -->
+        <div class="catalog-search-inline">
+          <input type="text" id="catalog-search-input" class="search-input" placeholder="Buscar en esta categoría...">
+        </div>
+      </div>
+
+      <!-- CONTROLS CARD: DUAL PRICING & CATEGORIES -->
+      <section class="controls-card" id="app-controls">
+        
+        <div class="controls-header">
+          <!-- Dual Mode Switcher -->
+          <div class="pricing-mode-selector">
+          <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted);">UNIDAD DE PRECIO:</span>
+            <div class="mode-toggle-group" role="group" aria-label="Selector de modalidad de precios">
+              <button class="mode-btn active" id="mode-venta" data-mode="venta" title="Ver precios por unidad de bulto/venta comercial">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                </svg>
+                <span>Venta Comercial (Envase)</span>
+              </button>
+              <button class="mode-btn" id="mode-computo" data-mode="computo" title="Ver precios por unidad métrica de cómputo (m², m³, ml, kg)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
+                  <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+                </svg>
+                <span>Cómputo Métrico (m²/m³/ml)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Sort & View Controls -->
+          <div class="view-sort-controls">
+            <label for="sort-select" style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted);">Ordenar:</label>
+            <select id="sort-select" class="sort-select">
+              <option value="relevance">Relevancia / Nomenclatura</option>
+              <option value="price-asc">Menor precio</option>
+              <option value="price-desc">Mayor precio</option>
+              <option value="alpha-asc">Nombre A-Z</option>
+            </select>
+
+            <!-- View toggler (Grid vs Table) -->
+            <button class="view-toggle-btn active" id="btn-view-grid" title="Vista en tarjetas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+            </button>
+            <button class="view-toggle-btn" id="btn-view-table" title="Vista en tabla de cómputo">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="8" y1="6" x2="21" y2="6"></line>
+                <line x1="8" y1="12" x2="21" y2="12"></line>
+                <line x1="8" y1="18" x2="21" y2="18"></line>
+                <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                <line x1="3" y1="18" x2="3.01" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+
+        </div>
+
+        <div class="controls-header" style="margin-top: 1rem;">
+          <div class="pricing-mode-selector">
+            <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted);">ORIGEN DEL VALOR:</span>
+            <div class="mode-toggle-group" role="group" aria-label="Selector de origen de precios">
+              <button class="mode-btn active" id="source-reference" data-source="reference" type="button">
+                Referencia NEXOBRA
+              </button>
+              <button class="mode-btn" id="source-providers" data-source="providers" type="button" disabled title="Se habilitará al incorporar proveedores locales">
+                Ofertas de corralones próximamente
+              </button>
+            </div>
+          </div>
+          <button class="btn-action-drawer btn-copy" id="btn-open-methodology" type="button" onclick="document.getElementById('seccion-metodologia').scrollIntoView({behavior: 'smooth'});">
+            Cómo se calcula el valor
+          </button>
+        </div>
+
+        <!-- RUBRO FILTER PILLS -->
+        <div class="category-filter-bar" id="rubros-filter-container">
+          <!-- Populated via JavaScript -->
+        </div>
+
+      </section>
+
+      <!-- RESULTS SUMMARY -->
+      <div class="results-summary">
+        <div>
+          <span>Mostrando </span>
+          <span class="results-count" id="visible-count">0</span>
+          <span> materiales</span>
+          <span id="active-filter-label" style="font-weight: 600; color: var(--brand-dark);"></span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-subtle);">
+          <span id="reference-price-status">Valores de referencia · Base: <strong>Abril 2025</strong> · Metodología y actualización visibles en cada ítem</span>
+        </div>
+      </div>
+
+      <!-- PRODUCTS CONTAINER (GRID VIEW) -->
+      <div class="products-grid" id="products-grid">
+        <!-- Injected via JavaScript -->
+      </div>
+
+      <!-- PRODUCTS CONTAINER (TABLE VIEW) -->
+      <div class="table-view-container" id="products-table-view" style="display: none;">
+        <table class="materials-table">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Denominación Técnica</th>
+              <th>Rubro / Categoría</th>
+              <th>Precio Venta</th>
+              <th>Precio Cómputo</th>
+              <th style="text-align: right;">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="products-table-body">
+            <!-- Injected via JavaScript -->
+          </tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- OFFCANVAS / DRAWER CÓMPUTO DE OBRA -->
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+  <aside class="computo-drawer" id="computo-drawer" aria-label="Presupuesto y Cómputo de Obra">
+    
+    <div class="drawer-header">
+      <div class="drawer-title-group">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+        </svg>
+        <h3 class="drawer-title">Mi Cómputo de Obra</h3>
+      </div>
+      <button class="drawer-close-btn" id="drawer-close-btn">&times;</button>
+    </div>
+
+    <div class="drawer-body" id="drawer-body">
+      <!-- Items list or empty state -->
+    </div>
+
+    <div class="drawer-footer" id="drawer-footer">
+      <div class="summary-row">
+        <span>Ítems en lista:</span>
+        <strong id="drawer-total-items">0</strong>
+      </div>
+      <div class="summary-row">
+        <span>Subtotal Materiales:</span>
+        <strong id="drawer-subtotal">$ 0,00</strong>
+      </div>
+      <div class="summary-row total-row">
+        <span>Total Estimado:</span>
+        <span id="drawer-total" style="color: var(--brand-yellow); text-shadow: 0 0 1px #000;">$ 0,00</span>
+      </div>
+
+      <div class="drawer-actions">
+        <button class="btn-action-drawer btn-print" id="btn-print-computo">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Imprimir / PDF
+        </button>
+        <button class="btn-action-drawer btn-copy" id="btn-copy-computo">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          Copiar Texto
+        </button>
+      </div>
+      <button class="btn-action-drawer" id="btn-clear-computo" style="background: none; color: #EF4444; font-size: 0.78rem; text-decoration: underline; margin-top: 4px;">
+        Vaciar cómputo
+      </button>
+    </div>
+
+  </aside>
+
+  <!-- MODAL: PROCESAMIENTO MASIVO DE EXCEL (ETAPA 3) -->
+  <div class="modal-backdrop" id="excel-modal-backdrop"></div>
+  <div class="excel-modal" id="excel-modal" role="dialog" aria-labelledby="modal-excel-title">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="modal-icon-badge">📊</div>
+        <div>
+          <h3 id="modal-excel-title" style="font-size: 1.25rem; font-weight: 800; margin-bottom: 2px;">Procesador Masivo de Cómputos en Excel</h3>
+          <p style="font-size: 0.8rem; color: var(--text-subtle);">Subí tu listado de materiales y descargá una cotización con base, fecha y factor de actualización informados</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" id="excel-modal-close-btn">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- CONFIGURACIÓN DE FECHA & MODALIDAD -->
+      <div class="excel-config-grid">
+        <div class="config-field">
+          <label for="excel-target-date">Período de actualización de referencia:</label>
+          <select id="excel-target-date" class="form-select">
+            <option value="1.00">Abril 2025 (Mes Base - 100%)</option>
+            <option value="1.035">Mayo 2025 (factor de referencia: 1,035)</option>
+            <option value="1.072">Junio 2025 (factor de referencia: 1,072)</option>
+            <option value="1.110">Julio 2025 (factor de referencia: 1,110)</option>
+            <option value="1.155">Agosto 2025 (factor de referencia: 1,155)</option>
+            <option value="custom">Factor Personalizado...</option>
+          </select>
+        </div>
+
+        <div class="config-field" id="custom-factor-field" style="display: none;">
+          <label for="custom-factor-input">Factor personalizado (ej: 1,12):</label>
+          <input type="number" id="custom-factor-input" class="form-input" value="1.00" step="0.01" min="0.5">
+        </div>
+
+        <div class="config-field">
+          <label for="excel-pricing-mode">Tipo de Precio Preferido:</label>
+          <select id="excel-pricing-mode" class="form-select">
+            <option value="venta">Precio de Venta Comercial (Bolsa / Barra / Lata / Rollo)</option>
+            <option value="computo">Precio de Cómputo Métrico (m² / m³ / ml / kg)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- DROPZONE ARCHIVO -->
+      <div class="file-dropzone" id="excel-dropzone">
+        <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" style="display: none;">
+        <div class="dropzone-icon">📁</div>
+        <h4 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 6px;">Arrastrá tu archivo Excel (.xlsx) o hacé clic para seleccionar</h4>
+        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 12px;">
+          Admite planillas con columnas: <em>"Material / Descripción"</em> y <em>"Cantidad"</em> (o Código de material).
+        </p>
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+          <button class="btn-computo" id="btn-browse-file" type="button">Seleccionar archivo Excel</button>
+          <button class="btn-action-drawer btn-copy" id="btn-download-template" type="button" style="background: white;">Descargar Plantilla de Ejemplo (.xlsx)</button>
+        </div>
+      </div>
+
+      <!-- RESULTADOS DE PROCESAMIENTO -->
+      <div id="excel-results-container" style="display: none; margin-top: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <h4 style="font-size: 1rem; font-weight: 800;" id="excel-results-heading">Materiales cotizados con éxito</h4>
+            <span style="font-size: 0.8rem; color: var(--text-muted);" id="excel-stats-text"></span>
+          </div>
+          <button class="btn-computo" id="btn-download-processed-excel" style="background-color: var(--color-success); color: white;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Descargar Excel Cotizado (.xlsx)</span>
+          </button>
+        </div>
+
+        <div class="table-view-container" style="max-height: 320px; overflow-y: auto;">
+          <table class="materials-table">
+            <thead>
+              <tr>
+                <th>Estado</th>
+                <th>Material Solicitado</th>
+                <th>Material Asignado (NEXOBRA)</th>
+                <th>Cant.</th>
+                <th>Precio Unit. Actualizado</th>
+                <th style="text-align: right;">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody id="excel-preview-tbody">
+              <!-- Filas procesadas -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATIONS CONTAINER -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="brand-name" style="margin-bottom: 8px;">NEXO<span class="accent">OBRA</span></div>
+          <p>
+            Comparador técnico de materiales y cómputos para la construcción en Argentina. Valores de referencia trazables y ofertas de proveedores locales, sin intermediación en la compra.
+          </p>
+        </div>
+        <div class="footer-col">
+          <h5>Transparencia</h5>
+          <ul>
+            <li>• Precio, mes y fuente base</li>
+            <li>• Factor y fórmula visibles</li>
+            <li>• UOCRA solo para mano de obra</li>
+            <li>• Fecha de actualización informada</li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h5>Etapas del Proyecto</h5>
+          <ul>
+            <li>• Etapa 1: Motor de Datos ✓</li>
+            <li>• Etapa 2: Piloto MVP Activo ✓</li>
+            <li>• Etapa 3: Procesamiento Excel Masivo ✓</li>
+            <li>• Etapa 4: Marketplace Abierto</li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        &copy; 2026 NEXOBRA • Todos los derechos reservados. Desarrollado para profesionales y constructores.
+      </div>
+    </div>
+  </footer>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <!-- Cliente y configuración pública: sin claves secretas. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
