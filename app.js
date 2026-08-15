@@ -255,17 +255,77 @@
     }
     grid.innerHTML = laborState.roles.map(role => {
       const valor = role.values[laborState.selectedMonth];
-      const texto = valor !== undefined ? `$${Math.round(valor).toLocaleString('es-AR')}` : 'Sin dato para este mes';
+      const disponible = valor !== undefined;
+      const texto = disponible ? `$${Math.round(valor).toLocaleString('es-AR')}` : 'Sin dato para este mes';
       const unidadLabel = role.unit === 'mes' ? 'por mes' : 'por hora';
+      const inputId = `labor-qty-${role.code}`;
       return `
         <article class="product-card">
           <h3 class="product-title">${role.name}</h3>
           <div class="product-category-tree">UOCRA Zona A · sin cargas sociales</div>
           <p style="font-weight:600; font-size:22px; margin:12px 0 0;">${texto}</p>
-          <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">${unidadLabel}</p>
+          <p style="font-size:12px; color:var(--text-muted); margin:2px 0 12px;">${unidadLabel}</p>
+          ${disponible ? `
+          <div class="card-actions">
+            <div class="qty-control">
+              <button class="qty-btn" onclick="window.nexoBraApp.changeLaborQty('${role.code}', -1)" title="Reducir cantidad">-</button>
+              <input type="number" id="${inputId}" class="qty-input" value="1" min="0.5" step="0.5">
+              <button class="qty-btn" onclick="window.nexoBraApp.changeLaborQty('${role.code}', 1)" title="Aumentar cantidad">+</button>
+            </div>
+            <button class="btn-add-computo" onclick="window.nexoBraApp.addLaborToComputo('${role.code}')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Sumar</span>
+            </button>
+          </div>` : ''}
         </article>
       `;
     }).join('');
+  }
+
+  function changeLaborQty(code, delta) {
+    const input = document.getElementById(`labor-qty-${code}`);
+    if (input) {
+      let val = parseFloat(input.value) || 1;
+      val = Math.max(0.5, val + delta);
+      input.value = val;
+    }
+  }
+
+  function addLaborToComputo(code) {
+    const role = laborState.roles.find(r => r.code === code);
+    if (!role) return;
+    const valor = role.values[laborState.selectedMonth];
+    if (valor === undefined) return;
+
+    const qtyInput = document.getElementById(`labor-qty-${code}`);
+    const qty = qtyInput ? Math.max(0.5, parseFloat(qtyInput.value) || 1) : 1;
+    const unit = role.unit === 'mes' ? 'mes' : 'hora';
+
+    const existingIndex = state.computoCart.findIndex(i => i.id === code && i.type === 'labor');
+    if (existingIndex > -1) {
+      state.computoCart[existingIndex].qty += qty;
+    } else {
+      state.computoCart.push({
+        id: code,
+        denominacion: `${role.name} (mano de obra)`,
+        rubro: 'Mano de obra',
+        unitPrice: valor,
+        unit: unit,
+        qty: qty,
+        type: 'labor',
+        basePrice: null,
+        factor: null,
+        basePeriod: null,
+        referenceUpdatedAt: monthLabel(laborState.selectedMonth)
+      });
+    }
+
+    saveCart();
+    updateCartUI();
+    showToast(`+${qty} ${unit} agregado: ${role.name}`);
   }
 
   let ipcChartInstance = null;
@@ -506,7 +566,7 @@
           <div><span>Fórmula:</span> ${formatMoney(trace.basePrice)} × ${formatFactor(trace.factor)} = <strong>${formatMoney(trace.currentPrice)}</strong></div>
           <div><span>Método:</span> ${metodo}</div>
           <div><span>Fuente:</span> ${REFERENCE_PRICE_INFO.source}</div>
-          <p>Valor orientativo. Confirmá precio final, disponibilidad, entrega y pago con el proveedor.</p>
+          <p>Valor orientativo, sin impuestos ni flete incluidos. Confirmá precio final, disponibilidad, entrega y pago con el proveedor.</p>
         </div>
       </details>
     `;
@@ -1088,7 +1148,7 @@
     const unitPrice = trace.currentPrice;
     const unit = trace.unit;
 
-    const existingIndex = state.computoCart.findIndex(i => i.id === itemId && i.unit === unit);
+    const existingIndex = state.computoCart.findIndex(i => i.id === itemId && i.unit === unit && i.type === 'material');
 
     if (existingIndex > -1) {
       state.computoCart[existingIndex].qty += qty;
@@ -1100,6 +1160,7 @@
         unitPrice: unitPrice,
         unit: unit,
         qty: qty,
+        type: 'material',
         mode: state.pricingMode,
         basePrice: trace.basePrice,
         factor: trace.factor,
@@ -1163,13 +1224,28 @@
     localStorage.setItem('nexobra_computo', JSON.stringify(state.computoCart));
   }
 
+  function computeCartSubtotals() {
+    const materiales = state.computoCart.filter(i => (i.type || 'material') === 'material');
+    const manoDeObra = state.computoCart.filter(i => i.type === 'labor');
+    const subtotalMateriales = materiales.reduce((sum, i) => sum + (i.qty * i.unitPrice), 0);
+    const subtotalManoObra = manoDeObra.reduce((sum, i) => sum + (i.qty * i.unitPrice), 0);
+    return { materiales, manoDeObra, subtotalMateriales, subtotalManoObra, total: subtotalMateriales + subtotalManoObra };
+  }
+
   function updateCartUI() {
-    const totalPrice = state.computoCart.reduce((sum, item) => sum + (item.qty * item.unitPrice), 0);
+    const { subtotalMateriales, subtotalManoObra, total } = computeCartSubtotals();
 
     headerCartCount.textContent = state.computoCart.length;
     drawerTotalItems.textContent = state.computoCart.length;
-    drawerSubtotal.textContent = formatMoney(totalPrice);
-    drawerTotal.textContent = formatMoney(totalPrice);
+    drawerSubtotal.textContent = formatMoney(subtotalMateriales);
+    drawerTotal.textContent = formatMoney(total);
+
+    const laborRow = document.getElementById('drawer-subtotal-labor-row');
+    const laborValue = document.getElementById('drawer-subtotal-labor');
+    if (laborRow && laborValue) {
+      laborRow.style.display = subtotalManoObra > 0 ? 'flex' : 'none';
+      laborValue.textContent = formatMoney(subtotalManoObra);
+    }
 
     if (state.computoCart.length === 0) {
       drawerBody.innerHTML = `
@@ -1177,7 +1253,7 @@
           <div class="empty-icon">📋</div>
           <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Tu cómputo está vacío</h4>
           <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
-            Sumá materiales desde el catálogo para calcular los costos de tu obra o presupuesto al instante.
+            Sumá materiales y mano de obra desde el catálogo para calcular los costos de tu obra o presupuesto al instante.
           </p>
           <button class="btn-computo" onclick="document.getElementById('drawer-close-btn').click();">
             Explorar catálogo
@@ -1189,11 +1265,12 @@
         <div class="computo-list">
           ${state.computoCart.map((item, idx) => {
             const subtotal = item.qty * item.unitPrice;
+            const esManoDeObra = item.type === 'labor';
             return `
               <div class="computo-item">
                 <div class="computo-item-head">
                   <div>
-                    <span class="card-code" style="font-size: 0.7rem;">${item.id}</span>
+                    <span class="card-code" style="font-size: 0.7rem;">${esManoDeObra ? 'MANO DE OBRA' : item.id}</span>
                     <h4 class="computo-item-title">${item.denominacion}</h4>
                   </div>
                   <button class="btn-remove-item" onclick="window.nexoBraApp.removeCartItem(${idx})" title="Eliminar ítem">&times;</button>
@@ -1206,7 +1283,8 @@
                       type="number" 
                       style="width: 55px; padding: 4px 6px; border: 1px solid var(--border-light); border-radius: 4px; font-weight: 700;" 
                       value="${item.qty}" 
-                      min="1" 
+                      min="${esManoDeObra ? 0.5 : 1}" 
+                      step="${esManoDeObra ? 0.5 : 1}"
                       onchange="window.nexoBraApp.updateItemQtyInCart(${idx}, parseFloat(this.value) || 1)"
                     >
                     <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">${item.unit}</span>
@@ -1233,8 +1311,58 @@
     }
 
     const printWindow = window.open('', '_blank');
-    const totalPrice = state.computoCart.reduce((sum, item) => sum + (item.qty * item.unitPrice), 0);
+    const { materiales, manoDeObra, subtotalMateriales, subtotalManoObra, total } = computeCartSubtotals();
     const dateStr = new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    const filaMaterial = item => `
+      <tr>
+        <td><strong>${item.id}</strong></td>
+        <td>${item.denominacion}</td>
+        <td>${item.rubro}</td>
+        <td>${item.qty}</td>
+        <td>${item.unit}</td>
+        <td>${formatMoney(item.unitPrice)}${item.basePrice ? `<br><small>Base ${formatMoney(item.basePrice)} · × ${formatFactor(item.factor || 1)}</small>` : ''}</td>
+        <td style="text-align: right;"><strong>${formatMoney(item.qty * item.unitPrice)}</strong></td>
+      </tr>
+    `;
+
+    const tablaMateriales = materiales.length === 0 ? '' : `
+      <h3 style="margin-bottom: 15px;">Materiales</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Código</th><th>Descripción</th><th>Rubro</th><th>Cantidad</th><th>Unidad</th>
+            <th>Precio Unit. / trazabilidad</th><th style="text-align: right;">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>${materiales.map(filaMaterial).join('')}</tbody>
+      </table>
+      <div class="subtotal-box">Subtotal Materiales: ${formatMoney(subtotalMateriales)}</div>
+    `;
+
+    const tablaManoObra = manoDeObra.length === 0 ? '' : `
+      <h3 style="margin-bottom: 15px; margin-top: 30px;">Mano de Obra</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Rol</th><th>Cantidad</th><th>Unidad</th>
+            <th>Precio Unit.</th><th style="text-align: right;">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${manoDeObra.map(item => `
+            <tr>
+              <td><strong>${item.denominacion}</strong></td>
+              <td>${item.qty}</td>
+              <td>${item.unit}</td>
+              <td>${formatMoney(item.unitPrice)}</td>
+              <td style="text-align: right;"><strong>${formatMoney(item.qty * item.unitPrice)}</strong></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div class="subtotal-box">Subtotal Mano de Obra: ${formatMoney(subtotalManoObra)}</div>
+    `;
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -1247,11 +1375,12 @@
           .logo { font-size: 24px; font-weight: 900; }
           .logo span { color: #F5B000; }
           .meta { font-size: 13px; color: #555; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
           th { background: #F1F3F7; text-align: left; padding: 10px; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #CCC; }
           td { padding: 10px; border-bottom: 1px solid #EEE; font-size: 13px; }
-          .total-box { margin-top: 30px; text-align: right; font-size: 18px; font-weight: bold; border-top: 2px solid #111; padding-top: 15px; }
-          .disclaimer { margin-top: 40px; font-size: 11px; color: #888; border-top: 1px dashed #CCC; padding-top: 10px; }
+          .subtotal-box { text-align: right; font-size: 13px; font-weight: bold; padding-top: 8px; }
+          .total-box { margin-top: 20px; text-align: right; font-size: 18px; font-weight: bold; border-top: 2px solid #111; padding-top: 15px; }
+          .disclaimer { margin-top: 30px; font-size: 11px; color: #888; border-top: 1px dashed #CCC; padding-top: 10px; }
         </style>
       </head>
       <body>
@@ -1266,41 +1395,17 @@
           </div>
         </div>
 
-        <h3 style="margin-bottom: 15px;">Resumen de Cómputo y Cotización de Materiales</h3>
+        <h2 style="margin-bottom: 4px;">Resumen de Cómputo y Presupuesto de Obra</h2>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Descripción</th>
-              <th>Rubro</th>
-              <th>Cantidad</th>
-              <th>Unidad</th>
-              <th>Precio Unit. / trazabilidad</th>
-              <th style="text-align: right;">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${state.computoCart.map(item => `
-              <tr>
-                <td><strong>${item.id}</strong></td>
-                <td>${item.denominacion}</td>
-                <td>${item.rubro}</td>
-                <td>${item.qty}</td>
-                <td>${item.unit}</td>
-                <td>${formatMoney(item.unitPrice)}${item.basePrice ? `<br><small>Base ${formatMoney(item.basePrice)} · × ${formatFactor(item.factor || 1)}</small>` : ''}</td>
-                <td style="text-align: right;"><strong>${formatMoney(item.qty * item.unitPrice)}</strong></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+        ${tablaMateriales}
+        ${tablaManoObra}
 
         <div class="total-box">
-          Total Estimado: ${formatMoney(totalPrice)}
+          Total Estimado: ${formatMoney(total)}
         </div>
 
         <div class="disclaimer">
-          * Este presupuesto es orientativo. Los valores de referencia informan precio base, factor y fecha de actualización. Confirmá precio final, disponibilidad, entrega y pago directamente con el proveedor.
+          * Este presupuesto es orientativo. Los valores de referencia informan precio base, factor y fecha de actualización. Los montos <strong>no incluyen impuestos, cargas sociales ni fletes</strong> — deben cargarse aparte según cada caso. Confirmá precio final, disponibilidad, entrega y pago directamente con el proveedor.
         </div>
 
         <script>
@@ -1319,18 +1424,31 @@
       return;
     }
 
-    const totalPrice = state.computoCart.reduce((sum, item) => sum + (item.qty * item.unitPrice), 0);
-    
-    let text = `🏗️ *NEXOBRA - Cómputo de Materiales*\n`;
-    text += `📅 Fecha: ${new Date().toLocaleDateString('es-AR')}\n\n`;
-    
-    state.computoCart.forEach((item, index) => {
-      text += `${index + 1}. *${item.denominacion}*\n`;
-      text += `   Cant: ${item.qty} ${item.unit} | Unit: ${formatMoney(item.unitPrice)} | Subtotal: ${formatMoney(item.qty * item.unitPrice)}\n`;
-    });
+    const { materiales, manoDeObra, subtotalMateriales, subtotalManoObra, total } = computeCartSubtotals();
 
-    text += `\n💰 *TOTAL ESTIMADO: ${formatMoney(totalPrice)}*\n`;
-    text += `_Valores de referencia NEXOBRA · ${REFERENCE_PRICE_INFO.period} · ${REFERENCE_PRICE_INFO.updatedAt}. Confirmar disponibilidad y precio final con el proveedor._`;
+    let text = `🏗️ *NEXOBRA - Cómputo y Presupuesto*\n`;
+    text += `📅 Fecha: ${new Date().toLocaleDateString('es-AR')}\n\n`;
+
+    if (materiales.length > 0) {
+      text += `*MATERIALES*\n`;
+      materiales.forEach((item, index) => {
+        text += `${index + 1}. *${item.denominacion}*\n`;
+        text += `   Cant: ${item.qty} ${item.unit} | Unit: ${formatMoney(item.unitPrice)} | Subtotal: ${formatMoney(item.qty * item.unitPrice)}\n`;
+      });
+      text += `Subtotal Materiales: *${formatMoney(subtotalMateriales)}*\n\n`;
+    }
+
+    if (manoDeObra.length > 0) {
+      text += `*MANO DE OBRA*\n`;
+      manoDeObra.forEach((item, index) => {
+        text += `${index + 1}. *${item.denominacion}*\n`;
+        text += `   Cant: ${item.qty} ${item.unit} | Unit: ${formatMoney(item.unitPrice)} | Subtotal: ${formatMoney(item.qty * item.unitPrice)}\n`;
+      });
+      text += `Subtotal Mano de Obra: *${formatMoney(subtotalManoObra)}*\n\n`;
+    }
+
+    text += `💰 *TOTAL ESTIMADO: ${formatMoney(total)}*\n`;
+    text += `_Valores orientativos NEXOBRA · ${REFERENCE_PRICE_INFO.period} · ${REFERENCE_PRICE_INFO.updatedAt}. No incluyen impuestos, cargas sociales ni fletes. Confirmar disponibilidad y precio final con el proveedor._`;
 
     navigator.clipboard.writeText(text).then(() => {
       showToast('✓ Cómputo copiado al portapapeles (Listo para WhatsApp)');
