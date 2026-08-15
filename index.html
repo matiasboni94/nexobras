@@ -383,6 +383,7 @@
         </div>
         <div style="font-size: 0.8rem; color: var(--text-subtle);">
           <span id="reference-price-status">Valores de referencia · Base: <strong>Abril 2025</strong> · Metodología y actualización visibles en cada ítem</span>
+          <br><span style="font-size: 0.72rem;">Precios orientativos. No incluyen impuestos ni flete.</span>
         </div>
       </div>
 
@@ -443,10 +444,17 @@
         <span>Subtotal Materiales:</span>
         <strong id="drawer-subtotal">$ 0,00</strong>
       </div>
+      <div class="summary-row" id="drawer-subtotal-labor-row" style="display: none;">
+        <span>Subtotal Mano de Obra:</span>
+        <strong id="drawer-subtotal-labor">$ 0,00</strong>
+      </div>
       <div class="summary-row total-row">
         <span>Total Estimado:</span>
         <span id="drawer-total" style="color: var(--brand-yellow); text-shadow: 0 0 1px #000;">$ 0,00</span>
       </div>
+      <p style="font-size: 0.7rem; color: var(--text-subtle); margin: 6px 0 0; line-height: 1.4;">
+        Valores orientativos. No incluyen impuestos, cargas sociales ni fletes — cargalos vos según tu caso antes de presupuestar.
+      </p>
 
       <div class="drawer-actions">
         <button class="btn-action-drawer btn-print" id="btn-print-computo">
@@ -588,7 +596,7 @@
       <div id="labor-grid" class="products-grid"><!-- se completa con loadLaborSeries() --></div>
 
       <p class="pilar-text" style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted);">
-        Fuente: UOCRA. Los valores de Oficial Especializado, Oficial, Medio Oficial y Ayudante son jornales por hora, sin cargas sociales. El valor de Sereno corresponde al mensual convencional. Estos son valores de referencia: confirmá siempre las cargas sociales y el convenio vigente antes de presupuestar.
+        Fuente: UOCRA. Los valores de Oficial Especializado, Oficial, Medio Oficial y Ayudante son jornales por hora, sin cargas sociales. El valor de Sereno corresponde al mensual convencional. Son valores orientativos, sin cargas sociales, impuestos ni flete incluidos: confirmá siempre el convenio vigente antes de presupuestar.
       </p>
     </div>
   </div>
@@ -613,15 +621,6 @@
             <li>• Factor y fórmula visibles</li>
             <li>• UOCRA solo para mano de obra</li>
             <li>• Fecha de actualización informada</li>
-          </ul>
-        </div>
-        <div class="footer-col">
-          <h5>Etapas del Proyecto</h5>
-          <ul>
-            <li>• Etapa 1: Motor de Datos ✓</li>
-            <li>• Etapa 2: Piloto MVP Activo ✓</li>
-            <li>• Etapa 3: Procesamiento Excel Masivo ✓</li>
-            <li>• Etapa 4: Marketplace Abierto</li>
           </ul>
         </div>
       </div>
