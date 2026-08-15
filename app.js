@@ -110,6 +110,45 @@
     return d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
   }
 
+  const NOMBRE_MES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  function parsePeriodo(dateStr) {
+    const d = new Date(`${dateStr}T00:00:00`);
+    return { year: d.getFullYear(), monthIdx: d.getMonth() };
+  }
+
+  /**
+   * Arma un par de <select> (año / mes) a partir de una lista de fechas "YYYY-MM-01",
+   * mostrando solo los meses que realmente tienen datos cargados. Reutilizable para
+   * el catálogo de materiales y para mano de obra.
+   */
+  function wireYearMonthPicker(yearSelectEl, monthSelectEl, months, currentValue, onChange) {
+    if (!yearSelectEl || !monthSelectEl || !months || months.length === 0) return;
+    const parsed = months.map(m => ({ value: m, ...parsePeriodo(m) }));
+    const years = [...new Set(parsed.map(p => p.year))].sort((a, b) => b - a);
+
+    function monthsForYear(year) {
+      return parsed.filter(p => p.year === year).sort((a, b) => b.monthIdx - a.monthIdx);
+    }
+
+    function renderMonths(year, preferredValue) {
+      const opts = monthsForYear(year);
+      monthSelectEl.innerHTML = opts.map(o => `<option value="${o.value}">${NOMBRE_MES[o.monthIdx]}</option>`).join('');
+      const match = opts.find(o => o.value === preferredValue);
+      monthSelectEl.value = match ? match.value : (opts[0] ? opts[0].value : '');
+    }
+
+    yearSelectEl.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+    const initial = parsed.find(p => p.value === currentValue) || parsed[parsed.length - 1];
+    yearSelectEl.value = initial.year;
+    renderMonths(initial.year, currentValue);
+
+    yearSelectEl.onchange = () => {
+      renderMonths(parseInt(yearSelectEl.value, 10), null);
+      onChange(monthSelectEl.value);
+    };
+    monthSelectEl.onchange = () => onChange(monthSelectEl.value);
+  }
+
   async function loadIndexSeries() {
     if (!supabaseClient) return;
     const { data, error } = await supabaseClient
@@ -141,14 +180,92 @@
   }
 
   function populateMonthSelect() {
-    const select = document.getElementById('price-month-select');
-    if (!select) return;
-    select.innerHTML = indexState.months
-      .slice()
-      .reverse()
-      .map(m => `<option value="${m}">${monthLabel(m)}</option>`)
-      .join('');
-    select.value = state.priceMonth;
+    wireYearMonthPicker(
+      document.getElementById('price-year-select'),
+      document.getElementById('price-month-select'),
+      indexState.months,
+      state.priceMonth,
+      (value) => {
+        state.priceMonth = value;
+        REFERENCE_PRICE_INFO.period = monthLabel(state.priceMonth);
+        REFERENCE_PRICE_INFO.updatedAt = new Date(`${state.priceMonth}T00:00:00`).toLocaleDateString('es-AR');
+        updateReferenceStatus();
+        renderProducts();
+        renderIpcChart();
+      }
+    );
+  }
+
+  // --- MANO DE OBRA (UOCRA Zona A) ---
+  // Cada rol es una index_series con applies_to = 'labor'. El valor ya está en
+  // pesos (no es un índice base-100 como el IPC), así que no hace falta calcular
+  // factor: el jornal del mes elegido se busca directo en la serie.
+  const laborState = { roles: [], months: [], selectedMonth: null, loaded: false };
+
+  async function loadLaborSeries() {
+    if (!supabaseClient) return;
+    const { data, error } = await supabaseClient
+      .from('index_values')
+      .select('reference_month, value, index_series!inner(code, name, unit, applies_to)')
+      .eq('index_series.applies_to', 'labor')
+      .eq('is_published', true)
+      .order('reference_month');
+
+    if (error || !data || data.length === 0) {
+      console.warn('No se pudo cargar la serie de mano de obra (UOCRA).', error?.message);
+      return;
+    }
+
+    const porRol = {};
+    data.forEach(row => {
+      const code = row.index_series.code;
+      if (!porRol[code]) {
+        porRol[code] = { code, name: row.index_series.name, unit: row.index_series.unit, values: {} };
+      }
+      porRol[code].values[row.reference_month] = Number(row.value);
+    });
+    laborState.roles = Object.values(porRol);
+    laborState.months = [...new Set(data.map(r => r.reference_month))].sort();
+    laborState.selectedMonth = laborState.months[laborState.months.length - 1];
+    laborState.loaded = true;
+
+    populateLaborMonthSelect();
+    renderLabor();
+  }
+
+  function populateLaborMonthSelect() {
+    wireYearMonthPicker(
+      document.getElementById('labor-year-select'),
+      document.getElementById('labor-month-select'),
+      laborState.months,
+      laborState.selectedMonth,
+      (value) => {
+        laborState.selectedMonth = value;
+        renderLabor();
+      }
+    );
+  }
+
+  function renderLabor() {
+    const grid = document.getElementById('labor-grid');
+    if (!grid) return;
+    if (!laborState.loaded) {
+      grid.innerHTML = '<p style="color:var(--text-muted);">Cargando jornales...</p>';
+      return;
+    }
+    grid.innerHTML = laborState.roles.map(role => {
+      const valor = role.values[laborState.selectedMonth];
+      const texto = valor !== undefined ? `$${Math.round(valor).toLocaleString('es-AR')}` : 'Sin dato para este mes';
+      const unidadLabel = role.unit === 'mes' ? 'por mes' : 'por hora';
+      return `
+        <article class="product-card">
+          <h3 class="product-title">${role.name}</h3>
+          <div class="product-category-tree">UOCRA Zona A · sin cargas sociales</div>
+          <p style="font-weight:600; font-size:22px; margin:12px 0 0;">${texto}</p>
+          <p style="font-size:12px; color:var(--text-muted); margin:2px 0 0;">${unidadLabel}</p>
+        </article>
+      `;
+    }).join('');
   }
 
   let ipcChartInstance = null;
@@ -228,12 +345,14 @@
   // --- DOM ELEMENTS ---
   const homeView = document.getElementById('home-view');
   const catalogView = document.getElementById('catalog-view');
+  const laborView = document.getElementById('labor-view');
 
   // Nav elements
   const navBrandLogo = document.getElementById('nav-brand-logo');
   const navBtnHome = document.getElementById('nav-btn-home');
   const navBtnRubros = document.getElementById('nav-btn-rubros');
   const navBtnCatalogo = document.getElementById('nav-btn-catalogo');
+  const navBtnManoObra = document.getElementById('nav-btn-manoobra');
   const btnBackHome = document.getElementById('btn-back-home');
   const btnSeeAllCatalog = document.getElementById('btn-see-all-catalog');
 
@@ -508,18 +627,15 @@
   function switchView(viewName, rubroFilter = null, searchString = null) {
     state.currentView = viewName;
 
-    if (viewName === 'home') {
-      homeView.style.display = 'block';
-      catalogView.style.display = 'none';
-      navBtnHome.classList.add('active');
-      navBtnCatalogo.classList.remove('active');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else if (viewName === 'catalog') {
-      homeView.style.display = 'none';
-      catalogView.style.display = 'block';
-      navBtnHome.classList.remove('active');
-      navBtnCatalogo.classList.add('active');
+    homeView.style.display = viewName === 'home' ? 'block' : 'none';
+    catalogView.style.display = viewName === 'catalog' ? 'block' : 'none';
+    if (laborView) laborView.style.display = viewName === 'labor' ? 'block' : 'none';
 
+    navBtnHome.classList.toggle('active', viewName === 'home');
+    navBtnCatalogo.classList.toggle('active', viewName === 'catalog');
+    if (navBtnManoObra) navBtnManoObra.classList.toggle('active', viewName === 'labor');
+
+    if (viewName === 'catalog') {
       if (rubroFilter) {
         state.activeRubro = rubroFilter;
       }
@@ -531,8 +647,11 @@
       updateCatalogHeader();
       renderRubroPills();
       renderProducts();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+    if (viewName === 'labor' && !laborState.loaded) {
+      loadLaborSeries();
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function updateCatalogHeader() {
@@ -558,18 +677,6 @@
     loadCatalogFromSupabase();
     loadIndexSeries();
 
-    const priceMonthSelect = document.getElementById('price-month-select');
-    if (priceMonthSelect) {
-      priceMonthSelect.addEventListener('change', (e) => {
-        state.priceMonth = e.target.value;
-        REFERENCE_PRICE_INFO.period = monthLabel(state.priceMonth);
-        REFERENCE_PRICE_INFO.updatedAt = new Date(`${state.priceMonth}T00:00:00`).toLocaleDateString('es-AR');
-        updateReferenceStatus();
-        renderProducts();
-        renderIpcChart();
-      });
-    }
-
     // Nav buttons
     navBrandLogo.addEventListener('click', (e) => {
       e.preventDefault();
@@ -578,6 +685,7 @@
 
     navBtnHome.addEventListener('click', () => switchView('home'));
     navBtnCatalogo.addEventListener('click', () => switchView('catalog', 'Todos', ''));
+    if (navBtnManoObra) navBtnManoObra.addEventListener('click', () => switchView('labor'));
     btnBackHome.addEventListener('click', () => switchView('home'));
     btnSeeAllCatalog.addEventListener('click', () => switchView('catalog', 'Todos', ''));
 

@@ -38,6 +38,7 @@
         <button class="nav-link active" id="nav-btn-home">Inicio</button>
         <button class="nav-link" id="nav-btn-rubros">Rubros de Obra</button>
         <button class="nav-link" id="nav-btn-catalogo">Catálogo Completo</button>
+        <button class="nav-link" id="nav-btn-manoobra">Mano de Obra</button>
       </nav>
 
       <!-- HEADER ACTIONS -->
@@ -376,8 +377,9 @@
           <span id="active-filter-label" style="font-weight: 600; color: var(--brand-dark);"></span>
         </div>
         <div class="price-month-picker">
-          <label for="price-month-select">Ver precios actualizados a:</label>
-          <select id="price-month-select" class="sort-select"><!-- se completa con la serie real de IPC --></select>
+          <label for="price-year-select">Ver precios actualizados a:</label>
+          <select id="price-year-select" class="sort-select"></select>
+          <select id="price-month-select" class="sort-select"></select>
         </div>
         <div style="font-size: 0.8rem; color: var(--text-subtle);">
           <span id="reference-price-status">Valores de referencia · Base: <strong>Abril 2025</strong> · Metodología y actualización visibles en cada ítem</span>
@@ -566,7 +568,32 @@
     </div>
   </div>
 
-  <!-- TOAST NOTIFICATIONS CONTAINER -->
+  <!-- =========================================================================
+       VISTA 3: MANO DE OBRA (UOCRA Zona A)
+       ========================================================================= -->
+  <div id="labor-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Mano de Obra</h2>
+          <p class="catalog-subtitle">Jornales de referencia UOCRA, Zona A. Valores por hora sin cargas sociales (Sereno: valor mensual).</p>
+        </div>
+        <div class="price-month-picker">
+          <label for="labor-year-select">Ver jornales actualizados a:</label>
+          <select id="labor-year-select" class="sort-select"></select>
+          <select id="labor-month-select" class="sort-select"></select>
+        </div>
+      </div>
+
+      <div id="labor-grid" class="products-grid"><!-- se completa con loadLaborSeries() --></div>
+
+      <p class="pilar-text" style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted);">
+        Fuente: UOCRA. Los valores de Oficial Especializado, Oficial, Medio Oficial y Ayudante son jornales por hora, sin cargas sociales. El valor de Sereno corresponde al mensual convencional. Estos son valores de referencia: confirmá siempre las cargas sociales y el convenio vigente antes de presupuestar.
+      </p>
+    </div>
+  </div>
+
+
   <div class="toast-container" id="toast-container"></div>
 
   <!-- FOOTER -->
@@ -588,6 +615,14 @@
             <li>• Fecha de actualización informada</li>
           </ul>
         </div>
+        <div class="footer-col">
+          <h5>Etapas del Proyecto</h5>
+          <ul>
+            <li>• Etapa 1: Motor de Datos ✓</li>
+            <li>• Etapa 2: Piloto MVP Activo ✓</li>
+            <li>• Etapa 3: Procesamiento Excel Masivo ✓</li>
+            <li>• Etapa 4: Marketplace Abierto</li>
+          </ul>
         </div>
       </div>
       <div class="footer-bottom">

@@ -1646,7 +1646,7 @@ body {
   white-space: nowrap;
 }
 .price-month-picker select {
-  min-width: 180px;
+  min-width: 130px;
 }
 
 /* --- Explicador de actualización IPC (home) --- */
