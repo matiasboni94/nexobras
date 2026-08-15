@@ -149,6 +149,11 @@
     monthSelectEl.onchange = () => onChange(monthSelectEl.value);
   }
 
+  // Meses en los que HAY dato real tanto de IPC como de los 5 roles de UOCRA.
+  // Es el único calendario que se le ofrece al usuario: así el presupuesto final
+  // (materiales + mano de obra) siempre queda con una sola fecha de referencia.
+  let sharedMonths = [];
+
   async function loadIndexSeries() {
     if (!supabaseClient) return;
     const { data, error } = await supabaseClient
@@ -167,32 +172,15 @@
     data.forEach(row => { indexState.values[row.reference_month] = Number(row.value); });
     indexState.months = data.map(row => row.reference_month);
     indexState.loaded = true;
-
-    state.priceMonth = indexState.months[indexState.months.length - 1];
-    REFERENCE_PRICE_INFO.period = monthLabel(state.priceMonth);
-    REFERENCE_PRICE_INFO.updatedAt = new Date(`${state.priceMonth}T00:00:00`).toLocaleDateString('es-AR');
-    REFERENCE_PRICE_INFO.source = 'INDEC · IPC serie general (dic-16=100)';
-
-    populateMonthSelect();
-    renderIpcChart();
-    updateReferenceStatus();
-    renderProducts();
   }
 
   function populateMonthSelect() {
     wireYearMonthPicker(
       document.getElementById('price-year-select'),
       document.getElementById('price-month-select'),
-      indexState.months,
+      sharedMonths,
       state.priceMonth,
-      (value) => {
-        state.priceMonth = value;
-        REFERENCE_PRICE_INFO.period = monthLabel(state.priceMonth);
-        REFERENCE_PRICE_INFO.updatedAt = new Date(`${state.priceMonth}T00:00:00`).toLocaleDateString('es-AR');
-        updateReferenceStatus();
-        renderProducts();
-        renderIpcChart();
-      }
+      (value) => setPriceMonth(value)
     );
   }
 
@@ -200,7 +188,7 @@
   // Cada rol es una index_series con applies_to = 'labor'. El valor ya está en
   // pesos (no es un índice base-100 como el IPC), así que no hace falta calcular
   // factor: el jornal del mes elegido se busca directo en la serie.
-  const laborState = { roles: [], months: [], selectedMonth: null, loaded: false };
+  const laborState = { roles: [], months: [], loaded: false };
 
   async function loadLaborSeries() {
     if (!supabaseClient) return;
@@ -225,24 +213,63 @@
       porRol[code].values[row.reference_month] = Number(row.value);
     });
     laborState.roles = Object.values(porRol);
-    laborState.months = [...new Set(data.map(r => r.reference_month))].sort();
-    laborState.selectedMonth = laborState.months[laborState.months.length - 1];
+    // Solo cuentan los meses en los que TODOS los roles tienen dato (no solo alguno).
+    const mesesConTodosLosRoles = [...new Set(data.map(r => r.reference_month))]
+      .filter(m => laborState.roles.every(r => r.values[m] !== undefined))
+      .sort();
+    laborState.months = mesesConTodosLosRoles;
     laborState.loaded = true;
+  }
 
+  /**
+   * Se llama una vez que IPC y UOCRA terminaron de cargar. Calcula la intersección
+   * de meses disponibles en ambas series y fija ahí el único período del presupuesto,
+   * para que materiales y mano de obra nunca queden con fechas distintas.
+   */
+  function reconcilePriceMonth() {
+    if (!indexState.loaded && !laborState.loaded) return;
+
+    if (indexState.loaded && laborState.loaded) {
+      const interseccion = indexState.months.filter(m => laborState.months.includes(m));
+      sharedMonths = interseccion.length > 0 ? interseccion : indexState.months;
+      if (interseccion.length === 0) {
+        console.warn('IPC y UOCRA no tienen ningún mes en común todavía; se usa solo la serie de IPC hasta que se actualice UOCRA (o viceversa).');
+      }
+    } else {
+      // Todavía falta que termine de cargar una de las dos series; usamos la que ya está.
+      sharedMonths = indexState.loaded ? indexState.months : laborState.months;
+    }
+
+    setPriceMonth(sharedMonths[sharedMonths.length - 1], { silent: true });
+    populateMonthSelect();
     populateLaborMonthSelect();
+    renderIpcChart();
+    updateReferenceStatus();
+    renderProducts();
     renderLabor();
+  }
+
+  function setPriceMonth(value, { silent = false } = {}) {
+    state.priceMonth = value;
+    REFERENCE_PRICE_INFO.period = monthLabel(state.priceMonth);
+    REFERENCE_PRICE_INFO.updatedAt = new Date(`${state.priceMonth}T00:00:00`).toLocaleDateString('es-AR');
+    REFERENCE_PRICE_INFO.source = 'INDEC (IPC) y UOCRA · único período para todo el presupuesto';
+    if (silent) return;
+    populateMonthSelect();
+    populateLaborMonthSelect();
+    updateReferenceStatus();
+    renderProducts();
+    renderLabor();
+    renderIpcChart();
   }
 
   function populateLaborMonthSelect() {
     wireYearMonthPicker(
       document.getElementById('labor-year-select'),
       document.getElementById('labor-month-select'),
-      laborState.months,
-      laborState.selectedMonth,
-      (value) => {
-        laborState.selectedMonth = value;
-        renderLabor();
-      }
+      sharedMonths,
+      state.priceMonth,
+      (value) => setPriceMonth(value)
     );
   }
 
@@ -254,7 +281,7 @@
       return;
     }
     grid.innerHTML = laborState.roles.map(role => {
-      const valor = role.values[laborState.selectedMonth];
+      const valor = role.values[state.priceMonth];
       const disponible = valor !== undefined;
       const texto = disponible ? `$${Math.round(valor).toLocaleString('es-AR')}` : 'Sin dato para este mes';
       const unidadLabel = role.unit === 'mes' ? 'por mes' : 'por hora';
@@ -297,7 +324,7 @@
   function addLaborToComputo(code) {
     const role = laborState.roles.find(r => r.code === code);
     if (!role) return;
-    const valor = role.values[laborState.selectedMonth];
+    const valor = role.values[state.priceMonth];
     if (valor === undefined) return;
 
     const qtyInput = document.getElementById(`labor-qty-${code}`);
@@ -319,7 +346,7 @@
         basePrice: null,
         factor: null,
         basePeriod: null,
-        referenceUpdatedAt: monthLabel(laborState.selectedMonth)
+        referenceUpdatedAt: monthLabel(state.priceMonth)
       });
     }
 
@@ -709,7 +736,7 @@
       renderProducts();
     }
     if (viewName === 'labor' && !laborState.loaded) {
-      loadLaborSeries();
+      loadLaborSeries().then(reconcilePriceMonth);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -735,7 +762,7 @@
     updateCartUI();
     updateReferenceStatus();
     loadCatalogFromSupabase();
-    loadIndexSeries();
+    Promise.all([loadIndexSeries(), loadLaborSeries()]).then(reconcilePriceMonth);
 
     // Nav buttons
     navBrandLogo.addEventListener('click', (e) => {
