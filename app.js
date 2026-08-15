@@ -1755,7 +1755,9 @@
     changeCardQty,
     updateItemQtyInCart,
     removeCartItem,
-    clearCatalogSearch
+    clearCatalogSearch,
+    addLaborToComputo,
+    changeLaborQty
   };
 
   document.addEventListener('DOMContentLoaded', init);
