@@ -371,6 +371,7 @@
       ipcChartInstance.data.datasets[0].pointBackgroundColor = indexState.months.map((_, i) =>
         i === selectedIdx ? '#d97757' : 'rgba(217,119,87,0.25)');
       ipcChartInstance.data.datasets[0].pointRadius = indexState.months.map((_, i) => i === selectedIdx ? 6 : 0);
+      ipcChartInstance.resize(); // el canvas pudo haber estado oculto (display:none) cuando se creó
       ipcChartInstance.update();
       return;
     }
@@ -433,6 +434,7 @@
   const homeView = document.getElementById('home-view');
   const catalogView = document.getElementById('catalog-view');
   const laborView = document.getElementById('labor-view');
+  const methodologyView = document.getElementById('methodology-view');
 
   // Nav elements
   const navBrandLogo = document.getElementById('nav-brand-logo');
@@ -717,6 +719,7 @@
     homeView.style.display = viewName === 'home' ? 'block' : 'none';
     catalogView.style.display = viewName === 'catalog' ? 'block' : 'none';
     if (laborView) laborView.style.display = viewName === 'labor' ? 'block' : 'none';
+    if (methodologyView) methodologyView.style.display = viewName === 'methodology' ? 'block' : 'none';
 
     navBtnHome.classList.toggle('active', viewName === 'home');
     navBtnCatalogo.classList.toggle('active', viewName === 'catalog');
@@ -737,6 +740,10 @@
     }
     if (viewName === 'labor' && !laborState.loaded) {
       loadLaborSeries().then(reconcilePriceMonth);
+    }
+    if (viewName === 'methodology') {
+      // El canvas estaba oculto hasta ahora; Chart.js necesita redibujar una vez visible.
+      renderIpcChart();
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -773,6 +780,11 @@
     navBtnHome.addEventListener('click', () => switchView('home'));
     navBtnCatalogo.addEventListener('click', () => switchView('catalog', 'Todos', ''));
     if (navBtnManoObra) navBtnManoObra.addEventListener('click', () => switchView('labor'));
+
+    const btnMethodologyHome = document.getElementById('btn-open-methodology-home');
+    if (btnMethodologyHome) btnMethodologyHome.addEventListener('click', () => switchView('methodology'));
+    const btnMethodologyCatalog = document.getElementById('btn-open-methodology-catalog');
+    if (btnMethodologyCatalog) btnMethodologyCatalog.addEventListener('click', () => switchView('methodology'));
     btnBackHome.addEventListener('click', () => switchView('home'));
     btnSeeAllCatalog.addEventListener('click', () => switchView('catalog', 'Todos', ''));
 
