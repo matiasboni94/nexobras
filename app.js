@@ -992,23 +992,36 @@
     });
   }
 
+  /** Quita una 's' o 'es' final para tolerar singular/plural en la búsqueda (ladrillo ~ ladrillos). */
+  function singularize(word) {
+    if (word.length > 4 && word.endsWith('es')) return word.slice(0, -2);
+    if (word.length > 3 && word.endsWith('s')) return word.slice(0, -1);
+    return word;
+  }
+
   // --- FILTER & SORT LOGIC ---
   function getFilteredItems() {
-    const query = normalizeText(state.searchQuery);
+    // Se busca por palabra (no por frase completa), y cada palabra tolera singular/plural
+    // y puede matchear en cualquier campo (denominación, tags, categoría, etc.), no necesariamente
+    // en el mismo. Así "ladrillo hueco" encuentra "Ladrillos huecos" sin que el usuario tenga que
+    // escribir el texto exacto.
+    const tokens = normalizeText(state.searchQuery).split(' ').filter(Boolean);
 
     let items = NEXOBRA_DATA.filter(item => {
       if (state.activeRubro !== 'Todos' && item.rubro !== state.activeRubro) {
         return false;
       }
 
-      if (query) {
-        const titleMatch = normalizeText(item.denominacion).includes(query);
-        const codeMatch = normalizeText(item.id).includes(query);
-        const catMatch = normalizeText(item.categoria).includes(query);
-        const subcatMatch = normalizeText(item.subcategoria).includes(query);
-        const tagsMatch = item.tags && item.tags.some(tag => normalizeText(tag).includes(query));
+      if (tokens.length > 0) {
+        const haystack = normalizeText([
+          item.denominacion,
+          item.id,
+          item.categoria,
+          item.subcategoria,
+          ...(item.tags || [])
+        ].filter(Boolean).join(' '));
 
-        return titleMatch || codeMatch || catMatch || subcatMatch || tagsMatch;
+        return tokens.every(tok => haystack.includes(tok) || haystack.includes(singularize(tok)));
       }
 
       return true;
