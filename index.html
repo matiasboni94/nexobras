@@ -166,7 +166,7 @@
       </div>
     </section>
 
-    <!-- METODOLOGÍA Y TRAZABILIDAD DE PRECIOS -->
+    <!-- METODOLOGÍA Y TRAZABILIDAD DE PRECIOS (teaser, la explicación completa está en su propia sección) -->
     <section class="section-pilares" id="seccion-metodologia">
       <div class="container">
         <div class="section-heading-center">
@@ -193,14 +193,10 @@
           </article>
         </div>
 
-        <div class="ipc-explainer">
-          <div class="ipc-explainer-text">
-            <h3 class="pilar-title">Cómo llevamos un precio de referencia al mes que necesitás</h3>
-            <p class="pilar-text">Cada material tiene un precio y un mes base (por ejemplo, abril de 2025). Para mostrarte un valor representativo en otro mes, aplicamos la variación real del Índice de Precios al Consumidor (IPC, INDEC) entre esos dos meses: <strong>precio actualizado = precio base × (índice del mes elegido ÷ índice del mes base)</strong>. Elegí un mes en el catálogo o hacé clic sobre un punto del gráfico para ver cómo cambia el factor.</p>
-          </div>
-          <div class="ipc-chart-wrapper">
-            <canvas id="ipc-evolution-chart" height="220"></canvas>
-          </div>
+        <div style="text-align: center; margin-top: 2rem;">
+          <button class="btn-action-drawer btn-copy" id="btn-open-methodology-home" type="button">
+            Cómo se calcula el valor &rarr;
+          </button>
         </div>
       </div>
     </section>
@@ -357,7 +353,7 @@
               </button>
             </div>
           </div>
-          <button class="btn-action-drawer btn-copy" id="btn-open-methodology" type="button" onclick="document.getElementById('seccion-metodologia').scrollIntoView({behavior: 'smooth'});">
+          <button class="btn-action-drawer btn-copy" id="btn-open-methodology-catalog" type="button">
             Cómo se calcula el valor
           </button>
         </div>
@@ -602,6 +598,63 @@
     </div>
   </div>
 
+  <!-- =========================================================================
+       VISTA 4: CÓMO SE CALCULA EL VALOR (metodología completa de actualización)
+       ========================================================================= -->
+  <div id="methodology-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Cómo se calcula el valor</h2>
+          <p class="catalog-subtitle">De dónde sale cada precio actualizado y qué fórmula usamos.</p>
+        </div>
+      </div>
+
+      <div class="pilares-grid" style="margin-bottom: 2rem;">
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🧾</div>
+          <h3 class="pilar-title">Precio de referencia NEXOBRA</h3>
+          <p class="pilar-text">Parte de un precio y mes base. Mostramos el factor acumulado y la fórmula: <strong>precio base × factor de actualización</strong>.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">📅</div>
+          <h3 class="pilar-title">Índices con vigencia visible</h3>
+          <p class="pilar-text">Los índices se cargan y validan mes a mes. Cada actualización queda identificada por su fuente, período y fecha de publicación.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🏪</div>
+          <h3 class="pilar-title">Ofertas de proveedores locales</h3>
+          <p class="pilar-text">Cuando estén disponibles, se mostrarán separadas del promedio, con corralón, sucursal, fecha informada y disponibilidad a confirmar.</p>
+        </article>
+      </div>
+
+      <div class="ipc-explainer">
+        <div class="ipc-explainer-text">
+          <h3 class="pilar-title">El proceso, paso a paso</h3>
+          <p class="pilar-text">
+            Todos los meses tomamos los índices de precios al consumidor que publica el INDEC para la <strong>Zona Noreste (NEA)</strong>, la región que le corresponde a nuestra base. Sacamos el <strong>promedio</strong> de esos índices y así obtenemos el <strong>IPC del mes</strong>.
+          </p>
+          <p class="pilar-text">
+            Con ese valor actualizamos cada material: cada uno tiene un precio y un mes base (por ejemplo, abril de 2025), y para llevarlo al mes que elijas aplicamos la variación real del índice entre esos dos meses:
+          </p>
+          <p class="pilar-text" style="font-weight: 600; padding: 10px 14px; background: rgba(245,176,0,0.12); border-radius: 8px; display: inline-block;">
+            precio actualizado = precio base × (índice del mes elegido ÷ índice del mes base)
+          </p>
+          <p class="pilar-text">
+            La mano de obra funciona distinto: los jornales de UOCRA Zona A ya vienen expresados en pesos mes a mes, así que no hace falta ningún factor — se toma el valor directo del mes elegido.
+          </p>
+          <p class="pilar-text">Elegí un mes desde el catálogo o la sección de Mano de Obra, o hacé clic sobre un punto del gráfico para ver cómo cambia el índice.</p>
+        </div>
+        <div class="ipc-chart-wrapper">
+          <canvas id="ipc-evolution-chart" height="220"></canvas>
+        </div>
+      </div>
+
+      <p class="pilar-text" style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted);">
+        Fuente: INDEC (IPC, Zona Noreste) y UOCRA (Zona A). Todos los valores son orientativos, no incluyen impuestos, cargas sociales ni flete. Confirmá siempre el precio final, la disponibilidad y las condiciones con el proveedor.
+      </p>
+    </div>
+  </div>
 
   <div class="toast-container" id="toast-container"></div>
 
