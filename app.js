@@ -430,6 +430,221 @@
     ? window.supabase.createClient(supabaseSettings.url, supabaseSettings.publishableKey)
     : null;
 
+  // --- AUTENTICACIÓN (Fase A) ---
+  const authState = { user: null, profile: null };
+
+  const btnOpenAuthModal = document.getElementById('btn-open-auth-modal');
+  const authModal = document.getElementById('auth-modal');
+  const authModalBackdrop = document.getElementById('auth-modal-backdrop');
+  const authModalCloseBtn = document.getElementById('auth-modal-close-btn');
+  const authTabLogin = document.getElementById('auth-tab-login');
+  const authTabRegister = document.getElementById('auth-tab-register');
+  const authFormLogin = document.getElementById('auth-form-login');
+  const authFormRegister = document.getElementById('auth-form-register');
+  const authErrorMsg = document.getElementById('auth-error-msg');
+  const authInfoMsg = document.getElementById('auth-info-msg');
+  const btnForgotPassword = document.getElementById('btn-forgot-password');
+  const btnGoogleAuth = document.getElementById('btn-google-auth');
+  const authHeaderLabel = document.getElementById('auth-header-label');
+  const authDropdown = document.getElementById('auth-dropdown');
+  const btnLogout = document.getElementById('btn-logout');
+
+  function openAuthModal() {
+    hideAuthMessages();
+    authModal.classList.add('open');
+    authModalBackdrop.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeAuthModal() {
+    authModal.classList.remove('open');
+    authModalBackdrop.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function showAuthTab(tab) {
+    hideAuthMessages();
+    const isLogin = tab === 'login';
+    authTabLogin.classList.toggle('active', isLogin);
+    authTabRegister.classList.toggle('active', !isLogin);
+    authFormLogin.style.display = isLogin ? 'flex' : 'none';
+    authFormRegister.style.display = isLogin ? 'none' : 'flex';
+  }
+
+  function showAuthError(message) {
+    authInfoMsg.style.display = 'none';
+    authErrorMsg.textContent = message;
+    authErrorMsg.style.display = 'block';
+  }
+
+  function showAuthInfo(message) {
+    authErrorMsg.style.display = 'none';
+    authInfoMsg.textContent = message;
+    authInfoMsg.style.display = 'block';
+  }
+
+  function hideAuthMessages() {
+    authErrorMsg.style.display = 'none';
+    authInfoMsg.style.display = 'none';
+  }
+
+  /** Traduce los mensajes de error más comunes de Supabase Auth al español. */
+  function translateAuthError(message) {
+    const map = {
+      'Invalid login credentials': 'Email o contraseña incorrectos.',
+      'User already registered': 'Ya existe una cuenta con ese email. Probá ingresar en vez de registrarte.',
+      'Password should be at least 6 characters': 'La contraseña debe tener al menos 6 caracteres.',
+      'Email not confirmed': 'Todavía no confirmaste tu email. Revisá tu casilla de correo.'
+    };
+    return map[message] || message;
+  }
+
+  async function refreshAuthUI() {
+    if (!supabaseClient) return;
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    authState.user = session?.user || null;
+    authState.profile = null;
+
+    if (authState.user) {
+      const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('full_name, role')
+        .eq('id', authState.user.id)
+        .single();
+      authState.profile = profile || null;
+
+      const nombre = (profile?.full_name || '').trim() || authState.user.email;
+      authHeaderLabel.textContent = nombre.length > 18 ? nombre.slice(0, 16) + '…' : nombre;
+    } else {
+      authHeaderLabel.textContent = 'Ingresar';
+    }
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    hideAuthMessages();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const btn = document.getElementById('btn-submit-login');
+    btn.disabled = true;
+    btn.textContent = 'Ingresando...';
+
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+    btn.disabled = false;
+    btn.textContent = 'Ingresar';
+
+    if (error) {
+      showAuthError(translateAuthError(error.message));
+      return;
+    }
+    await refreshAuthUI();
+    closeAuthModal();
+    showToast('¡Bienvenido de nuevo!');
+  }
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    hideAuthMessages();
+    const fullName = document.getElementById('register-name').value.trim();
+    const email = document.getElementById('register-email').value.trim();
+    const password = document.getElementById('register-password').value;
+    const role = document.querySelector('input[name="register-role"]:checked').value;
+    const btn = document.getElementById('btn-submit-register');
+    btn.disabled = true;
+    btn.textContent = 'Creando cuenta...';
+
+    const { data, error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName, role } }
+    });
+
+    btn.disabled = false;
+    btn.textContent = 'Crear cuenta';
+
+    if (error) {
+      showAuthError(translateAuthError(error.message));
+      return;
+    }
+
+    if (data.session) {
+      // Confirmación de email desactivada en el proyecto: queda logueado directo.
+      await refreshAuthUI();
+      closeAuthModal();
+      showToast('¡Cuenta creada! Ya estás dentro.');
+    } else {
+      // Confirmación de email activada: falta que confirme desde el correo.
+      showAuthInfo('¡Listo! Te mandamos un email para confirmar tu cuenta. Una vez confirmado, ya podés ingresar.');
+      authFormRegister.reset();
+    }
+  }
+
+  async function handleForgotPassword() {
+    hideAuthMessages();
+    const email = document.getElementById('login-email').value.trim();
+    if (!email) {
+      showAuthError('Escribí tu email arriba primero y volvé a tocar "Olvidé mi contraseña".');
+      return;
+    }
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email);
+    if (error) {
+      showAuthError(translateAuthError(error.message));
+      return;
+    }
+    showAuthInfo('Te mandamos un email con instrucciones para reestablecer tu contraseña.');
+  }
+
+  async function handleGoogleAuth() {
+    hideAuthMessages();
+    const { error } = await supabaseClient.auth.signInWithOAuth({ provider: 'google' });
+    if (error) {
+      showAuthError('El login con Google no está disponible todavía. Probá con email y contraseña.');
+    }
+  }
+
+  async function handleLogout() {
+    if (!supabaseClient) return;
+    await supabaseClient.auth.signOut();
+    authState.user = null;
+    authState.profile = null;
+    authDropdown.style.display = 'none';
+    await refreshAuthUI();
+    showToast('Cerraste sesión.');
+  }
+
+  function setupAuthListeners() {
+    if (!supabaseClient) {
+      if (btnOpenAuthModal) btnOpenAuthModal.style.display = 'none';
+      return;
+    }
+
+    btnOpenAuthModal.addEventListener('click', () => {
+      if (authState.user) {
+        authDropdown.style.display = authDropdown.style.display === 'none' ? 'block' : 'none';
+      } else {
+        showAuthTab('login');
+        openAuthModal();
+      }
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.auth-header-wrapper')) authDropdown.style.display = 'none';
+    });
+
+    authModalCloseBtn.addEventListener('click', closeAuthModal);
+    authModalBackdrop.addEventListener('click', closeAuthModal);
+    authTabLogin.addEventListener('click', () => showAuthTab('login'));
+    authTabRegister.addEventListener('click', () => showAuthTab('register'));
+    authFormLogin.addEventListener('submit', handleLogin);
+    authFormRegister.addEventListener('submit', handleRegister);
+    btnForgotPassword.addEventListener('click', handleForgotPassword);
+    btnGoogleAuth.addEventListener('click', handleGoogleAuth);
+    btnLogout.addEventListener('click', handleLogout);
+
+    supabaseClient.auth.onAuthStateChange(() => { refreshAuthUI(); });
+    refreshAuthUI();
+  }
+
   // --- DOM ELEMENTS ---
   const homeView = document.getElementById('home-view');
   const catalogView = document.getElementById('catalog-view');
@@ -770,6 +985,7 @@
     updateReferenceStatus();
     loadCatalogFromSupabase();
     Promise.all([loadIndexSeries(), loadLaborSeries()]).then(reconcilePriceMonth);
+    setupAuthListeners();
 
     // Nav buttons
     navBrandLogo.addEventListener('click', (e) => {
