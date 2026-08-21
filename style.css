@@ -1838,3 +1838,23 @@ body {
 .btn-google-auth:hover {
   background: #f7f5f0;
 }
+
+/* --- Páginas legales (privacidad.html, terminos.html) --- */
+.legal-content h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 1.75rem 0 0.6rem;
+}
+.legal-content p, .legal-content li {
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--text-secondary, #333);
+}
+.legal-content ul {
+  padding-left: 1.3rem;
+  margin: 0.4rem 0 0.8rem;
+}
+.legal-content a {
+  color: var(--brand-yellow, #F5B000);
+  font-weight: 600;
+}
