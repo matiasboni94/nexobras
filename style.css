@@ -1702,7 +1702,7 @@ body {
   border: 1px solid var(--border-light, #e5e5e5);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-  min-width: 160px;
+  min-width: 190px;
   overflow: hidden;
   z-index: 60;
 }
@@ -1712,11 +1712,18 @@ body {
   padding: 10px 14px;
   background: none;
   border: none;
+  border-top: 1px solid var(--border-light, #f0f0f0);
   font-family: inherit;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #b91c1c;
+  color: var(--brand-dark, #22262B);
   cursor: pointer;
+}
+.auth-dropdown button:first-child {
+  border-top: none;
+}
+.auth-dropdown button.danger {
+  color: #b91c1c;
 }
 .auth-dropdown button:hover {
   background: #f7f5f0;
@@ -1857,4 +1864,88 @@ body {
 .legal-content a {
   color: var(--brand-yellow, #F5B000);
   font-weight: 600;
+}
+
+/* --- Fase B: nombre del cómputo + guardar --- */
+.drawer-computation-name {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border-light, #eee);
+}
+.drawer-computation-name input {
+  flex: 1;
+  font-size: 0.85rem;
+  padding: 7px 10px;
+}
+.btn-save-computation {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  background: var(--brand-yellow, #F5B000);
+  color: #22262B;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-save-computation:hover {
+  filter: brightness(1.05);
+}
+.btn-save-computation:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --- Mis Presupuestos: listado --- */
+.computations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.computation-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-2, #fff);
+  border: 1px solid var(--border-light, #eee);
+  border-radius: 12px;
+  padding: 14px 18px;
+  flex-wrap: wrap;
+}
+.computation-row-info h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 3px;
+}
+.computation-row-info span {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.computation-row-actions {
+  display: flex;
+  gap: 6px;
+}
+.computation-row-actions button {
+  padding: 7px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--border-light, #ddd);
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.computation-row-actions button:hover {
+  background: var(--surface-1, #f7f5f0);
+}
+.computation-row-actions button.danger {
+  color: #b91c1c;
+  border-color: #fecaca;
 }
