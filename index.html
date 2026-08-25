@@ -73,7 +73,9 @@
             <span id="auth-header-label">Ingresar</span>
           </button>
           <div class="auth-dropdown" id="auth-dropdown" style="display: none;">
-            <button type="button" id="btn-logout">Cerrar sesión</button>
+            <button type="button" id="btn-open-my-computations">Mis Presupuestos</button>
+            <button type="button" id="btn-open-profile">Mi Perfil</button>
+            <button type="button" id="btn-logout" class="danger">Cerrar sesión</button>
           </div>
         </div>
       </div>
@@ -441,6 +443,18 @@
       <button class="drawer-close-btn" id="drawer-close-btn">&times;</button>
     </div>
 
+    <div class="drawer-computation-name" id="drawer-computation-name-row">
+      <input type="text" id="drawer-computation-name" class="form-select" value="Mi cómputo" placeholder="Nombre de la obra/presupuesto">
+      <button class="btn-save-computation" id="btn-save-computation" title="Guardar presupuesto">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+        <span id="btn-save-computation-label">Guardar</span>
+      </button>
+    </div>
+
     <div class="drawer-body" id="drawer-body">
       <!-- Items list or empty state -->
     </div>
@@ -580,6 +594,56 @@
       <p style="font-size: 0.7rem; color: var(--text-subtle); text-align: center; margin-top: 10px; line-height: 1.4;">
         Al continuar con Google, NEXOBRA solo accede a tu nombre y email para crear tu cuenta — no publicamos nada en tu nombre ni accedemos a otros datos de tu perfil de Google.
       </p>
+    </div>
+  </div>
+
+  <!-- ========================= MODAL: MI PERFIL ========================= -->
+  <div class="modal-backdrop" id="profile-modal-backdrop"></div>
+  <div class="excel-modal" id="profile-modal" role="dialog" aria-labelledby="modal-profile-title" style="max-width: 440px;">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="modal-icon-badge">🧑‍🔧</div>
+        <div>
+          <h3 id="modal-profile-title" style="font-size: 1.25rem; font-weight: 800; margin-bottom: 2px;">Mi perfil</h3>
+          <p style="font-size: 0.8rem; color: var(--text-subtle);">Se usa para centrar el mapa de precios en tu zona</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" id="profile-modal-close-btn">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <p id="profile-error-msg" class="auth-error" style="display: none;"></p>
+      <p id="profile-info-msg" class="auth-info" style="display: none;"></p>
+
+      <form id="profile-form" class="auth-form">
+        <div class="config-field">
+          <label for="profile-full-name">Nombre y apellido / Razón social</label>
+          <input type="text" id="profile-full-name" class="form-select">
+        </div>
+        <div class="config-field">
+          <label for="profile-email">Email</label>
+          <input type="email" id="profile-email" class="form-select" disabled style="opacity: 0.6;">
+        </div>
+        <div class="config-field">
+          <label for="profile-phone">Teléfono / WhatsApp</label>
+          <input type="tel" id="profile-phone" class="form-select" placeholder="Opcional">
+        </div>
+        <div class="config-field">
+          <label for="profile-locality">Ubicación principal</label>
+          <input type="text" id="profile-locality" class="form-select" placeholder="Ej: Oberá, Misiones">
+        </div>
+        <div class="config-field">
+          <label for="profile-matricula">Matrícula profesional</label>
+          <input type="text" id="profile-matricula" class="form-select" placeholder="Opcional">
+        </div>
+        <div class="config-field">
+          <label for="profile-rubro">Rubro habitual</label>
+          <input type="text" id="profile-rubro" class="form-select" placeholder="Ej: Obra nueva, Refacciones, Instalaciones">
+        </div>
+        <button type="submit" class="btn-computo" style="width: 100%; justify-content: center;" id="btn-submit-profile">
+          Guardar cambios
+        </button>
+      </form>
     </div>
   </div>
 
@@ -759,6 +823,25 @@
       <p class="pilar-text" style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted);">
         Fuente: INDEC (IPC, Zona Noreste) y UOCRA (Zona A). Todos los valores son orientativos, no incluyen impuestos, cargas sociales ni flete. Confirmá siempre el precio final, la disponibilidad y las condiciones con el proveedor.
       </p>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA 5: MIS PRESUPUESTOS (solo visible logueado)
+       ========================================================================= -->
+  <div id="my-computations-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Mis Presupuestos</h2>
+          <p class="catalog-subtitle">Tus obras y presupuestos guardados. Abrí uno para seguir editándolo.</p>
+        </div>
+        <button class="btn-computo" id="btn-new-computation">
+          + Nuevo presupuesto
+        </button>
+      </div>
+
+      <div id="my-computations-list" class="computations-list"><!-- se completa con loadMyComputations() --></div>
     </div>
   </div>
 
