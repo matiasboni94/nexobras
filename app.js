@@ -508,7 +508,7 @@
     if (authState.user) {
       const { data: profile } = await supabaseClient
         .from('profiles')
-        .select('full_name, role')
+        .select('full_name, role, phone, locality, matricula, rubro_habitual')
         .eq('id', authState.user.id)
         .single();
       authState.profile = profile || null;
@@ -609,6 +609,8 @@
     authState.user = null;
     authState.profile = null;
     authDropdown.style.display = 'none';
+    computationState.currentId = null;
+    updateComputationNameUI();
     await refreshAuthUI();
     showToast('Cerraste sesión.');
   }
@@ -645,11 +647,318 @@
     refreshAuthUI();
   }
 
+  // --- PERFIL (Fase B) ---
+  const profileModal = document.getElementById('profile-modal');
+  const profileModalBackdrop = document.getElementById('profile-modal-backdrop');
+  const profileModalCloseBtn = document.getElementById('profile-modal-close-btn');
+  const profileForm = document.getElementById('profile-form');
+  const profileErrorMsg = document.getElementById('profile-error-msg');
+  const profileInfoMsg = document.getElementById('profile-info-msg');
+  const btnOpenProfile = document.getElementById('btn-open-profile');
+
+  function openProfileModal() {
+    if (!authState.user) return;
+    profileErrorMsg.style.display = 'none';
+    profileInfoMsg.style.display = 'none';
+    document.getElementById('profile-full-name').value = authState.profile?.full_name || '';
+    document.getElementById('profile-email').value = authState.user.email || '';
+    document.getElementById('profile-phone').value = authState.profile?.phone || '';
+    document.getElementById('profile-locality').value = authState.profile?.locality || '';
+    document.getElementById('profile-matricula').value = authState.profile?.matricula || '';
+    document.getElementById('profile-rubro').value = authState.profile?.rubro_habitual || '';
+    profileModal.classList.add('open');
+    profileModalBackdrop.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    authDropdown.style.display = 'none';
+  }
+
+  function closeProfileModal() {
+    profileModal.classList.remove('open');
+    profileModalBackdrop.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  async function handleProfileSubmit(e) {
+    e.preventDefault();
+    if (!authState.user) return;
+    const btn = document.getElementById('btn-submit-profile');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    const { error } = await supabaseClient
+      .from('profiles')
+      .update({
+        full_name: document.getElementById('profile-full-name').value.trim(),
+        phone: document.getElementById('profile-phone').value.trim() || null,
+        locality: document.getElementById('profile-locality').value.trim() || null,
+        matricula: document.getElementById('profile-matricula').value.trim() || null,
+        rubro_habitual: document.getElementById('profile-rubro').value.trim() || null
+      })
+      .eq('id', authState.user.id);
+
+    btn.disabled = false;
+    btn.textContent = 'Guardar cambios';
+
+    if (error) {
+      profileErrorMsg.textContent = 'No se pudo guardar: ' + error.message;
+      profileErrorMsg.style.display = 'block';
+      return;
+    }
+
+    await refreshAuthUI();
+    profileInfoMsg.textContent = 'Perfil actualizado.';
+    profileInfoMsg.style.display = 'block';
+    showToast('Perfil actualizado.');
+  }
+
+  function setupProfileListeners() {
+    if (!supabaseClient) return;
+    btnOpenProfile.addEventListener('click', openProfileModal);
+    profileModalCloseBtn.addEventListener('click', closeProfileModal);
+    profileModalBackdrop.addEventListener('click', closeProfileModal);
+    profileForm.addEventListener('submit', handleProfileSubmit);
+  }
+
+  // --- MIS PRESUPUESTOS (Fase B) ---
+  // El cómputo sigue viviendo en state.computoCart y localStorage mientras se edita
+  // (igual que antes). Lo nuevo es que, si hay sesión iniciada, se puede además
+  // guardar/actualizar como una fila en "computations" + "computation_items".
+  const computationState = { currentId: null };
+
+  const drawerComputationName = document.getElementById('drawer-computation-name');
+  const btnSaveComputation = document.getElementById('btn-save-computation');
+  const btnSaveComputationLabel = document.getElementById('btn-save-computation-label');
+  const btnOpenMyComputations = document.getElementById('btn-open-my-computations');
+  const myComputationsList = document.getElementById('my-computations-list');
+  const btnNewComputation = document.getElementById('btn-new-computation');
+
+  function updateComputationNameUI() {
+    btnSaveComputationLabel.textContent = computationState.currentId ? 'Actualizar' : 'Guardar';
+  }
+
+  /** Convierte un item del carrito (state.computoCart) a una fila de computation_items. */
+  function cartItemToRow(item, computationId) {
+    return {
+      computation_id: computationId,
+      material_id: item.type === 'material' ? item.id : null,
+      labor_series_code: item.type === 'labor' ? item.id : null,
+      item_type: item.type || 'material',
+      denomination_snapshot: item.denominacion,
+      quantity: item.qty,
+      unit: item.unit,
+      price_snapshot: item.unitPrice,
+      rubro: item.rubro || null,
+      base_price_snapshot: item.basePrice ?? null,
+      factor_snapshot: item.factor ?? null,
+      reference_period: item.basePeriod || null,
+      source_kind: 'reference'
+    };
+  }
+
+  /** Convierte una fila de computation_items de vuelta a un item de carrito. */
+  function rowToCartItem(row) {
+    return {
+      id: row.material_id || row.labor_series_code,
+      denominacion: row.denomination_snapshot,
+      rubro: row.rubro,
+      unitPrice: Number(row.price_snapshot),
+      unit: row.unit,
+      qty: Number(row.quantity),
+      type: row.item_type,
+      basePrice: row.base_price_snapshot !== null ? Number(row.base_price_snapshot) : null,
+      factor: row.factor_snapshot !== null ? Number(row.factor_snapshot) : null,
+      basePeriod: row.reference_period,
+      referenceUpdatedAt: REFERENCE_PRICE_INFO.updatedAt
+    };
+  }
+
+  async function saveComputation() {
+    if (!authState.user) {
+      showAuthTab('login');
+      openAuthModal();
+      showAuthError('Iniciá sesión para guardar tu presupuesto.');
+      return;
+    }
+    if (state.computoCart.length === 0) {
+      showToast('Agregá al menos un ítem antes de guardar.');
+      return;
+    }
+
+    const name = drawerComputationName.value.trim() || 'Mi cómputo';
+    btnSaveComputation.disabled = true;
+
+    try {
+      let computationId = computationState.currentId;
+
+      if (computationId) {
+        const { error } = await supabaseClient
+          .from('computations')
+          .update({ name, locality: authState.profile?.locality || null })
+          .eq('id', computationId);
+        if (error) throw error;
+
+        const { error: deleteError } = await supabaseClient
+          .from('computation_items')
+          .delete()
+          .eq('computation_id', computationId);
+        if (deleteError) throw deleteError;
+      } else {
+        const { data, error } = await supabaseClient
+          .from('computations')
+          .insert({ name, user_id: authState.user.id, locality: authState.profile?.locality || null })
+          .select('id')
+          .single();
+        if (error) throw error;
+        computationId = data.id;
+        computationState.currentId = computationId;
+      }
+
+      const rows = state.computoCart.map(item => cartItemToRow(item, computationId));
+      const { error: insertError } = await supabaseClient.from('computation_items').insert(rows);
+      if (insertError) throw insertError;
+
+      updateComputationNameUI();
+      showToast('Presupuesto guardado.');
+    } catch (err) {
+      showToast('No se pudo guardar: ' + err.message);
+    } finally {
+      btnSaveComputation.disabled = false;
+    }
+  }
+
+  function startNewComputation() {
+    computationState.currentId = null;
+    state.computoCart = [];
+    saveCart();
+    drawerComputationName.value = 'Mi cómputo';
+    updateComputationNameUI();
+    updateCartUI();
+    showToast('Empezaste un presupuesto nuevo.');
+  }
+
+  async function loadMyComputations() {
+    if (!authState.user) return;
+    myComputationsList.innerHTML = '<p style="color:var(--text-muted);">Cargando...</p>';
+
+    const { data, error } = await supabaseClient
+      .from('computations')
+      .select('id, name, locality, updated_at, computation_items(count)')
+      .eq('user_id', authState.user.id)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      myComputationsList.innerHTML = `<p style="color:#b91c1c;">No se pudieron cargar tus presupuestos: ${error.message}</p>`;
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      myComputationsList.innerHTML = `
+        <div class="computo-empty-state">
+          <div class="empty-icon">📋</div>
+          <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no guardaste ningún presupuesto</h4>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Armá un cómputo desde el catálogo y tocá "Guardar" en el panel lateral.</p>
+        </div>
+      `;
+      return;
+    }
+
+    myComputationsList.innerHTML = data.map(comp => {
+      const count = comp.computation_items?.[0]?.count ?? 0;
+      const fecha = new Date(comp.updated_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
+      return `
+        <div class="computation-row">
+          <div class="computation-row-info">
+            <h4>${comp.name}</h4>
+            <span>${count} ítem${count === 1 ? '' : 's'} · actualizado el ${fecha}${comp.locality ? ' · ' + comp.locality : ''}</span>
+          </div>
+          <div class="computation-row-actions">
+            <button onclick="window.nexoBraApp.openComputation('${comp.id}')">Abrir</button>
+            <button onclick="window.nexoBraApp.duplicateComputation('${comp.id}')">Duplicar</button>
+            <button class="danger" onclick="window.nexoBraApp.deleteComputation('${comp.id}')">Eliminar</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function openComputation(id) {
+    const [{ data: comp, error: compError }, { data: items, error: itemsError }] = await Promise.all([
+      supabaseClient.from('computations').select('id, name').eq('id', id).single(),
+      supabaseClient.from('computation_items').select('*').eq('computation_id', id)
+    ]);
+
+    if (compError || itemsError) {
+      showToast('No se pudo abrir el presupuesto.');
+      return;
+    }
+
+    computationState.currentId = comp.id;
+    state.computoCart = (items || []).map(rowToCartItem);
+    saveCart();
+    drawerComputationName.value = comp.name;
+    updateComputationNameUI();
+    updateCartUI();
+    openDrawer();
+    showToast(`Abriste "${comp.name}"`);
+  }
+
+  async function duplicateComputation(id) {
+    const [{ data: comp, error: compError }, { data: items, error: itemsError }] = await Promise.all([
+      supabaseClient.from('computations').select('name, locality').eq('id', id).single(),
+      supabaseClient.from('computation_items').select('*').eq('computation_id', id)
+    ]);
+    if (compError || itemsError) {
+      showToast('No se pudo duplicar el presupuesto.');
+      return;
+    }
+
+    const { data: newComp, error: insertError } = await supabaseClient
+      .from('computations')
+      .insert({ name: `${comp.name} (copia)`, user_id: authState.user.id, locality: comp.locality })
+      .select('id')
+      .single();
+    if (insertError) {
+      showToast('No se pudo duplicar el presupuesto.');
+      return;
+    }
+
+    if (items && items.length > 0) {
+      const rows = items.map(row => ({ ...row, id: undefined, computation_id: newComp.id, created_at: undefined, updated_at: undefined }));
+      await supabaseClient.from('computation_items').insert(rows);
+    }
+
+    showToast('Presupuesto duplicado.');
+    loadMyComputations();
+  }
+
+  async function deleteComputation(id) {
+    if (!confirm('¿Eliminar este presupuesto? Esta acción no se puede deshacer.')) return;
+    const { error } = await supabaseClient.from('computations').delete().eq('id', id);
+    if (error) {
+      showToast('No se pudo eliminar: ' + error.message);
+      return;
+    }
+    if (computationState.currentId === id) startNewComputation();
+    showToast('Presupuesto eliminado.');
+    loadMyComputations();
+  }
+
+  function setupComputationListeners() {
+    if (!supabaseClient) return;
+    btnSaveComputation.addEventListener('click', saveComputation);
+    btnNewComputation.addEventListener('click', startNewComputation);
+    btnOpenMyComputations.addEventListener('click', () => {
+      authDropdown.style.display = 'none';
+      switchView('my-computations');
+    });
+  }
+
   // --- DOM ELEMENTS ---
   const homeView = document.getElementById('home-view');
   const catalogView = document.getElementById('catalog-view');
   const laborView = document.getElementById('labor-view');
   const methodologyView = document.getElementById('methodology-view');
+  const myComputationsView = document.getElementById('my-computations-view');
 
   // Nav elements
   const navBrandLogo = document.getElementById('nav-brand-logo');
@@ -935,6 +1244,7 @@
     catalogView.style.display = viewName === 'catalog' ? 'block' : 'none';
     if (laborView) laborView.style.display = viewName === 'labor' ? 'block' : 'none';
     if (methodologyView) methodologyView.style.display = viewName === 'methodology' ? 'block' : 'none';
+    if (myComputationsView) myComputationsView.style.display = viewName === 'my-computations' ? 'block' : 'none';
 
     navBtnHome.classList.toggle('active', viewName === 'home');
     navBtnCatalogo.classList.toggle('active', viewName === 'catalog');
@@ -959,6 +1269,17 @@
     if (viewName === 'methodology') {
       // El canvas estaba oculto hasta ahora; Chart.js necesita redibujar una vez visible.
       renderIpcChart();
+    }
+    if (viewName === 'my-computations') {
+      if (!authState.user) {
+        showAuthTab('login');
+        openAuthModal();
+        state.currentView = 'home';
+        homeView.style.display = 'block';
+        if (myComputationsView) myComputationsView.style.display = 'none';
+      } else {
+        loadMyComputations();
+      }
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -986,6 +1307,8 @@
     loadCatalogFromSupabase();
     Promise.all([loadIndexSeries(), loadLaborSeries()]).then(reconcilePriceMonth);
     setupAuthListeners();
+    setupProfileListeners();
+    setupComputationListeners();
 
     // Nav buttons
     navBrandLogo.addEventListener('click', (e) => {
@@ -2025,7 +2348,10 @@
     removeCartItem,
     clearCatalogSearch,
     addLaborToComputo,
-    changeLaborQty
+    changeLaborQty,
+    openComputation,
+    duplicateComputation,
+    deleteComputation
   };
 
   document.addEventListener('DOMContentLoaded', init);
