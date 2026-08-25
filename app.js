@@ -1654,7 +1654,7 @@
       <body>
         <div class="header-print">
           <div>
-            <div class="logo">NEXO<span>OBRA</span></div>
+            <div class="logo">NEX<span>OBRA</span></div>
             <div style="font-size: 12px; color: #666; font-weight: bold;">COMPARADOR TÉCNICO & CÓMPUTO DE OBRA</div>
           </div>
           <div class="meta" style="text-align: right;">
