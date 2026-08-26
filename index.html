@@ -42,6 +42,15 @@
         <a class="nav-link" href="mailto:nexobra.info@gmail.com?subject=Sugerencia%20NEXOBRA" id="nav-btn-contacto">Contacto</a>
       </nav>
 
+      <!-- BOTÓN HAMBURGUESA (solo mobile) -->
+      <button class="btn-mobile-menu" id="btn-mobile-menu" aria-label="Abrir menú">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+
       <!-- HEADER ACTIONS -->
       <div class="header-actions">
         <button class="btn-excel-tool" id="btn-open-excel-modal" title="Subir listado de materiales en Excel y cotizar automáticamente">
@@ -82,6 +91,17 @@
 
     </div>
   </header>
+
+  <!-- MENÚ MOBILE (panel deslizable, solo visible <900px) -->
+  <div class="mobile-menu-backdrop" id="mobile-menu-backdrop"></div>
+  <nav class="mobile-menu-panel" id="mobile-menu-panel" aria-label="Menú de navegación">
+    <button class="mobile-menu-close" id="mobile-menu-close" aria-label="Cerrar menú">&times;</button>
+    <button class="mobile-menu-link active" id="mobile-nav-btn-home">Inicio</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-rubros">Rubros de Obra</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-catalogo">Catálogo Completo</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-manoobra">Mano de Obra</button>
+    <a class="mobile-menu-link" href="mailto:nexobra.info@gmail.com?subject=Sugerencia%20NEXOBRA">Contacto</a>
+  </nav>
 
   <!-- =========================================================================
        VISTA 1: HOME / PRESENTACIÓN DE NEXOBRA & SELECCIÓN DE ÁREAS
@@ -454,6 +474,13 @@
         <span id="btn-save-computation-label">Guardar</span>
       </button>
     </div>
+
+    <div class="drawer-computo-month-row">
+      <label for="computo-year-select">📅 Precios calculados a:</label>
+      <select id="computo-year-select" class="sort-select"></select>
+      <select id="computo-month-select" class="sort-select"></select>
+    </div>
+    <p class="drawer-computo-month-hint">Cambiá el mes acá para recalcular <strong>todo</strong> el presupuesto de una sola vez, antes de guardar, imprimir o compartir.</p>
 
     <div class="drawer-body" id="drawer-body">
       <!-- Items list or empty state -->
