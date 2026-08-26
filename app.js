@@ -84,7 +84,8 @@
     viewMode: 'grid', // 'grid' | 'table'
     computoCart: JSON.parse(localStorage.getItem('nexobra_computo') || '[]'),
     excelProcessedRows: [],
-    priceMonth: null // "YYYY-MM-01", mes elegido por el usuario para ver precios actualizados
+    priceMonth: null, // "YYYY-MM-01", mes elegido por el usuario para EXPLORAR precios en el catálogo
+    computoMonth: null // "YYYY-MM-01", mes al que se recalcula TODO "Mi Cómputo" (independiente del anterior)
   };
 
   // Serie de índices IPC cargada desde public.index_values (tabla real, no valores fijos).
@@ -241,12 +242,31 @@
     }
 
     setPriceMonth(sharedMonths[sharedMonths.length - 1], { silent: true });
+    if (!state.computoMonth) {
+      // Solo la primera vez: "Mi Cómputo" arranca siempre en el mes más actual disponible.
+      state.computoMonth = sharedMonths[sharedMonths.length - 1];
+    }
     populateMonthSelect();
     populateLaborMonthSelect();
+    populateComputoMonthSelect();
     renderIpcChart();
     updateReferenceStatus();
     renderProducts();
     renderLabor();
+    updateCartUI();
+  }
+
+  function populateComputoMonthSelect() {
+    wireYearMonthPicker(
+      document.getElementById('computo-year-select'),
+      document.getElementById('computo-month-select'),
+      sharedMonths,
+      state.computoMonth,
+      (value) => {
+        state.computoMonth = value;
+        updateCartUI();
+      }
+    );
   }
 
   function setPriceMonth(value, { silent = false } = {}) {
@@ -324,8 +344,6 @@
   function addLaborToComputo(code) {
     const role = laborState.roles.find(r => r.code === code);
     if (!role) return;
-    const valor = role.values[state.priceMonth];
-    if (valor === undefined) return;
 
     const qtyInput = document.getElementById(`labor-qty-${code}`);
     const qty = qtyInput ? Math.max(0.5, parseFloat(qtyInput.value) || 1) : 1;
@@ -335,18 +353,15 @@
     if (existingIndex > -1) {
       state.computoCart[existingIndex].qty += qty;
     } else {
+      // Igual que con materiales: no se congela precio acá, se resuelve en vivo
+      // contra state.computoMonth al mostrar/exportar el cómputo.
       state.computoCart.push({
         id: code,
         denominacion: `${role.name} (mano de obra)`,
         rubro: 'Mano de obra',
-        unitPrice: valor,
         unit: unit,
         qty: qty,
-        type: 'labor',
-        basePrice: null,
-        factor: null,
-        basePeriod: null,
-        referenceUpdatedAt: monthLabel(state.priceMonth)
+        type: 'labor'
       });
     }
 
@@ -738,6 +753,7 @@
 
   /** Convierte un item del carrito (state.computoCart) a una fila de computation_items. */
   function cartItemToRow(item, computationId) {
+    const pricing = resolveItemPricing(item, state.computoMonth);
     return {
       computation_id: computationId,
       material_id: item.type === 'material' ? item.id : null,
@@ -746,29 +762,26 @@
       denomination_snapshot: item.denominacion,
       quantity: item.qty,
       unit: item.unit,
-      price_snapshot: item.unitPrice,
+      price_snapshot: pricing.unitPrice,
       rubro: item.rubro || null,
-      base_price_snapshot: item.basePrice ?? null,
-      factor_snapshot: item.factor ?? null,
-      reference_period: item.basePeriod || null,
+      base_price_snapshot: pricing.basePrice ?? null,
+      factor_snapshot: pricing.factor ?? null,
+      reference_period: state.computoMonth,
+      pricing_mode: item.mode || 'venta',
       source_kind: 'reference'
     };
   }
 
-  /** Convierte una fila de computation_items de vuelta a un item de carrito. */
+  /** Convierte una fila de computation_items de vuelta a un item de carrito "vivo" (sin precio congelado). */
   function rowToCartItem(row) {
     return {
       id: row.material_id || row.labor_series_code,
       denominacion: row.denomination_snapshot,
       rubro: row.rubro,
-      unitPrice: Number(row.price_snapshot),
       unit: row.unit,
       qty: Number(row.quantity),
       type: row.item_type,
-      basePrice: row.base_price_snapshot !== null ? Number(row.base_price_snapshot) : null,
-      factor: row.factor_snapshot !== null ? Number(row.factor_snapshot) : null,
-      basePeriod: row.reference_period,
-      referenceUpdatedAt: REFERENCE_PRICE_INFO.updatedAt
+      mode: row.pricing_mode || 'venta'
     };
   }
 
@@ -896,6 +909,12 @@
     state.computoCart = (items || []).map(rowToCartItem);
     saveCart();
     drawerComputationName.value = comp.name;
+    // Al reabrir, el cómputo vuelve a arrancar en el mes más actual disponible
+    // (no en el que se guardó la última vez) — el usuario lo cambia si quiere.
+    if (sharedMonths.length > 0) {
+      state.computoMonth = sharedMonths[sharedMonths.length - 1];
+      populateComputoMonthSelect();
+    }
     updateComputationNameUI();
     updateCartUI();
     openDrawer();
@@ -1074,10 +1093,10 @@
    * cae al factor estático precioVenta/precioBase como respaldo para no romper
    * la vista, pero deja marcado dynamic:false para que la UI lo aclare.
    */
-  function getReferencePrice(item, mode = state.pricingMode) {
+  function getReferencePrice(item, mode = state.pricingMode, targetMonthOverride = null) {
     const ventaBase = Number(item.precioBase);
     const baseDate = baseLabelToDate(item.mesBase);
-    const targetDate = state.priceMonth;
+    const targetDate = targetMonthOverride || state.priceMonth;
     const indiceBase = baseDate ? indexState.values[baseDate] : undefined;
     const indiceDestino = targetDate ? indexState.values[targetDate] : undefined;
 
@@ -1101,7 +1120,42 @@
       dynamic,
       basePeriod: item.mesBase || 'período base no informado',
       targetPeriod: targetDate ? monthLabel(targetDate) : REFERENCE_PRICE_INFO.period,
+      targetMonth: targetDate,
       unit: mode === 'venta' ? item.unidadVenta : item.unidadComputo
+    };
+  }
+
+  /**
+   * Resuelve el precio "en vivo" de un ítem del carrito contra un mes puntual
+   * (normalmente state.computoMonth). No depende de nada que se haya guardado
+   * al momento de agregar el ítem: siempre vuelve a calcular desde el catálogo
+   * base (materiales) o desde la serie de UOCRA (mano de obra). Así, cambiar el
+   * mes en "Mi Cómputo" recalcula TODO el presupuesto de una sola vez.
+   */
+  function resolveItemPricing(cartItem, targetMonth) {
+    if (cartItem.type === 'labor') {
+      const role = laborState.roles.find(r => r.code === cartItem.id);
+      const valor = role ? role.values[targetMonth] : undefined;
+      return {
+        unitPrice: valor !== undefined ? valor : 0,
+        basePrice: null,
+        factor: null,
+        basePeriod: null,
+        disponible: valor !== undefined
+      };
+    }
+
+    const material = NEXOBRA_DATA.find(m => m.id === cartItem.id);
+    if (!material) {
+      return { unitPrice: 0, basePrice: null, factor: null, basePeriod: null, disponible: false };
+    }
+    const trace = getReferencePrice(material, cartItem.mode || 'venta', targetMonth);
+    return {
+      unitPrice: trace.currentPrice,
+      basePrice: trace.basePrice,
+      factor: trace.factor,
+      basePeriod: trace.basePeriod,
+      disponible: true
     };
   }
 
@@ -1250,6 +1304,13 @@
     navBtnCatalogo.classList.toggle('active', viewName === 'catalog');
     if (navBtnManoObra) navBtnManoObra.classList.toggle('active', viewName === 'labor');
 
+    const mHome = document.getElementById('mobile-nav-btn-home');
+    const mCatalogo = document.getElementById('mobile-nav-btn-catalogo');
+    const mManoObra = document.getElementById('mobile-nav-btn-manoobra');
+    if (mHome) mHome.classList.toggle('active', viewName === 'home');
+    if (mCatalogo) mCatalogo.classList.toggle('active', viewName === 'catalog');
+    if (mManoObra) mManoObra.classList.toggle('active', viewName === 'labor');
+
     if (viewName === 'catalog') {
       if (rubroFilter) {
         state.activeRubro = rubroFilter;
@@ -1335,6 +1396,47 @@
         document.getElementById('seccion-rubros').scrollIntoView({ behavior: 'smooth' });
       }, 100);
     });
+
+    // --- Menú mobile (hamburguesa) ---
+    const btnMobileMenu = document.getElementById('btn-mobile-menu');
+    const mobileMenuPanel = document.getElementById('mobile-menu-panel');
+    const mobileMenuBackdrop = document.getElementById('mobile-menu-backdrop');
+    const mobileMenuClose = document.getElementById('mobile-menu-close');
+
+    function openMobileMenu() {
+      mobileMenuPanel.classList.add('open');
+      mobileMenuBackdrop.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeMobileMenu() {
+      mobileMenuPanel.classList.remove('open');
+      mobileMenuBackdrop.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+    // Ejecuta la misma acción que su botón gemelo de escritorio, y cierra el panel después.
+    function mobileNavAction(action) {
+      action();
+      closeMobileMenu();
+    }
+
+    if (btnMobileMenu) btnMobileMenu.addEventListener('click', openMobileMenu);
+    if (mobileMenuClose) mobileMenuClose.addEventListener('click', closeMobileMenu);
+    if (mobileMenuBackdrop) mobileMenuBackdrop.addEventListener('click', closeMobileMenu);
+
+    const mobileNavBtnHome = document.getElementById('mobile-nav-btn-home');
+    const mobileNavBtnRubros = document.getElementById('mobile-nav-btn-rubros');
+    const mobileNavBtnCatalogo = document.getElementById('mobile-nav-btn-catalogo');
+    const mobileNavBtnManoObra = document.getElementById('mobile-nav-btn-manoobra');
+
+    if (mobileNavBtnHome) mobileNavBtnHome.addEventListener('click', () => mobileNavAction(() => switchView('home')));
+    if (mobileNavBtnCatalogo) mobileNavBtnCatalogo.addEventListener('click', () => mobileNavAction(() => switchView('catalog', 'Todos', '')));
+    if (mobileNavBtnManoObra) mobileNavBtnManoObra.addEventListener('click', () => mobileNavAction(() => switchView('labor')));
+    if (mobileNavBtnRubros) mobileNavBtnRubros.addEventListener('click', () => mobileNavAction(() => {
+      if (state.currentView !== 'home') switchView('home');
+      setTimeout(() => {
+        document.getElementById('seccion-rubros').scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }));
 
     // Home Search Listeners
     homeSearchSubmit.addEventListener('click', () => {
@@ -1734,29 +1836,25 @@
 
     const qtyInput = document.getElementById(`qty-${itemId}`);
     const qty = qtyInput ? Math.max(1, parseFloat(qtyInput.value) || 1) : 1;
+    const unit = state.pricingMode === 'venta' ? item.unidadVenta : item.unidadComputo;
 
-    const trace = getReferencePrice(item);
-    const unitPrice = trace.currentPrice;
-    const unit = trace.unit;
-
-    const existingIndex = state.computoCart.findIndex(i => i.id === itemId && i.unit === unit && i.type === 'material');
+    const existingIndex = state.computoCart.findIndex(i => i.id === itemId && i.type === 'material' && i.mode === state.pricingMode);
 
     if (existingIndex > -1) {
       state.computoCart[existingIndex].qty += qty;
     } else {
+      // El carrito no congela precio: solo guarda la referencia y la cantidad.
+      // El precio se calcula siempre "en vivo" contra state.computoMonth (ver resolveItemPricing),
+      // así que agregar un ítem hoy o hace una semana da el mismo resultado: el precio más actual,
+      // hasta que el usuario elija otro mes desde "Mi Cómputo".
       state.computoCart.push({
         id: item.id,
         denominacion: item.denominacion,
         rubro: item.rubro,
-        unitPrice: unitPrice,
         unit: unit,
         qty: qty,
         type: 'material',
-        mode: state.pricingMode,
-        basePrice: trace.basePrice,
-        factor: trace.factor,
-        basePeriod: trace.basePeriod,
-        referenceUpdatedAt: REFERENCE_PRICE_INFO.updatedAt
+        mode: state.pricingMode
       });
     }
 
@@ -1816,10 +1914,11 @@
   }
 
   function computeCartSubtotals() {
-    const materiales = state.computoCart.filter(i => (i.type || 'material') === 'material');
-    const manoDeObra = state.computoCart.filter(i => i.type === 'labor');
-    const subtotalMateriales = materiales.reduce((sum, i) => sum + (i.qty * i.unitPrice), 0);
-    const subtotalManoObra = manoDeObra.reduce((sum, i) => sum + (i.qty * i.unitPrice), 0);
+    const resolved = state.computoCart.map(item => ({ item, pricing: resolveItemPricing(item, state.computoMonth) }));
+    const materiales = resolved.filter(r => (r.item.type || 'material') === 'material');
+    const manoDeObra = resolved.filter(r => r.item.type === 'labor');
+    const subtotalMateriales = materiales.reduce((sum, r) => sum + (r.item.qty * r.pricing.unitPrice), 0);
+    const subtotalManoObra = manoDeObra.reduce((sum, r) => sum + (r.item.qty * r.pricing.unitPrice), 0);
     return { materiales, manoDeObra, subtotalMateriales, subtotalManoObra, total: subtotalMateriales + subtotalManoObra };
   }
 
@@ -1855,7 +1954,8 @@
       drawerBody.innerHTML = `
         <div class="computo-list">
           ${state.computoCart.map((item, idx) => {
-            const subtotal = item.qty * item.unitPrice;
+            const pricing = resolveItemPricing(item, state.computoMonth);
+            const subtotal = item.qty * pricing.unitPrice;
             const esManoDeObra = item.type === 'labor';
             return `
               <div class="computo-item">
@@ -1881,9 +1981,12 @@
                     <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">${item.unit}</span>
                   </div>
                     <div style="text-align: right;">
-                      <div style="font-size: 0.74rem; color: var(--text-subtle);">${formatMoney(item.unitPrice)}/${item.unit}</div>
-                      ${item.basePrice ? `<div class="cart-price-trace">Base ${formatMoney(item.basePrice)} · × ${formatFactor(item.factor || 1)}</div>` : ''}
-                      <div class="computo-item-subtotal">${formatMoney(subtotal)}</div>
+                      ${pricing.disponible
+                        ? `<div style="font-size: 0.74rem; color: var(--text-subtle);">${formatMoney(pricing.unitPrice)}/${item.unit}</div>
+                           ${pricing.basePrice ? `<div class="cart-price-trace">Base ${formatMoney(pricing.basePrice)} · × ${formatFactor(pricing.factor || 1)}</div>` : ''}
+                           <div class="computo-item-subtotal">${formatMoney(subtotal)}</div>`
+                        : `<div style="font-size: 0.74rem; color: #b91c1c;">Sin dato para este mes</div>`
+                      }
                   </div>
                 </div>
               </div>
@@ -1904,16 +2007,17 @@
     const printWindow = window.open('', '_blank');
     const { materiales, manoDeObra, subtotalMateriales, subtotalManoObra, total } = computeCartSubtotals();
     const dateStr = new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
+    const periodoPresupuesto = monthLabel(state.computoMonth);
 
-    const filaMaterial = item => `
+    const filaMaterial = ({ item, pricing }) => `
       <tr>
         <td><strong>${item.id}</strong></td>
         <td>${item.denominacion}</td>
         <td>${item.rubro}</td>
         <td>${item.qty}</td>
         <td>${item.unit}</td>
-        <td>${formatMoney(item.unitPrice)}${item.basePrice ? `<br><small>Base ${formatMoney(item.basePrice)} · × ${formatFactor(item.factor || 1)}</small>` : ''}</td>
-        <td style="text-align: right;"><strong>${formatMoney(item.qty * item.unitPrice)}</strong></td>
+        <td>${formatMoney(pricing.unitPrice)}${pricing.basePrice ? `<br><small>Base ${formatMoney(pricing.basePrice)} · × ${formatFactor(pricing.factor || 1)}</small>` : ''}</td>
+        <td style="text-align: right;"><strong>${formatMoney(item.qty * pricing.unitPrice)}</strong></td>
       </tr>
     `;
 
@@ -1941,13 +2045,13 @@
           </tr>
         </thead>
         <tbody>
-          ${manoDeObra.map(item => `
+          ${manoDeObra.map(({ item, pricing }) => `
             <tr>
               <td><strong>${item.denominacion}</strong></td>
               <td>${item.qty}</td>
               <td>${item.unit}</td>
-              <td>${formatMoney(item.unitPrice)}</td>
-              <td style="text-align: right;"><strong>${formatMoney(item.qty * item.unitPrice)}</strong></td>
+              <td>${formatMoney(pricing.unitPrice)}</td>
+              <td style="text-align: right;"><strong>${formatMoney(item.qty * pricing.unitPrice)}</strong></td>
             </tr>
           `).join('')}
         </tbody>
@@ -1966,6 +2070,7 @@
           .logo { font-size: 24px; font-weight: 900; }
           .logo span { color: #F5B000; }
           .meta { font-size: 13px; color: #555; }
+          .periodo-banner { background: #FEF3C7; border: 1px solid #F5B000; border-radius: 8px; padding: 10px 14px; font-size: 14px; font-weight: 700; margin-bottom: 20px; }
           table { width: 100%; border-collapse: collapse; margin-top: 10px; }
           th { background: #F1F3F7; text-align: left; padding: 10px; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #CCC; }
           td { padding: 10px; border-bottom: 1px solid #EEE; font-size: 13px; }
@@ -1981,12 +2086,12 @@
             <div style="font-size: 12px; color: #666; font-weight: bold;">COMPARADOR TÉCNICO & CÓMPUTO DE OBRA</div>
           </div>
           <div class="meta" style="text-align: right;">
-            <div>Fecha: <strong>${dateStr}</strong></div>
-            <div>Referencia: <strong>${REFERENCE_PRICE_INFO.period} · ${REFERENCE_PRICE_INFO.source}</strong></div>
+            <div>Fecha de emisión: <strong>${dateStr}</strong></div>
           </div>
         </div>
 
         <h2 style="margin-bottom: 4px;">Resumen de Cómputo y Presupuesto de Obra</h2>
+        <div class="periodo-banner">📅 Presupuesto calculado a precios de: ${periodoPresupuesto}</div>
 
         ${tablaMateriales}
         ${tablaManoObra}
@@ -1996,7 +2101,7 @@
         </div>
 
         <div class="disclaimer">
-          * Este presupuesto es orientativo. Los valores de referencia informan precio base, factor y fecha de actualización. Los montos <strong>no incluyen impuestos, cargas sociales ni fletes</strong> — deben cargarse aparte según cada caso. Confirmá precio final, disponibilidad, entrega y pago directamente con el proveedor.
+          * Este presupuesto es orientativo, calculado a precios de ${periodoPresupuesto}. Los valores de referencia informan precio base, factor y fecha de actualización. Los montos <strong>no incluyen impuestos, cargas sociales ni fletes</strong> — deben cargarse aparte según cada caso. Confirmá precio final, disponibilidad, entrega y pago directamente con el proveedor.
         </div>
 
         <script>
@@ -2016,30 +2121,31 @@
     }
 
     const { materiales, manoDeObra, subtotalMateriales, subtotalManoObra, total } = computeCartSubtotals();
+    const periodoPresupuesto = monthLabel(state.computoMonth);
 
     let text = `🏗️ *NEXOBRA - Cómputo y Presupuesto*\n`;
-    text += `📅 Fecha: ${new Date().toLocaleDateString('es-AR')}\n\n`;
+    text += `📅 Emitido: ${new Date().toLocaleDateString('es-AR')} · Precios de: *${periodoPresupuesto}*\n\n`;
 
     if (materiales.length > 0) {
       text += `*MATERIALES*\n`;
-      materiales.forEach((item, index) => {
+      materiales.forEach(({ item, pricing }, index) => {
         text += `${index + 1}. *${item.denominacion}*\n`;
-        text += `   Cant: ${item.qty} ${item.unit} | Unit: ${formatMoney(item.unitPrice)} | Subtotal: ${formatMoney(item.qty * item.unitPrice)}\n`;
+        text += `   Cant: ${item.qty} ${item.unit} | Unit: ${formatMoney(pricing.unitPrice)} | Subtotal: ${formatMoney(item.qty * pricing.unitPrice)}\n`;
       });
       text += `Subtotal Materiales: *${formatMoney(subtotalMateriales)}*\n\n`;
     }
 
     if (manoDeObra.length > 0) {
       text += `*MANO DE OBRA*\n`;
-      manoDeObra.forEach((item, index) => {
+      manoDeObra.forEach(({ item, pricing }, index) => {
         text += `${index + 1}. *${item.denominacion}*\n`;
-        text += `   Cant: ${item.qty} ${item.unit} | Unit: ${formatMoney(item.unitPrice)} | Subtotal: ${formatMoney(item.qty * item.unitPrice)}\n`;
+        text += `   Cant: ${item.qty} ${item.unit} | Unit: ${formatMoney(pricing.unitPrice)} | Subtotal: ${formatMoney(item.qty * pricing.unitPrice)}\n`;
       });
       text += `Subtotal Mano de Obra: *${formatMoney(subtotalManoObra)}*\n\n`;
     }
 
     text += `💰 *TOTAL ESTIMADO: ${formatMoney(total)}*\n`;
-    text += `_Valores orientativos NEXOBRA · ${REFERENCE_PRICE_INFO.period} · ${REFERENCE_PRICE_INFO.updatedAt}. No incluyen impuestos, cargas sociales ni fletes. Confirmar disponibilidad y precio final con el proveedor._`;
+    text += `_Valores orientativos NEXOBRA, calculados a precios de ${periodoPresupuesto}. No incluyen impuestos, cargas sociales ni fletes. Confirmar disponibilidad y precio final con el proveedor._`;
 
     navigator.clipboard.writeText(text).then(() => {
       showToast('✓ Cómputo copiado al portapapeles (Listo para WhatsApp)');
