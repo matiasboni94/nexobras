@@ -2074,3 +2074,146 @@ body {
   border-bottom: 1px solid var(--border-light, #eee);
   line-height: 1.4;
 }
+
+/* --- Fase C: Panel de Corralón --- */
+.provider-section {
+  background: #fff;
+  border: 1px solid var(--border-light, #eee);
+  border-radius: 12px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.provider-section summary {
+  padding: 14px 18px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  background: var(--surface-1, #f7f5f0);
+  list-style: none;
+}
+.provider-section summary::-webkit-details-marker {
+  display: none;
+}
+.provider-section-body {
+  padding: 18px;
+}
+.provider-subsection-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 4px 0 12px;
+}
+
+.provider-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.provider-search-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border-light, #eee);
+  border-radius: 8px;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+}
+.provider-search-row-info {
+  font-size: 0.85rem;
+  flex: 1;
+  min-width: 180px;
+}
+.provider-search-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.provider-search-row-controls input {
+  width: 90px;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+}
+.provider-search-row-controls select {
+  padding: 6px 8px;
+  font-size: 0.78rem;
+}
+
+.provider-bulk-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--surface-1, #f7f5f0);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+.provider-bulk-edit label {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.provider-catalog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.provider-catalog-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border-light, #eee);
+  border-radius: 10px;
+  padding: 10px 14px;
+  flex-wrap: wrap;
+}
+.provider-catalog-row-info h5 {
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin: 0 0 2px;
+}
+.provider-catalog-row-info span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.provider-catalog-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.provider-catalog-row-controls input[type="number"] {
+  width: 100px;
+  padding: 6px 8px;
+  font-size: 0.82rem;
+}
+.stock-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+.stock-badge.en_stock { background: #dcfce7; color: #15803d; }
+.stock-badge.a_pedido { background: #fef3c7; color: #92400e; }
+.stock-badge.agotado { background: #fee2e2; color: #b91c1c; }
+
+.excel-preview-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border-light, #eee);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+}
+.excel-preview-row.status-matched { border-left: 4px solid #15803d; }
+.excel-preview-row.status-suggested { border-left: 4px solid #d97706; }
+.excel-preview-row.status-notfound { border-left: 4px solid #b91c1c; opacity: 0.75; }
