@@ -1847,6 +1847,11 @@ body {
   box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
 
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
 .auth-form .config-field {
   margin-bottom: 14px;
 }
