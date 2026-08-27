@@ -83,6 +83,7 @@
           </button>
           <div class="auth-dropdown" id="auth-dropdown" style="display: none;">
             <button type="button" id="btn-open-my-computations">Mis Presupuestos</button>
+            <button type="button" id="btn-open-my-provider" style="display: none;">Mi Corralón</button>
             <button type="button" id="btn-open-profile">Mi Perfil</button>
             <button type="button" id="btn-logout" class="danger">Cerrar sesión</button>
           </div>
@@ -910,6 +911,140 @@
       </div>
 
       <div id="my-computations-list" class="computations-list"><!-- se completa con loadMyComputations() --></div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA 6: MI CORRALÓN (Fase C, solo rol 'provider')
+       ========================================================================= -->
+  <div id="provider-view" class="view-section" style="display: none;">
+    <div class="container" style="max-width: 980px;">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Mi Corralón</h2>
+          <p class="catalog-subtitle">Datos comerciales, catálogo propio y precios reportados a NEXOBRA.</p>
+        </div>
+      </div>
+
+      <!-- 1. DATOS COMERCIALES -->
+      <details class="provider-section" open>
+        <summary>📋 Datos comerciales</summary>
+        <div class="provider-section-body">
+          <form id="provider-profile-form">
+            <div class="excel-config-grid">
+              <div class="config-field">
+                <label for="prov-business-name">Razón social</label>
+                <input type="text" id="prov-business-name" class="form-select" required>
+              </div>
+              <div class="config-field">
+                <label for="prov-tax-id">CUIT</label>
+                <input type="text" id="prov-tax-id" class="form-select" placeholder="30-12345678-9">
+              </div>
+              <div class="config-field">
+                <label for="prov-website">Sitio web</label>
+                <input type="url" id="prov-website" class="form-select" placeholder="https://...">
+              </div>
+              <div class="config-field">
+                <label for="prov-contact-phone">Teléfono comercial</label>
+                <input type="tel" id="prov-contact-phone" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="prov-contact-email">Email comercial</label>
+                <input type="email" id="prov-contact-email" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="prov-description">Descripción breve</label>
+                <input type="text" id="prov-description" class="form-select" placeholder="Ej: Corralón mayorista, 20 años en la zona">
+              </div>
+            </div>
+
+            <h4 class="provider-subsection-title">Sucursal principal</h4>
+            <div class="excel-config-grid">
+              <div class="config-field">
+                <label for="branch-name">Nombre de la sucursal</label>
+                <input type="text" id="branch-name" class="form-select" placeholder="Ej: Casa Central" required>
+              </div>
+              <div class="config-field">
+                <label for="branch-locality">Localidad</label>
+                <input type="text" id="branch-locality" class="form-select" placeholder="Ej: Oberá" required>
+              </div>
+              <div class="config-field">
+                <label for="branch-province">Provincia</label>
+                <input type="text" id="branch-province" class="form-select" placeholder="Ej: Misiones">
+              </div>
+              <div class="config-field">
+                <label for="branch-address">Dirección</label>
+                <input type="text" id="branch-address" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="branch-whatsapp">WhatsApp de la sucursal</label>
+                <input type="tel" id="branch-whatsapp" class="form-select" placeholder="Con código de país, ej: 5493755...">
+              </div>
+              <div class="config-field">
+                <label for="branch-delivery-radius">Radio de entrega (km)</label>
+                <input type="number" id="branch-delivery-radius" class="form-select" min="0" step="1">
+              </div>
+              <div class="config-field">
+                <label for="branch-lat">Latitud</label>
+                <input type="text" id="branch-lat" class="form-select" placeholder="Ej: -27.4864">
+              </div>
+              <div class="config-field">
+                <label for="branch-lng">Longitud</label>
+                <input type="text" id="branch-lng" class="form-select" placeholder="Ej: -55.1200">
+              </div>
+            </div>
+            <p style="font-size: 0.75rem; color: var(--text-subtle); margin: -8px 0 14px;">
+              Para la latitud/longitud: buscá tu dirección en Google Maps, hacé clic derecho sobre el pin y elegí "¿Qué hay aquí?" — te va a mostrar las dos coordenadas para copiar y pegar acá.
+            </p>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; margin-bottom: 16px;">
+              <input type="checkbox" id="branch-delivery-available" style="width: auto;">
+              Ofrezco flete/entrega a domicilio
+            </label>
+
+            <button type="submit" class="btn-computo" id="btn-save-provider-profile">Guardar datos comerciales</button>
+            <span id="provider-profile-status" style="margin-left: 10px; font-size: 0.85rem; color: var(--text-muted);"></span>
+          </form>
+        </div>
+      </details>
+
+      <!-- 2. AGREGAR MATERIAL INDIVIDUAL -->
+      <details class="provider-section">
+        <summary>➕ Agregar un material a mi catálogo</summary>
+        <div class="provider-section-body">
+          <div class="config-field" style="margin-bottom: 12px;">
+            <label for="provider-add-search">Buscar material NEXOBRA</label>
+            <input type="text" id="provider-add-search" class="form-select" placeholder="Ej: cemento portland, ladrillo hueco...">
+          </div>
+          <div id="provider-add-results" class="provider-search-results"></div>
+        </div>
+      </details>
+
+      <!-- 3. CARGA MASIVA POR EXCEL -->
+      <details class="provider-section">
+        <summary>📊 Carga masiva desde Excel/CSV</summary>
+        <div class="provider-section-body">
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+            Subí un archivo con columnas: <strong>SKU</strong> (tu código propio, opcional), <strong>Nombre</strong> (descripción de tu producto), <strong>Precio</strong>, y opcionalmente <strong>Stock</strong> (en stock / a pedido / agotado). Vamos a intentar emparejar cada fila con el catálogo de NEXOBRA — revisá los resultados antes de confirmar.
+          </p>
+          <input type="file" id="provider-excel-input" accept=".xlsx,.xls,.csv" style="margin-bottom: 12px;">
+          <div id="provider-excel-preview"></div>
+          <button class="btn-computo" id="btn-confirm-provider-excel" style="display: none; margin-top: 12px;">Confirmar y cargar al catálogo</button>
+        </div>
+      </details>
+
+      <!-- 4. MI CATÁLOGO -->
+      <details class="provider-section" open>
+        <summary>🗂️ Mi catálogo cargado</summary>
+        <div class="provider-section-body">
+          <div class="provider-bulk-edit">
+            <label for="provider-bulk-percent">Ajuste rápido:</label>
+            <input type="number" id="provider-bulk-percent" class="form-select" placeholder="Ej: 3 ó -5" style="width: 90px;">
+            <span>%</span>
+            <button class="btn-computo" id="btn-apply-bulk-percent" style="padding: 8px 14px;">Aplicar a todo mi catálogo</button>
+          </div>
+          <div id="provider-catalog-list" class="provider-catalog-list"><!-- se completa con loadProviderCatalog() --></div>
+        </div>
+      </details>
     </div>
   </div>
 
