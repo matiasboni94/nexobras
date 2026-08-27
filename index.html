@@ -674,6 +674,47 @@
     </div>
   </div>
 
+  <!-- ========================= MODAL: ELEGIR ROL (solo tras 1er login con Google) ========================= -->
+  <div class="modal-backdrop" id="role-modal-backdrop"></div>
+  <div class="excel-modal" id="role-modal" role="dialog" aria-labelledby="modal-role-title" style="max-width: 420px;">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="modal-icon-badge">👋</div>
+        <div>
+          <h3 id="modal-role-title" style="font-size: 1.25rem; font-weight: 800; margin-bottom: 2px;">¡Bienvenido a NEXOBRA!</h3>
+          <p style="font-size: 0.8rem; color: var(--text-subtle);">Un último paso antes de arrancar</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <p id="role-error-msg" class="auth-error" style="display: none;"></p>
+      <form id="role-form" class="auth-form">
+        <div class="config-field">
+          <label>¿Cómo vas a usar NEXOBRA?</label>
+          <div class="auth-role-picker">
+            <label class="auth-role-option">
+              <input type="radio" name="onboarding-role" value="user" checked>
+              <div>
+                <strong>Soy profesional / particular</strong>
+                <span>Quiero comparar precios y armar presupuestos</span>
+              </div>
+            </label>
+            <label class="auth-role-option">
+              <input type="radio" name="onboarding-role" value="provider">
+              <div>
+                <strong>Soy corralón / proveedor</strong>
+                <span>Quiero cargar mis precios y ganar visibilidad</span>
+              </div>
+            </label>
+          </div>
+        </div>
+        <button type="submit" class="btn-computo" style="width: 100%; justify-content: center;" id="btn-submit-role">
+          Continuar
+        </button>
+      </form>
+    </div>
+  </div>
+
   <!-- ================================================================================= -->
   <div class="modal-backdrop" id="excel-modal-backdrop"></div>
   <div class="excel-modal" id="excel-modal" role="dialog" aria-labelledby="modal-excel-title">
