@@ -523,13 +523,17 @@
     if (authState.user) {
       const { data: profile } = await supabaseClient
         .from('profiles')
-        .select('full_name, role, phone, locality, matricula, rubro_habitual')
+        .select('full_name, role, phone, locality, matricula, rubro_habitual, role_confirmed')
         .eq('id', authState.user.id)
         .single();
       authState.profile = profile || null;
 
       const nombre = (profile?.full_name || '').trim() || authState.user.email;
       authHeaderLabel.textContent = nombre.length > 18 ? nombre.slice(0, 16) + '…' : nombre;
+
+      if (profile && profile.role_confirmed === false) {
+        openRoleModal();
+      }
     } else {
       authHeaderLabel.textContent = 'Ingresar';
     }
@@ -732,6 +736,61 @@
     profileModalCloseBtn.addEventListener('click', closeProfileModal);
     profileModalBackdrop.addEventListener('click', closeProfileModal);
     profileForm.addEventListener('submit', handleProfileSubmit);
+  }
+
+  // --- ELEGIR ROL (solo la primera vez que se entra por Google) ---
+  // El registro manual ya pregunta el rol en el propio formulario. Google no
+  // permite mandar ese dato antes de redirigir, así que se lo preguntamos acá
+  // apenas vuelve con sesión, una única vez (profiles.role_confirmed lo controla).
+  const roleModal = document.getElementById('role-modal');
+  const roleModalBackdrop = document.getElementById('role-modal-backdrop');
+  const roleForm = document.getElementById('role-form');
+  const roleErrorMsg = document.getElementById('role-error-msg');
+
+  function openRoleModal() {
+    roleErrorMsg.style.display = 'none';
+    roleModal.classList.add('open');
+    roleModalBackdrop.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeRoleModal() {
+    roleModal.classList.remove('open');
+    roleModalBackdrop.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  async function handleRoleSubmit(e) {
+    e.preventDefault();
+    const role = document.querySelector('input[name="onboarding-role"]:checked').value;
+    const btn = document.getElementById('btn-submit-role');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    const { error } = await supabaseClient
+      .from('profiles')
+      .update({ role, role_confirmed: true })
+      .eq('id', authState.user.id);
+
+    btn.disabled = false;
+    btn.textContent = 'Continuar';
+
+    if (error) {
+      roleErrorMsg.textContent = 'No se pudo guardar: ' + error.message;
+      roleErrorMsg.style.display = 'block';
+      return;
+    }
+
+    await refreshAuthUI();
+    closeRoleModal();
+    showToast('¡Listo! Ya podés usar NEXOBRA.');
+  }
+
+  function setupRoleListeners() {
+    if (!supabaseClient) return;
+    roleForm.addEventListener('submit', handleRoleSubmit);
+    // A propósito NO se cierra clickeando el backdrop: es un paso obligatorio
+    // la primera vez, para no dejar perfiles a medio configurar.
   }
 
   // --- MIS PRESUPUESTOS (Fase B) ---
@@ -1369,6 +1428,7 @@
     Promise.all([loadIndexSeries(), loadLaborSeries()]).then(reconcilePriceMonth);
     setupAuthListeners();
     setupProfileListeners();
+    setupRoleListeners();
     setupComputationListeners();
 
     // Nav buttons
