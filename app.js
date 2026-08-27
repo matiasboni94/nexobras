@@ -531,6 +531,8 @@
       const nombre = (profile?.full_name || '').trim() || authState.user.email;
       authHeaderLabel.textContent = nombre.length > 18 ? nombre.slice(0, 16) + '…' : nombre;
 
+      updateProviderNavVisibility();
+
       if (profile && profile.role_confirmed === false) {
         openRoleModal();
       }
@@ -1031,6 +1033,432 @@
     });
   }
 
+  // --- MI CORRALÓN (Fase C) ---
+  // Todo lo que ve/gestiona un usuario con role='provider': datos comerciales
+  // (providers + su sucursal principal en provider_branches) y su catálogo
+  // propio de precios (provider_offers). Reutiliza findBestMaterialMatch, ya
+  // construida para el cotizador de Excel, para el matcheo de la carga masiva.
+  const providerState = { provider: null, branch: null, offers: [], excelPending: [] };
+
+  const btnOpenMyProvider = document.getElementById('btn-open-my-provider');
+  const providerView = document.getElementById('provider-view');
+  const providerProfileForm = document.getElementById('provider-profile-form');
+  const providerProfileStatus = document.getElementById('provider-profile-status');
+  const providerAddSearch = document.getElementById('provider-add-search');
+  const providerAddResults = document.getElementById('provider-add-results');
+  const providerExcelInput = document.getElementById('provider-excel-input');
+  const providerExcelPreview = document.getElementById('provider-excel-preview');
+  const btnConfirmProviderExcel = document.getElementById('btn-confirm-provider-excel');
+  const providerCatalogList = document.getElementById('provider-catalog-list');
+  const providerBulkPercent = document.getElementById('provider-bulk-percent');
+  const btnApplyBulkPercent = document.getElementById('btn-apply-bulk-percent');
+
+  function isProvider() {
+    return authState.profile?.role === 'provider';
+  }
+
+  /** Se llama desde refreshAuthUI(): muestra/oculta el acceso a "Mi Corralón" según el rol. */
+  function updateProviderNavVisibility() {
+    if (btnOpenMyProvider) btnOpenMyProvider.style.display = isProvider() ? 'block' : 'none';
+  }
+
+  async function loadProviderData() {
+    if (!supabaseClient || !authState.user) return;
+
+    const { data: provider } = await supabaseClient
+      .from('providers')
+      .select('*')
+      .eq('owner_id', authState.user.id)
+      .maybeSingle();
+
+    providerState.provider = provider || null;
+
+    if (provider) {
+      document.getElementById('prov-business-name').value = provider.business_name || '';
+      document.getElementById('prov-tax-id').value = provider.tax_id || '';
+      document.getElementById('prov-website').value = provider.website_url || '';
+      document.getElementById('prov-contact-phone').value = provider.contact_phone || '';
+      document.getElementById('prov-contact-email').value = provider.contact_email || '';
+      document.getElementById('prov-description').value = provider.description || '';
+
+      const { data: branch } = await supabaseClient
+        .from('provider_branches')
+        .select('*')
+        .eq('provider_id', provider.id)
+        .order('created_at')
+        .limit(1)
+        .maybeSingle();
+
+      providerState.branch = branch || null;
+
+      if (branch) {
+        document.getElementById('branch-name').value = branch.name || '';
+        document.getElementById('branch-locality').value = branch.locality || '';
+        document.getElementById('branch-province').value = branch.province || '';
+        document.getElementById('branch-address').value = branch.address || '';
+        document.getElementById('branch-whatsapp').value = branch.whatsapp_phone || '';
+        document.getElementById('branch-delivery-radius').value = branch.delivery_radius_km || '';
+        document.getElementById('branch-lat').value = branch.latitude ?? '';
+        document.getElementById('branch-lng').value = branch.longitude ?? '';
+        document.getElementById('branch-delivery-available').checked = !!branch.delivery_available;
+      }
+    }
+
+    await loadProviderCatalog();
+  }
+
+  async function handleProviderProfileSubmit(e) {
+    e.preventDefault();
+    if (!authState.user) return;
+    const btn = document.getElementById('btn-save-provider-profile');
+    btn.disabled = true;
+    providerProfileStatus.textContent = 'Guardando...';
+
+    try {
+      const providerPayload = {
+        owner_id: authState.user.id,
+        business_name: document.getElementById('prov-business-name').value.trim(),
+        tax_id: document.getElementById('prov-tax-id').value.trim() || null,
+        website_url: document.getElementById('prov-website').value.trim() || null,
+        contact_phone: document.getElementById('prov-contact-phone').value.trim() || null,
+        contact_email: document.getElementById('prov-contact-email').value.trim() || null,
+        description: document.getElementById('prov-description').value.trim() || null,
+        active: true
+      };
+
+      let provider = providerState.provider;
+      if (provider) {
+        const { error } = await supabaseClient.from('providers').update(providerPayload).eq('id', provider.id);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabaseClient.from('providers').insert(providerPayload).select('*').single();
+        if (error) throw error;
+        provider = data;
+        providerState.provider = provider;
+      }
+
+      const branchPayload = {
+        provider_id: provider.id,
+        name: document.getElementById('branch-name').value.trim(),
+        locality: document.getElementById('branch-locality').value.trim(),
+        province: document.getElementById('branch-province').value.trim() || null,
+        address: document.getElementById('branch-address').value.trim() || null,
+        whatsapp_phone: document.getElementById('branch-whatsapp').value.trim() || null,
+        delivery_radius_km: parseFloat(document.getElementById('branch-delivery-radius').value) || null,
+        latitude: parseFloat(document.getElementById('branch-lat').value) || null,
+        longitude: parseFloat(document.getElementById('branch-lng').value) || null,
+        delivery_available: document.getElementById('branch-delivery-available').checked,
+        active: true
+      };
+
+      let branch = providerState.branch;
+      if (branch) {
+        const { error } = await supabaseClient.from('provider_branches').update(branchPayload).eq('id', branch.id);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabaseClient.from('provider_branches').insert(branchPayload).select('*').single();
+        if (error) throw error;
+        branch = data;
+        providerState.branch = branch;
+      }
+
+      providerProfileStatus.textContent = '✓ Guardado';
+      showToast('Datos comerciales guardados.');
+    } catch (err) {
+      providerProfileStatus.textContent = '';
+      showToast('No se pudo guardar: ' + err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // --- Agregar material individual ---
+  /** Búsqueda liviana e independiente del catálogo principal, solo para este panel. */
+  function searchMaterialsSimple(query, limit = 8) {
+    const tokens = normalizeText(query).split(' ').filter(Boolean);
+    if (tokens.length === 0) return [];
+    return NEXOBRA_DATA.filter(item => {
+      const haystack = normalizeText([item.denominacion, item.id, item.categoria, item.rubro, ...(item.tags || [])].join(' '));
+      return tokens.every(tok => haystack.includes(tok) || haystack.includes(singularize(tok)));
+    }).slice(0, limit);
+  }
+
+  function renderProviderAddResults() {
+    const query = providerAddSearch.value.trim();
+    if (query.length < 2) {
+      providerAddResults.innerHTML = '';
+      return;
+    }
+    const results = searchMaterialsSimple(query);
+    if (results.length === 0) {
+      providerAddResults.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Sin resultados.</p>';
+      return;
+    }
+    providerAddResults.innerHTML = results.map(item => `
+      <div class="provider-search-row">
+        <div class="provider-search-row-info">
+          <strong>${item.denominacion}</strong><br>
+          <span style="color:var(--text-muted); font-size:0.75rem;">${item.id} · ${item.rubro}</span>
+        </div>
+        <div class="provider-search-row-controls">
+          <input type="text" id="prov-sku-${item.id}" placeholder="Tu SKU (opcional)">
+          <input type="number" id="prov-price-${item.id}" placeholder="Precio" min="0" step="0.01">
+          <select id="prov-stock-${item.id}">
+            <option value="en_stock">En stock</option>
+            <option value="a_pedido">A pedido</option>
+            <option value="agotado">Agotado</option>
+          </select>
+          <button class="btn-computo" style="padding: 6px 12px; font-size: 0.78rem;" onclick="window.nexoBraApp.addOfferFromSearch('${item.id}')">Agregar</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function addOfferFromSearch(materialId) {
+    if (!providerState.branch) {
+      showToast('Primero guardá tus datos comerciales (sucursal) arriba.');
+      return;
+    }
+    const material = NEXOBRA_DATA.find(m => m.id === materialId);
+    const price = parseFloat(document.getElementById(`prov-price-${materialId}`).value);
+    if (!price || price <= 0) {
+      showToast('Ingresá un precio válido.');
+      return;
+    }
+    const sku = document.getElementById(`prov-sku-${materialId}`).value.trim() || null;
+    const stock = document.getElementById(`prov-stock-${materialId}`).value;
+
+    const { error } = await supabaseClient.from('provider_offers').insert({
+      branch_id: providerState.branch.id,
+      material_id: materialId,
+      price_kind: 'sale',
+      amount: price,
+      unit: material.unidadVenta,
+      provider_sku: sku,
+      stock_status: stock,
+      status: 'approved',
+      reported_at: new Date().toISOString()
+    });
+
+    if (error) {
+      showToast('No se pudo agregar: ' + error.message);
+      return;
+    }
+    showToast(`Agregado: ${material.denominacion.substring(0, 30)}`);
+    providerAddSearch.value = '';
+    providerAddResults.innerHTML = '';
+    loadProviderCatalog();
+  }
+
+  // --- Mi catálogo: listado, edición, borrado, ajuste por porcentaje ---
+  async function loadProviderCatalog() {
+    if (!providerState.branch) {
+      providerCatalogList.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Guardá primero tus datos comerciales para empezar a cargar tu catálogo.</p>';
+      return;
+    }
+    const { data, error } = await supabaseClient
+      .from('provider_offers')
+      .select('id, amount, unit, provider_sku, stock_status, materials(id, denomination)')
+      .eq('branch_id', providerState.branch.id)
+      .order('reported_at', { ascending: false });
+
+    if (error) {
+      providerCatalogList.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">Error: ${error.message}</p>`;
+      return;
+    }
+    providerState.offers = data || [];
+    renderProviderCatalog();
+  }
+
+  function renderProviderCatalog() {
+    if (providerState.offers.length === 0) {
+      providerCatalogList.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Todavía no cargaste materiales. Usá la búsqueda o la carga masiva de arriba.</p>';
+      return;
+    }
+    providerCatalogList.innerHTML = providerState.offers.map(offer => `
+      <div class="provider-catalog-row">
+        <div class="provider-catalog-row-info">
+          <h5>${offer.materials?.denomination || '(material eliminado)'}</h5>
+          <span>${offer.provider_sku ? `SKU propio: ${offer.provider_sku} · ` : ''}${offer.unit}</span>
+        </div>
+        <div class="provider-catalog-row-controls">
+          <span class="stock-badge ${offer.stock_status}">${offer.stock_status === 'en_stock' ? 'En stock' : offer.stock_status === 'a_pedido' ? 'A pedido' : 'Agotado'}</span>
+          <select onchange="window.nexoBraApp.updateOfferStock('${offer.id}', this.value)">
+            <option value="en_stock" ${offer.stock_status === 'en_stock' ? 'selected' : ''}>En stock</option>
+            <option value="a_pedido" ${offer.stock_status === 'a_pedido' ? 'selected' : ''}>A pedido</option>
+            <option value="agotado" ${offer.stock_status === 'agotado' ? 'selected' : ''}>Agotado</option>
+          </select>
+          <input type="number" value="${offer.amount}" min="0" step="0.01" onchange="window.nexoBraApp.updateOfferPrice('${offer.id}', parseFloat(this.value))">
+          <button class="btn-remove-item" onclick="window.nexoBraApp.deleteOffer('${offer.id}')" title="Eliminar">&times;</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function updateOfferPrice(offerId, newAmount) {
+    if (!newAmount || newAmount <= 0) return;
+    const { error } = await supabaseClient.from('provider_offers').update({ amount: newAmount }).eq('id', offerId);
+    if (error) { showToast('No se pudo actualizar: ' + error.message); return; }
+    showToast('Precio actualizado.');
+    loadProviderCatalog();
+  }
+
+  async function updateOfferStock(offerId, newStatus) {
+    const { error } = await supabaseClient.from('provider_offers').update({ stock_status: newStatus }).eq('id', offerId);
+    if (error) { showToast('No se pudo actualizar: ' + error.message); return; }
+    showToast('Stock actualizado.');
+  }
+
+  async function deleteOffer(offerId) {
+    if (!confirm('¿Eliminar este material de tu catálogo?')) return;
+    const { error } = await supabaseClient.from('provider_offers').delete().eq('id', offerId);
+    if (error) { showToast('No se pudo eliminar: ' + error.message); return; }
+    showToast('Eliminado.');
+    loadProviderCatalog();
+  }
+
+  async function applyBulkPercent() {
+    const pct = parseFloat(providerBulkPercent.value);
+    if (!pct || providerState.offers.length === 0) {
+      showToast('Ingresá un porcentaje y tené al menos un ítem cargado.');
+      return;
+    }
+    if (!confirm(`¿Aplicar ${pct > 0 ? '+' : ''}${pct}% a los ${providerState.offers.length} ítems de tu catálogo?`)) return;
+
+    btnApplyBulkPercent.disabled = true;
+    const updates = providerState.offers.map(offer => {
+      const newAmount = Math.round(offer.amount * (1 + pct / 100) * 100) / 100;
+      return supabaseClient.from('provider_offers').update({ amount: newAmount }).eq('id', offer.id);
+    });
+    await Promise.all(updates);
+    btnApplyBulkPercent.disabled = false;
+    providerBulkPercent.value = '';
+    showToast(`Ajuste del ${pct}% aplicado a todo tu catálogo.`);
+    loadProviderCatalog();
+  }
+
+  // --- Carga masiva por Excel ---
+  function handleProviderExcelFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      processProviderExcelRows(rows);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function processProviderExcelRows(rows) {
+    if (!rows || rows.length < 2) {
+      showToast('El archivo no tiene filas de datos.');
+      return;
+    }
+    const header = rows[0].map(h => normalizeText(h));
+    let skuIdx = header.findIndex(h => h.includes('sku') || h.includes('codigo') || h.includes('cod'));
+    let nameIdx = header.findIndex(h => h.includes('nombre') || h.includes('descripcion') || h.includes('material') || h.includes('producto'));
+    let priceIdx = header.findIndex(h => h.includes('precio'));
+    let stockIdx = header.findIndex(h => h.includes('stock') || h.includes('disponib'));
+
+    if (nameIdx === -1) nameIdx = 0;
+    if (priceIdx === -1) priceIdx = 1;
+
+    const pending = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length === 0) continue;
+      const sku = skuIdx > -1 && row[skuIdx] ? row[skuIdx].toString().trim() : '';
+      const name = nameIdx > -1 && row[nameIdx] ? row[nameIdx].toString().trim() : '';
+      const price = priceIdx > -1 && row[priceIdx] ? parseFloat(row[priceIdx]) : 0;
+      const stockRaw = stockIdx > -1 && row[stockIdx] ? normalizeText(row[stockIdx].toString()) : '';
+      let stock = 'en_stock';
+      if (stockRaw.includes('pedido')) stock = 'a_pedido';
+      if (stockRaw.includes('agot') || stockRaw.includes('sin stock')) stock = 'agotado';
+
+      if (!name && !sku) continue;
+      const match = findBestMaterialMatch(sku, name);
+      pending.push({ sku, name, price, stock, matchedItem: match.item, status: match.status });
+    }
+
+    providerState.excelPending = pending;
+    renderProviderExcelPreview();
+  }
+
+  function renderProviderExcelPreview() {
+    const validCount = providerState.excelPending.filter(r => r.matchedItem).length;
+    if (providerState.excelPending.length === 0) {
+      providerExcelPreview.innerHTML = '';
+      btnConfirmProviderExcel.style.display = 'none';
+      return;
+    }
+    providerExcelPreview.innerHTML = providerState.excelPending.map(row => `
+      <div class="excel-preview-row status-${row.status}">
+        <div>
+          <strong>${row.name || row.sku}</strong>
+          ${row.matchedItem ? `→ ${row.matchedItem.denominacion} (${row.matchedItem.id})` : ' → sin coincidencia, no se va a cargar'}
+        </div>
+        <div>$${row.price || 0} · ${row.stock}</div>
+      </div>
+    `).join('');
+    btnConfirmProviderExcel.style.display = validCount > 0 ? 'inline-flex' : 'none';
+    showToast(`${validCount} de ${providerState.excelPending.length} filas emparejadas con el catálogo.`);
+  }
+
+  async function confirmProviderExcelUpload() {
+    if (!providerState.branch) {
+      showToast('Primero guardá tus datos comerciales (sucursal) arriba.');
+      return;
+    }
+    const rows = providerState.excelPending.filter(r => r.matchedItem && r.price > 0);
+    if (rows.length === 0) {
+      showToast('No hay filas válidas para cargar.');
+      return;
+    }
+    btnConfirmProviderExcel.disabled = true;
+
+    const inserts = rows.map(row => ({
+      branch_id: providerState.branch.id,
+      material_id: row.matchedItem.id,
+      price_kind: 'sale',
+      amount: row.price,
+      unit: row.matchedItem.unidadVenta,
+      provider_sku: row.sku || null,
+      stock_status: row.stock,
+      status: 'approved',
+      reported_at: new Date().toISOString()
+    }));
+
+    const { error } = await supabaseClient.from('provider_offers').insert(inserts);
+    btnConfirmProviderExcel.disabled = false;
+
+    if (error) {
+      showToast('No se pudo cargar el archivo: ' + error.message);
+      return;
+    }
+    showToast(`¡Listo! Se cargaron ${rows.length} materiales a tu catálogo.`);
+    providerState.excelPending = [];
+    providerExcelPreview.innerHTML = '';
+    btnConfirmProviderExcel.style.display = 'none';
+    providerExcelInput.value = '';
+    loadProviderCatalog();
+  }
+
+  function setupProviderListeners() {
+    if (!supabaseClient) return;
+    btnOpenMyProvider.addEventListener('click', () => {
+      authDropdown.style.display = 'none';
+      switchView('provider');
+    });
+    providerProfileForm.addEventListener('submit', handleProviderProfileSubmit);
+    providerAddSearch.addEventListener('input', renderProviderAddResults);
+    providerExcelInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) handleProviderExcelFile(e.target.files[0]);
+    });
+    btnConfirmProviderExcel.addEventListener('click', confirmProviderExcelUpload);
+    btnApplyBulkPercent.addEventListener('click', applyBulkPercent);
+  }
+
   // --- DOM ELEMENTS ---
   const homeView = document.getElementById('home-view');
   const catalogView = document.getElementById('catalog-view');
@@ -1358,6 +1786,7 @@
     if (laborView) laborView.style.display = viewName === 'labor' ? 'block' : 'none';
     if (methodologyView) methodologyView.style.display = viewName === 'methodology' ? 'block' : 'none';
     if (myComputationsView) myComputationsView.style.display = viewName === 'my-computations' ? 'block' : 'none';
+    if (providerView) providerView.style.display = viewName === 'provider' ? 'block' : 'none';
 
     navBtnHome.classList.toggle('active', viewName === 'home');
     navBtnCatalogo.classList.toggle('active', viewName === 'catalog');
@@ -1401,6 +1830,16 @@
         loadMyComputations();
       }
     }
+    if (viewName === 'provider') {
+      if (!authState.user || !isProvider()) {
+        showToast(!authState.user ? 'Iniciá sesión primero.' : 'Esta sección es solo para cuentas de Corralón.');
+        state.currentView = 'home';
+        homeView.style.display = 'block';
+        if (providerView) providerView.style.display = 'none';
+      } else {
+        loadProviderData();
+      }
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -1430,6 +1869,7 @@
     setupProfileListeners();
     setupRoleListeners();
     setupComputationListeners();
+    setupProviderListeners();
 
     // Nav buttons
     navBrandLogo.addEventListener('click', (e) => {
@@ -2517,7 +2957,11 @@
     changeLaborQty,
     openComputation,
     duplicateComputation,
-    deleteComputation
+    deleteComputation,
+    addOfferFromSearch,
+    updateOfferPrice,
+    updateOfferStock,
+    deleteOffer
   };
 
   document.addEventListener('DOMContentLoaded', init);
