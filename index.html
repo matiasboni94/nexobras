@@ -39,6 +39,7 @@
         <button class="nav-link" id="nav-btn-rubros">Rubros de Obra</button>
         <button class="nav-link" id="nav-btn-catalogo">Catálogo Completo</button>
         <button class="nav-link" id="nav-btn-manoobra">Mano de Obra</button>
+        <button class="nav-link" id="nav-btn-mapa">Mapa de Proveedores</button>
         <a class="nav-link" href="mailto:nexobra.info@gmail.com?subject=Sugerencia%20NEXOBRA" id="nav-btn-contacto">Contacto</a>
       </nav>
 
@@ -101,6 +102,7 @@
     <button class="mobile-menu-link" id="mobile-nav-btn-rubros">Rubros de Obra</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-catalogo">Catálogo Completo</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-manoobra">Mano de Obra</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-mapa">Mapa de Proveedores</button>
     <a class="mobile-menu-link" href="mailto:nexobra.info@gmail.com?subject=Sugerencia%20NEXOBRA">Contacto</a>
   </nav>
 
@@ -1048,6 +1050,42 @@
     </div>
   </div>
 
+  <!-- =========================================================================
+       VISTA 7: MAPA DE PROVEEDORES (Fase D)
+       ========================================================================= -->
+  <div id="map-view" class="view-section" style="display: none;">
+    <div class="container" style="max-width: 1100px;">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Mapa de Proveedores</h2>
+          <p class="catalog-subtitle">Corralones cerca tuyo, y cómo se comparan sus precios con la mediana de la zona.</p>
+        </div>
+        <div class="map-controls">
+          <button class="btn-computo" id="btn-geolocate" style="padding: 9px 14px;">📍 Usar mi ubicación</button>
+          <label for="map-radius-select" style="font-size: 0.8rem; font-weight: 700; margin-left: 6px;">Radio:</label>
+          <select id="map-radius-select" class="sort-select">
+            <option value="10">10 km</option>
+            <option value="25" selected>25 km</option>
+            <option value="50">50 km</option>
+            <option value="100">100 km</option>
+          </select>
+        </div>
+      </div>
+
+      <p id="map-status-msg" style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 12px;"></p>
+
+      <div class="map-layout">
+        <div id="provider-map" class="provider-map-container"></div>
+        <div id="map-branch-panel" class="map-branch-panel">
+          <div class="map-branch-panel-empty">
+            <div style="font-size: 2rem;">🗺️</div>
+            <p>Tocá un pin del mapa para ver la ficha del proveedor y cómo se comparan sus precios con el resto de la zona.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="toast-container" id="toast-container"></div>
 
   <!-- FOOTER -->
@@ -1094,6 +1132,8 @@
   <!-- Cliente y configuración pública: sin claves secretas. -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="supabase-config.js"></script>
   <script src="data.js"></script>
   <script src="app.js"></script>
