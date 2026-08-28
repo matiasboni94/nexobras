@@ -85,7 +85,8 @@
     computoCart: JSON.parse(localStorage.getItem('nexobra_computo') || '[]'),
     excelProcessedRows: [],
     priceMonth: null, // "YYYY-MM-01", mes elegido por el usuario para EXPLORAR precios en el catálogo
-    computoMonth: null // "YYYY-MM-01", mes al que se recalcula TODO "Mi Cómputo" (independiente del anterior)
+    computoMonth: null, // "YYYY-MM-01", mes al que se recalcula TODO "Mi Cómputo" (independiente del anterior)
+    pricingSource: 'reference' // 'reference' (IPC) | 'providers' (ofertas reales cercanas)
   };
 
   // Serie de índices IPC cargada desde public.index_values (tabla real, no valores fijos).
@@ -1601,6 +1602,69 @@
     });
   }
 
+  // --- OFERTAS DE CORRALONES EN EL CATÁLOGO (toggle "ORIGEN DEL VALOR") ---
+  // Reutiliza el mismo centro/radio que el mapa (mapState) para no pedir
+  // ubicación dos veces. Si el mapa nunca se abrió en esta sesión, usa el
+  // centro por defecto (o pide geolocalización la primera vez que se activa).
+  const providerPricesState = { loaded: false, byMaterial: {} };
+
+  async function loadNearbyRepresentativePrices() {
+    if (!supabaseClient) return;
+    const { data, error } = await supabaseClient.rpc('nearby_representative_prices', {
+      center_lat: mapState.center.lat,
+      center_lng: mapState.center.lng,
+      radius_km: mapState.radiusKm
+    });
+    if (error) {
+      showToast('No se pudieron cargar las ofertas de corralones: ' + error.message);
+      return;
+    }
+    providerPricesState.byMaterial = {};
+    (data || []).forEach(row => { providerPricesState.byMaterial[row.material_id] = row; });
+    providerPricesState.loaded = true;
+  }
+
+  function setupPricingSourceListeners() {
+    const btnSourceReference = document.getElementById('source-reference');
+    const btnSourceProviders = document.getElementById('source-providers');
+    if (!btnSourceReference || !btnSourceProviders) return;
+
+    async function activateProvidersSource() {
+      btnSourceReference.classList.remove('active');
+      btnSourceProviders.classList.add('active');
+      state.pricingSource = 'providers';
+
+      if (!providerPricesState.loaded) {
+        if (navigator.geolocation) {
+          showToast('Buscando ofertas cerca tuyo...');
+          navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+              mapState.center = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+              await loadNearbyRepresentativePrices();
+              renderProducts();
+            },
+            async () => {
+              await loadNearbyRepresentativePrices();
+              renderProducts();
+            },
+            { timeout: 8000 }
+          );
+          return; // renderProducts() se llama dentro del callback async de arriba
+        }
+        await loadNearbyRepresentativePrices();
+      }
+      renderProducts();
+    }
+
+    btnSourceReference.addEventListener('click', () => {
+      btnSourceProviders.classList.remove('active');
+      btnSourceReference.classList.add('active');
+      state.pricingSource = 'reference';
+      renderProducts();
+    });
+    btnSourceProviders.addEventListener('click', activateProvidersSource);
+  }
+
   // --- DOM ELEMENTS ---
   const homeView = document.getElementById('home-view');
   const catalogView = document.getElementById('catalog-view');
@@ -2000,7 +2064,7 @@
     if (state.activeRubro === 'Todos') {
       catalogCurrentRubro.textContent = 'Catálogo General';
       catalogHeaderTitle.textContent = 'Todos los Materiales de Obra';
-      catalogHeaderSubtitle.textContent = 'Base completa de 538 materiales cotizados con dualidad de venta y cómputo';
+      catalogHeaderSubtitle.textContent = '';
     } else {
       const meta = RUBROS_METADATA[state.activeRubro] || { icon: "📦", desc: "" };
       catalogCurrentRubro.textContent = state.activeRubro;
@@ -2024,6 +2088,7 @@
     setupComputationListeners();
     setupProviderListeners();
     setupMapListeners();
+    setupPricingSourceListeners();
 
     // Nav buttons
     navBrandLogo.addEventListener('click', (e) => {
@@ -2370,12 +2435,41 @@
       const isVentaMode = state.pricingMode === 'venta';
       const mainTrace = getReferencePrice(item, state.pricingMode);
       const secondaryTrace = getReferencePrice(item, isVentaMode ? 'computo' : 'venta');
-      const mainPrice = mainTrace.currentPrice;
-      const mainUnit = mainTrace.unit;
 
-      const secPrice = secondaryTrace.currentPrice;
-      const secUnit = secondaryTrace.unit;
-      const secLabel = isVentaMode ? 'Cómputo métrico' : 'Venta x bulto';
+      const usaOfertas = state.pricingSource === 'providers';
+      const oferta = usaOfertas ? providerPricesState.byMaterial[item.id] : null;
+
+      let mainPrice, mainUnit, priceBoxExtra;
+      if (usaOfertas && oferta) {
+        mainPrice = oferta.median_price;
+        mainUnit = item.unidadVenta;
+        priceBoxExtra = `
+          <div class="price-secondary-row" style="color: #15803d;">
+            <span>🏪 ${oferta.offers_count} oferta${oferta.offers_count === 1 ? '' : 's'} cerca tuyo</span>
+            <strong>${formatMoney(oferta.min_price)} - ${formatMoney(oferta.max_price)}</strong>
+          </div>
+        `;
+      } else if (usaOfertas && !oferta) {
+        mainPrice = mainTrace.currentPrice;
+        mainUnit = mainTrace.unit;
+        priceBoxExtra = `
+          <div class="price-secondary-row" style="color: var(--text-subtle);">
+            <span>Sin ofertas cercanas cargadas — mostrando referencia NEXOBRA</span>
+          </div>
+        `;
+      } else {
+        mainPrice = mainTrace.currentPrice;
+        mainUnit = mainTrace.unit;
+        const secPrice = secondaryTrace.currentPrice;
+        const secUnit = secondaryTrace.unit;
+        const secLabel = isVentaMode ? 'Cómputo métrico' : 'Venta x bulto';
+        priceBoxExtra = `
+          <div class="price-secondary-row">
+            <span>${secLabel}:</span>
+            <strong>${formatMoney(secPrice)} / ${secUnit}</strong>
+          </div>
+        `;
+      }
 
       const tagsHtml = item.tags.slice(0, 4).map(t => 
         `<span class="card-tag-item" data-tag="${t}">#${t}</span>`
@@ -2398,13 +2492,10 @@
                 <span class="price-main-val">${formatMoney(mainPrice)}</span>
                 <span class="price-unit-tag">/ ${mainUnit}</span>
               </div>
-              <div class="price-secondary-row">
-                <span>${secLabel}:</span>
-                <strong>${formatMoney(secPrice)} / ${secUnit}</strong>
-              </div>
+              ${priceBoxExtra}
             </div>
 
-            ${renderPriceTrace(item)}
+            ${usaOfertas ? '' : renderPriceTrace(item)}
 
             <div class="card-tags">
               ${tagsHtml}
