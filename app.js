@@ -1459,6 +1459,148 @@
     btnApplyBulkPercent.addEventListener('click', applyBulkPercent);
   }
 
+  // --- MAPA DE PROVEEDORES (Fase D) ---
+  // Centro por defecto: Oberá, Misiones (zona piloto). Si el usuario comparte
+  // su ubicación real, se recentra ahí. El radio y el centro son el único
+  // estado; todo lo demás (pines, ficha) se recalcula llamando a las
+  // funciones SQL que ya hacen el trabajo pesado (distancia real, mediana).
+  const DEFAULT_MAP_CENTER = { lat: -27.4864, lng: -55.1199 };
+  const mapState = { map: null, markers: [], center: { ...DEFAULT_MAP_CENTER }, radiusKm: 25, initialized: false };
+
+  const mapStatusMsg = document.getElementById('map-status-msg');
+  const mapBranchPanel = document.getElementById('map-branch-panel');
+  const mapRadiusSelect = document.getElementById('map-radius-select');
+  const btnGeolocate = document.getElementById('btn-geolocate');
+
+  function initProviderMap() {
+    if (mapState.initialized || typeof L === 'undefined') return;
+    mapState.map = L.map('provider-map').setView([mapState.center.lat, mapState.center.lng], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap',
+      maxZoom: 19
+    }).addTo(mapState.map);
+    mapState.initialized = true;
+  }
+
+  function clearMapMarkers() {
+    mapState.markers.forEach(m => mapState.map.removeLayer(m));
+    mapState.markers = [];
+  }
+
+  async function loadNearbyBranchesOnMap() {
+    if (!supabaseClient || !mapState.map) return;
+    mapStatusMsg.textContent = 'Buscando proveedores cercanos...';
+
+    const { data, error } = await supabaseClient.rpc('nearby_provider_branches', {
+      center_lat: mapState.center.lat,
+      center_lng: mapState.center.lng,
+      radius_km: mapState.radiusKm
+    });
+
+    if (error) {
+      mapStatusMsg.textContent = 'No se pudo cargar el mapa: ' + error.message;
+      return;
+    }
+
+    clearMapMarkers();
+
+    const centerMarker = L.circleMarker([mapState.center.lat, mapState.center.lng], {
+      radius: 7, color: '#d97757', fillColor: '#d97757', fillOpacity: 0.9
+    }).addTo(mapState.map).bindPopup('Tu ubicación');
+    mapState.markers.push(centerMarker);
+
+    (data || []).forEach(branch => {
+      if (!branch.latitude || !branch.longitude) return;
+      const marker = L.marker([branch.latitude, branch.longitude]).addTo(mapState.map);
+      marker.bindPopup(`<strong>${branch.business_name}</strong><br>${branch.branch_name} · ${branch.distance_km.toFixed(1)} km<br>${branch.offers_count} material${branch.offers_count === 1 ? '' : 'es'} cargado${branch.offers_count === 1 ? '' : 's'}`);
+      marker.on('click', () => showBranchDetail(branch.branch_id, branch));
+      mapState.markers.push(marker);
+    });
+
+    mapStatusMsg.textContent = data && data.length > 0
+      ? `${data.length} proveedor${data.length === 1 ? '' : 'es'} encontrado${data.length === 1 ? '' : 's'} en ${mapState.radiusKm} km a la redonda.`
+      : `No hay proveedores cargados en ${mapState.radiusKm} km a la redonda todavía.`;
+  }
+
+  async function showBranchDetail(branchId, branchInfo) {
+    mapBranchPanel.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando ficha...</p>';
+
+    const { data, error } = await supabaseClient.rpc('branch_price_variation', {
+      p_branch_id: branchId,
+      center_lat: mapState.center.lat,
+      center_lng: mapState.center.lng,
+      radius_km: mapState.radiusKm
+    });
+
+    if (error) {
+      mapBranchPanel.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+      return;
+    }
+
+    const whatsappLink = branchInfo.whatsapp_phone
+      ? `<a class="branch-whatsapp-btn" target="_blank" href="https://wa.me/${branchInfo.whatsapp_phone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde NEXOBRA para consultar precios.')}">💬 Contactar por WhatsApp</a>`
+      : '';
+
+    const filas = (data || []).map(row => {
+      const cls = row.variation_pct === null ? 'equal' : row.variation_pct < -1 ? 'below' : row.variation_pct > 1 ? 'above' : 'equal';
+      const texto = row.variation_pct === null ? 's/d' : `${row.variation_pct > 0 ? '+' : ''}${row.variation_pct}%`;
+      return `
+        <div class="variation-row">
+          <span class="variation-name">${row.denomination}${row.stock_status === 'agotado' ? ' <em>(agotado)</em>' : ''}</span>
+          <span class="variation-badge ${cls}">${texto}</span>
+        </div>
+      `;
+    }).join('');
+
+    mapBranchPanel.innerHTML = `
+      <h3>${branchInfo.business_name}</h3>
+      <div class="branch-meta">${branchInfo.branch_name} · ${branchInfo.locality} · ${branchInfo.distance_km.toFixed(1)} km de tu ubicación</div>
+      ${whatsappLink}
+      <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">Variación de precio vs. la mediana de proveedores en ${mapState.radiusKm} km a la redonda:</p>
+      ${filas || '<p style="font-size:0.8rem; color:var(--text-muted);">Sin materiales cargados todavía.</p>'}
+    `;
+  }
+
+  function requestUserLocation() {
+    if (!navigator.geolocation) {
+      showToast('Tu navegador no soporta geolocalización.');
+      return;
+    }
+    mapStatusMsg.textContent = 'Buscando tu ubicación...';
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        mapState.center = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        mapState.map.setView([mapState.center.lat, mapState.center.lng], 13);
+        loadNearbyBranchesOnMap();
+      },
+      () => {
+        showToast('No se pudo acceder a tu ubicación. Mostrando la zona por defecto.');
+        loadNearbyBranchesOnMap();
+      },
+      { timeout: 8000 }
+    );
+  }
+
+  function setupMapListeners() {
+    if (!supabaseClient) return;
+    const navBtnMapa = document.getElementById('nav-btn-mapa');
+    const mobileNavBtnMapa = document.getElementById('mobile-nav-btn-mapa');
+    if (navBtnMapa) navBtnMapa.addEventListener('click', () => switchView('map'));
+    if (mobileNavBtnMapa) mobileNavBtnMapa.addEventListener('click', () => {
+      switchView('map');
+      const panel = document.getElementById('mobile-menu-panel');
+      const backdrop = document.getElementById('mobile-menu-backdrop');
+      if (panel) panel.classList.remove('open');
+      if (backdrop) backdrop.classList.remove('open');
+      document.body.style.overflow = '';
+    });
+    btnGeolocate.addEventListener('click', requestUserLocation);
+    mapRadiusSelect.addEventListener('change', () => {
+      mapState.radiusKm = parseFloat(mapRadiusSelect.value);
+      loadNearbyBranchesOnMap();
+    });
+  }
+
   // --- DOM ELEMENTS ---
   const homeView = document.getElementById('home-view');
   const catalogView = document.getElementById('catalog-view');
@@ -1787,6 +1929,8 @@
     if (methodologyView) methodologyView.style.display = viewName === 'methodology' ? 'block' : 'none';
     if (myComputationsView) myComputationsView.style.display = viewName === 'my-computations' ? 'block' : 'none';
     if (providerView) providerView.style.display = viewName === 'provider' ? 'block' : 'none';
+    const mapViewEl = document.getElementById('map-view');
+    if (mapViewEl) mapViewEl.style.display = viewName === 'map' ? 'block' : 'none';
 
     navBtnHome.classList.toggle('active', viewName === 'home');
     navBtnCatalogo.classList.toggle('active', viewName === 'catalog');
@@ -1840,6 +1984,15 @@
         loadProviderData();
       }
     }
+    if (viewName === 'map') {
+      // Leaflet necesita el contenedor visible para calcular tamaño correctamente:
+      // primero se muestra el div (ya hecho arriba), recién ahí se inicializa/redibuja.
+      initProviderMap();
+      setTimeout(() => {
+        if (mapState.map) mapState.map.invalidateSize();
+        loadNearbyBranchesOnMap();
+      }, 50);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -1870,6 +2023,7 @@
     setupRoleListeners();
     setupComputationListeners();
     setupProviderListeners();
+    setupMapListeners();
 
     // Nav buttons
     navBrandLogo.addEventListener('click', (e) => {
