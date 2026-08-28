@@ -830,13 +830,18 @@
       factor_snapshot: pricing.factor ?? null,
       reference_period: state.computoMonth,
       pricing_mode: item.mode || 'venta',
-      source_kind: 'reference'
+      source_kind: item.providerOfferId ? 'provider_offer' : 'reference',
+      provider_offer_id: item.providerOfferId || null,
+      provider_branch_id: item.providerBranchId || null,
+      provider_business_name: item.providerBusinessName || null,
+      provider_branch_name: item.providerBranchName || null,
+      provider_whatsapp: item.providerWhatsapp || null
     };
   }
 
-  /** Convierte una fila de computation_items de vuelta a un item de carrito "vivo" (sin precio congelado). */
+  /** Convierte una fila de computation_items de vuelta a un item de carrito "vivo" (sin precio congelado, salvo que venga de un proveedor puntual). */
   function rowToCartItem(row) {
-    return {
+    const base = {
       id: row.material_id || row.labor_series_code,
       denominacion: row.denomination_snapshot,
       rubro: row.rubro,
@@ -845,6 +850,15 @@
       type: row.item_type,
       mode: row.pricing_mode || 'venta'
     };
+    if (row.provider_offer_id) {
+      base.providerOfferId = row.provider_offer_id;
+      base.providerBranchId = row.provider_branch_id;
+      base.providerBusinessName = row.provider_business_name;
+      base.providerBranchName = row.provider_branch_name;
+      base.providerWhatsapp = row.provider_whatsapp;
+      base.providerPrice = Number(row.price_snapshot); // acá sí se respeta el precio guardado: es fijo por diseño
+    }
+    return base;
   }
 
   async function saveComputation() {
@@ -1665,6 +1679,112 @@
     btnSourceProviders.addEventListener('click', activateProvidersSource);
   }
 
+  // --- ELEGIR UN PROVEEDOR ESPECÍFICO PARA UN MATERIAL ---
+  // A diferencia de los materiales "de referencia" (que siempre se recalculan
+  // en vivo contra el mes elegido en Mi Cómputo), un ítem elegido de un
+  // corralón puntual guarda el precio de ese momento tal cual — no hay "mes"
+  // al que llevarlo, es lo que ese corralón tiene cargado ahora. Si el
+  // corralón cambia después su precio, hay que sacarlo y volver a elegirlo.
+  const offerPickerModal = document.getElementById('offer-picker-modal');
+  const offerPickerModalBackdrop = document.getElementById('offer-picker-modal-backdrop');
+  const offerPickerModalCloseBtn = document.getElementById('offer-picker-modal-close-btn');
+  const offerPickerSubtitle = document.getElementById('offer-picker-subtitle');
+  const offerPickerResults = document.getElementById('offer-picker-results');
+
+  async function openOfferPicker(materialId) {
+    const material = NEXOBRA_DATA.find(m => m.id === materialId);
+    if (!material) return;
+
+    offerPickerSubtitle.textContent = material.denominacion;
+    offerPickerResults.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Buscando ofertas...</p>';
+    offerPickerModal.classList.add('open');
+    offerPickerModalBackdrop.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    const { data, error } = await supabaseClient.rpc('nearby_offers_for_material', {
+      p_material_id: materialId,
+      center_lat: mapState.center.lat,
+      center_lng: mapState.center.lng,
+      radius_km: mapState.radiusKm
+    });
+
+    if (error) {
+      offerPickerResults.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+      return;
+    }
+    if (!data || data.length === 0) {
+      offerPickerResults.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">No hay ofertas cercanas para este material.</p>';
+      return;
+    }
+
+    offerPickerResults.innerHTML = data.map((offer, idx) => `
+      <div class="offer-picker-row">
+        <div class="offer-picker-row-info">
+          <h5>${offer.business_name}</h5>
+          <span>${offer.branch_name} · ${offer.locality} · ${offer.distance_km.toFixed(1)} km${offer.stock_status === 'agotado' ? ' · <strong style="color:#b91c1c;">Agotado</strong>' : offer.stock_status === 'a_pedido' ? ' · A pedido' : ' · En stock'}</span>
+        </div>
+        <div class="offer-picker-row-price">
+          <strong>${formatMoney(offer.amount)}</strong>
+          <span style="font-size:0.72rem; color:var(--text-muted);">/ ${offer.unit}</span>
+          <button class="btn-computo" style="padding: 6px 12px; font-size: 0.75rem; margin-top: 4px; display:block;" onclick='window.nexoBraApp.chooseProviderOffer(${JSON.stringify(materialId)}, ${idx})'>
+            Elegir
+          </button>
+        </div>
+      </div>
+    `).join('');
+
+    // Se guarda temporalmente para que chooseProviderOffer no tenga que repetir la consulta.
+    offerPickerResults.dataset.materialId = materialId;
+    window.__offerPickerData = data;
+  }
+
+  function closeOfferPicker() {
+    offerPickerModal.classList.remove('open');
+    offerPickerModalBackdrop.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function chooseProviderOffer(materialId, offerIndex) {
+    const offer = window.__offerPickerData?.[offerIndex];
+    const material = NEXOBRA_DATA.find(m => m.id === materialId);
+    if (!offer || !material) return;
+
+    const qtyInput = document.getElementById(`qty-${materialId}`);
+    const qty = qtyInput ? Math.max(1, parseFloat(qtyInput.value) || 1) : 1;
+
+    const existingIndex = state.computoCart.findIndex(i => i.id === materialId && i.type === 'material' && i.providerOfferId === offer.offer_id);
+    if (existingIndex > -1) {
+      state.computoCart[existingIndex].qty += qty;
+    } else {
+      state.computoCart.push({
+        id: materialId,
+        denominacion: material.denominacion,
+        rubro: material.rubro,
+        unit: offer.unit,
+        qty: qty,
+        type: 'material',
+        mode: state.pricingMode,
+        providerOfferId: offer.offer_id,
+        providerBranchId: offer.branch_id,
+        providerBusinessName: offer.business_name,
+        providerBranchName: offer.branch_name,
+        providerWhatsapp: offer.whatsapp_phone,
+        providerPrice: offer.amount
+      });
+    }
+
+    saveCart();
+    updateCartUI();
+    closeOfferPicker();
+    showToast(`Agregado desde ${offer.business_name}: ${material.denominacion.substring(0, 30)}`);
+  }
+
+  function setupOfferPickerListeners() {
+    if (!supabaseClient) return;
+    offerPickerModalCloseBtn.addEventListener('click', closeOfferPicker);
+    offerPickerModalBackdrop.addEventListener('click', closeOfferPicker);
+  }
+
   // --- DOM ELEMENTS ---
   const homeView = document.getElementById('home-view');
   const catalogView = document.getElementById('catalog-view');
@@ -1835,6 +1955,20 @@
         factor: null,
         basePeriod: null,
         disponible: valor !== undefined
+      };
+    }
+
+    // Ítem elegido de un corralón puntual: precio fijo tal cual se cargó al
+    // elegirlo, no se recalcula contra ningún mes (no hay un "índice" de un
+    // corralón individual, solo lo que tiene puesto ahora mismo).
+    if (cartItem.providerOfferId) {
+      return {
+        unitPrice: cartItem.providerPrice,
+        basePrice: null,
+        factor: null,
+        basePeriod: null,
+        disponible: true,
+        isProviderSourced: true
       };
     }
 
@@ -2089,6 +2223,7 @@
     setupProviderListeners();
     setupMapListeners();
     setupPricingSourceListeners();
+    setupOfferPickerListeners();
 
     // Nav buttons
     navBrandLogo.addEventListener('click', (e) => {
@@ -2501,6 +2636,12 @@
               ${tagsHtml}
             </div>
 
+            ${usaOfertas && oferta ? `
+              <button class="btn-choose-provider" onclick="window.nexoBraApp.openOfferPicker('${item.id}')">
+                🏪 Ver ${oferta.offers_count} oferta${oferta.offers_count === 1 ? '' : 's'} y elegir proveedor
+              </button>
+            ` : ''}
+
             <div class="card-actions">
               <div class="qty-control">
                 <button class="qty-btn" onclick="window.nexoBraApp.changeCardQty('${item.id}', -1)" title="Reducir cantidad">-</button>
@@ -2667,6 +2808,88 @@
     return { materiales, manoDeObra, subtotalMateriales, subtotalManoObra, total: subtotalMateriales + subtotalManoObra };
   }
 
+  /**
+   * Separa el carrito en grupos por corralón elegido (providerBranchId) más
+   * un resto "sin proveedor asignado" (referencia NEXOBRA o mano de obra).
+   * Conserva el índice original de cada ítem en state.computoCart, porque
+   * eliminar/editar cantidad sigue operando por índice sobre ese array plano.
+   */
+  function groupCartByProvider() {
+    const groups = {};
+    const order = [];
+    const sinProveedor = [];
+    state.computoCart.forEach((item, idx) => {
+      if (item.type === 'material' && item.providerOfferId) {
+        const key = item.providerBranchId;
+        if (!groups[key]) {
+          groups[key] = {
+            branchId: key,
+            businessName: item.providerBusinessName,
+            branchName: item.providerBranchName,
+            whatsapp: item.providerWhatsapp,
+            items: []
+          };
+          order.push(key);
+        }
+        groups[key].items.push({ item, idx });
+      } else {
+        sinProveedor.push({ item, idx });
+      }
+    });
+    return { groups: order.map(k => groups[k]), sinProveedor };
+  }
+
+  function buildProviderWhatsappUrl(group) {
+    let text = `Hola! Te escribo desde NEXOBRA para pedirte presupuesto de estos materiales:\n\n`;
+    group.items.forEach(({ item }) => {
+      text += `• ${item.denominacion} — ${item.qty} ${item.unit}\n`;
+    });
+    text += `\n¿Me pasás precio y disponibilidad? Gracias!`;
+    const digits = (group.whatsapp || '').replace(/\D/g, '');
+    return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+  }
+
+  function renderCartItemRow(item, idx) {
+    const pricing = resolveItemPricing(item, state.computoMonth);
+    const subtotal = item.qty * pricing.unitPrice;
+    const esManoDeObra = item.type === 'labor';
+    return `
+      <div class="computo-item">
+        <div class="computo-item-head">
+          <div>
+            <span class="card-code" style="font-size: 0.7rem;">${esManoDeObra ? 'MANO DE OBRA' : item.id}</span>
+            <h4 class="computo-item-title">${item.denominacion}</h4>
+            ${pricing.isProviderSourced ? '<span class="cart-badge-provider">Precio fijo del proveedor</span>' : ''}
+          </div>
+          <button class="btn-remove-item" onclick="window.nexoBraApp.removeCartItem(${idx})" title="Eliminar ítem">&times;</button>
+        </div>
+        
+        <div class="computo-item-controls">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="color: var(--text-muted);">Cant:</span>
+            <input 
+              type="number" 
+              style="width: 55px; padding: 4px 6px; border: 1px solid var(--border-light); border-radius: 4px; font-weight: 700;" 
+              value="${item.qty}" 
+              min="${esManoDeObra ? 0.5 : 1}" 
+              step="${esManoDeObra ? 0.5 : 1}"
+              onchange="window.nexoBraApp.updateItemQtyInCart(${idx}, parseFloat(this.value) || 1)"
+            >
+            <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">${item.unit}</span>
+          </div>
+            <div style="text-align: right;">
+              ${pricing.disponible
+                ? `<div style="font-size: 0.74rem; color: var(--text-subtle);">${formatMoney(pricing.unitPrice)}/${item.unit}</div>
+                   ${pricing.basePrice ? `<div class="cart-price-trace">Base ${formatMoney(pricing.basePrice)} · × ${formatFactor(pricing.factor || 1)}</div>` : ''}
+                   <div class="computo-item-subtotal">${formatMoney(subtotal)}</div>`
+                : `<div style="font-size: 0.74rem; color: #b91c1c;">Sin dato para este mes</div>`
+              }
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   function updateCartUI() {
     const { subtotalMateriales, subtotalManoObra, total } = computeCartSubtotals();
 
@@ -2695,51 +2918,31 @@
           </button>
         </div>
       `;
-    } else {
-      drawerBody.innerHTML = `
-        <div class="computo-list">
-          ${state.computoCart.map((item, idx) => {
-            const pricing = resolveItemPricing(item, state.computoMonth);
-            const subtotal = item.qty * pricing.unitPrice;
-            const esManoDeObra = item.type === 'labor';
-            return `
-              <div class="computo-item">
-                <div class="computo-item-head">
-                  <div>
-                    <span class="card-code" style="font-size: 0.7rem;">${esManoDeObra ? 'MANO DE OBRA' : item.id}</span>
-                    <h4 class="computo-item-title">${item.denominacion}</h4>
-                  </div>
-                  <button class="btn-remove-item" onclick="window.nexoBraApp.removeCartItem(${idx})" title="Eliminar ítem">&times;</button>
-                </div>
-                
-                <div class="computo-item-controls">
-                  <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="color: var(--text-muted);">Cant:</span>
-                    <input 
-                      type="number" 
-                      style="width: 55px; padding: 4px 6px; border: 1px solid var(--border-light); border-radius: 4px; font-weight: 700;" 
-                      value="${item.qty}" 
-                      min="${esManoDeObra ? 0.5 : 1}" 
-                      step="${esManoDeObra ? 0.5 : 1}"
-                      onchange="window.nexoBraApp.updateItemQtyInCart(${idx}, parseFloat(this.value) || 1)"
-                    >
-                    <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">${item.unit}</span>
-                  </div>
-                    <div style="text-align: right;">
-                      ${pricing.disponible
-                        ? `<div style="font-size: 0.74rem; color: var(--text-subtle);">${formatMoney(pricing.unitPrice)}/${item.unit}</div>
-                           ${pricing.basePrice ? `<div class="cart-price-trace">Base ${formatMoney(pricing.basePrice)} · × ${formatFactor(pricing.factor || 1)}</div>` : ''}
-                           <div class="computo-item-subtotal">${formatMoney(subtotal)}</div>`
-                        : `<div style="font-size: 0.74rem; color: #b91c1c;">Sin dato para este mes</div>`
-                      }
-                  </div>
-                </div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      `;
+      return;
     }
+
+    const { groups, sinProveedor } = groupCartByProvider();
+
+    const gruposHtml = groups.map(group => `
+      <div class="provider-group">
+        <div class="provider-group-header">
+          <h4>🏪 ${group.businessName} — ${group.branchName}</h4>
+          ${group.whatsapp ? `<a class="whatsapp-mini-btn" target="_blank" href="${buildProviderWhatsappUrl(group)}">💬 Mandar pedido a este proveedor</a>` : '<span style="font-size:0.72rem; color:var(--text-muted);">Sin WhatsApp cargado</span>'}
+        </div>
+        <div class="provider-group-body">
+          ${group.items.map(({ item, idx }) => renderCartItemRow(item, idx)).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    const sinProveedorHtml = sinProveedor.length === 0 ? '' : `
+      ${groups.length > 0 ? '<p style="font-size:0.78rem; font-weight:700; color:var(--text-muted); margin: 14px 0 8px;">SIN PROVEEDOR ASIGNADO (referencia NEXOBRA)</p>' : ''}
+      <div class="computo-list">
+        ${sinProveedor.map(({ item, idx }) => renderCartItemRow(item, idx)).join('')}
+      </div>
+    `;
+
+    drawerBody.innerHTML = gruposHtml + sinProveedorHtml;
   }
 
   // --- PRINT / PDF EXPORT ---
@@ -3206,7 +3409,9 @@
     addOfferFromSearch,
     updateOfferPrice,
     updateOfferStock,
-    deleteOffer
+    deleteOffer,
+    openOfferPicker,
+    chooseProviderOffer
   };
 
   document.addEventListener('DOMContentLoaded', init);
