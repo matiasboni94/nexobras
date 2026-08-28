@@ -2318,3 +2318,96 @@ body {
     max-height: 400px;
   }
 }
+
+/* --- Elegir proveedor (catálogo + drawer) --- */
+.btn-choose-provider {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1.5px dashed var(--brand-yellow, #F5B000);
+  background: rgba(245,176,0,0.08);
+  color: var(--brand-dark, #22262B);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-choose-provider:hover {
+  background: rgba(245,176,0,0.16);
+}
+
+.offer-picker-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border-light, #eee);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.offer-picker-row-info h5 {
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin: 0 0 2px;
+}
+.offer-picker-row-info span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.offer-picker-row-price {
+  text-align: right;
+}
+.offer-picker-row-price strong {
+  font-size: 1rem;
+  display: block;
+}
+
+/* --- Cart items agrupados por proveedor (drawer) --- */
+.provider-group {
+  border: 1px solid var(--border-light, #eee);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.provider-group-header {
+  background: var(--surface-1, #f7f5f0);
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.provider-group-header h4 {
+  font-size: 0.88rem;
+  font-weight: 800;
+  margin: 0;
+}
+.provider-group-header .whatsapp-mini-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #25D366;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.provider-group-body {
+  padding: 4px 14px;
+}
+.cart-badge-provider {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #b45309;
+  background: #fef3c7;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-top: 3px;
+}
