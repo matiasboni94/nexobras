@@ -84,6 +84,8 @@
           </button>
           <div class="auth-dropdown" id="auth-dropdown" style="display: none;">
             <button type="button" id="btn-open-my-computations">Mis Presupuestos</button>
+            <button type="button" id="btn-open-favorites">Mis Favoritos</button>
+            <button type="button" id="btn-open-alerts">Mis Alertas de Precio</button>
             <button type="button" id="btn-open-my-provider" style="display: none;">Mi Corralón</button>
             <button type="button" id="btn-open-profile">Mi Perfil</button>
             <button type="button" id="btn-logout" class="danger">Cerrar sesión</button>
@@ -1062,6 +1064,26 @@
           <div id="provider-catalog-list" class="provider-catalog-list"><!-- se completa con loadProviderCatalog() --></div>
         </div>
       </details>
+
+      <!-- 5. DASHBOARD DE COMPETITIVIDAD -->
+      <details class="provider-section">
+        <summary>📊 Cómo te comparás en tu zona</summary>
+        <div class="provider-section-body">
+          <div class="provider-bulk-edit">
+            <label for="provider-dashboard-radius">Radio de comparación:</label>
+            <select id="provider-dashboard-radius" class="sort-select">
+              <option value="10">10 km</option>
+              <option value="25" selected>25 km</option>
+              <option value="50">50 km</option>
+              <option value="100">100 km</option>
+            </select>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+            Por cada material que tenés cargado, así se compara tu precio contra la mediana de otros corralones en el radio elegido. No mostramos precios individuales de la competencia, solo la mediana de la zona.
+          </p>
+          <div id="provider-dashboard-results"><!-- se completa con loadProviderDashboard() --></div>
+        </div>
+      </details>
     </div>
   </div>
 
@@ -1098,6 +1120,36 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA 8: MIS FAVORITOS (Fase E)
+       ========================================================================= -->
+  <div id="favorites-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Mis Favoritos</h2>
+          <p class="catalog-subtitle">Corralones que guardaste para contactar rápido.</p>
+        </div>
+      </div>
+      <div id="favorites-list" class="computations-list"><!-- se completa con loadFavorites() --></div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA 9: MIS ALERTAS DE PRECIO (Fase E)
+       ========================================================================= -->
+  <div id="alerts-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Mis Alertas de Precio</h2>
+          <p class="catalog-subtitle">Materiales que estás siguiendo. Comparamos el precio actual contra el que tenía cuando armaste la alerta.</p>
+        </div>
+      </div>
+      <div id="alerts-list" class="computations-list"><!-- se completa con loadAlerts() --></div>
     </div>
   </div>
 
