@@ -533,6 +533,8 @@
       authHeaderLabel.textContent = nombre.length > 18 ? nombre.slice(0, 16) + '…' : nombre;
 
       updateProviderNavVisibility();
+      loadFavoriteIds();
+      loadAlertIds();
 
       if (profile && profile.role_confirmed === false) {
         openRoleModal();
@@ -1120,6 +1122,7 @@
     }
 
     await loadProviderCatalog();
+    await loadProviderDashboard();
   }
 
   async function handleProviderProfileSubmit(e) {
@@ -1179,6 +1182,7 @@
 
       providerProfileStatus.textContent = '✓ Guardado';
       showToast('Datos comerciales guardados.');
+      loadProviderDashboard();
     } catch (err) {
       providerProfileStatus.textContent = '';
       showToast('No se pudo guardar: ' + err.message);
@@ -1539,6 +1543,7 @@
 
   async function showBranchDetail(branchId, branchInfo) {
     mapBranchPanel.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando ficha...</p>';
+    mapState.lastSelectedBranch = branchInfo;
 
     const { data, error } = await supabaseClient.rpc('branch_price_variation', {
       p_branch_id: branchId,
@@ -1556,6 +1561,13 @@
       ? `<a class="branch-whatsapp-btn" target="_blank" href="https://wa.me/${branchInfo.whatsapp_phone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde NEXOBRA para consultar precios.')}">💬 Contactar por WhatsApp</a>`
       : '';
 
+    const esFavorito = favoritesState.ids.has(branchId);
+    const favBtn = `
+      <button class="btn-favorite-toggle ${esFavorito ? 'active' : ''}" onclick="window.nexoBraApp.toggleFavorite('${branchId}', ${JSON.stringify(branchInfo.business_name)})">
+        ${esFavorito ? '★ En favoritos' : '☆ Guardar favorito'}
+      </button>
+    `;
+
     const filas = (data || []).map(row => {
       const cls = row.variation_pct === null ? 'equal' : row.variation_pct < -1 ? 'below' : row.variation_pct > 1 ? 'above' : 'equal';
       const texto = row.variation_pct === null ? 's/d' : `${row.variation_pct > 0 ? '+' : ''}${row.variation_pct}%`;
@@ -1570,7 +1582,7 @@
     mapBranchPanel.innerHTML = `
       <h3>${branchInfo.business_name}</h3>
       <div class="branch-meta">${branchInfo.branch_name} · ${branchInfo.locality} · ${branchInfo.distance_km.toFixed(1)} km de tu ubicación</div>
-      ${whatsappLink}
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;">${whatsappLink}${favBtn}</div>
       <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">Variación de precio vs. la mediana de proveedores en ${mapState.radiusKm} km a la redonda:</p>
       ${filas || '<p style="font-size:0.8rem; color:var(--text-muted);">Sin materiales cargados todavía.</p>'}
     `;
@@ -1783,6 +1795,283 @@
     if (!supabaseClient) return;
     offerPickerModalCloseBtn.addEventListener('click', closeOfferPicker);
     offerPickerModalBackdrop.addEventListener('click', closeOfferPicker);
+  }
+
+  // --- FASE E, PARTE 1: Dashboard de competitividad (dentro de "Mi Corralón") ---
+  // Reutiliza branch_price_variation(), ya construida en la Fase D para la
+  // ficha que ve el USUARIO al tocar un pin. Acá el corralón ve exactamente
+  // lo mismo, pero de su propio negocio, sin salir de su panel.
+  async function loadProviderDashboard() {
+    const results = document.getElementById('provider-dashboard-results');
+    if (!providerState.branch) {
+      results.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Guardá primero tus datos comerciales (con latitud/longitud) para ver esta comparación.</p>';
+      return;
+    }
+    if (!providerState.branch.latitude || !providerState.branch.longitude) {
+      results.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargá la latitud y longitud de tu sucursal (arriba, en Datos comerciales) para poder compararte contra la zona.</p>';
+      return;
+    }
+
+    results.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Calculando...</p>';
+    const radius = parseFloat(document.getElementById('provider-dashboard-radius').value);
+
+    const { data, error } = await supabaseClient.rpc('branch_price_variation', {
+      p_branch_id: providerState.branch.id,
+      center_lat: providerState.branch.latitude,
+      center_lng: providerState.branch.longitude,
+      radius_km: radius
+    });
+
+    if (error) {
+      results.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+      return;
+    }
+    if (!data || data.length === 0) {
+      results.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Todavía no hay otros corralones cargados en tu zona para comparar, o vos mismo no tenés materiales cargados.</p>';
+      return;
+    }
+
+    results.innerHTML = data.map(row => {
+      const cls = row.variation_pct === null ? 'equal' : row.variation_pct < -1 ? 'below' : row.variation_pct > 1 ? 'above' : 'equal';
+      const texto = row.variation_pct === null ? 's/d' : `${row.variation_pct > 0 ? '+' : ''}${row.variation_pct}%`;
+      return `
+        <div class="variation-row">
+          <span class="variation-name">${row.denomination}${row.stock_status === 'agotado' ? ' <em>(agotado)</em>' : ''}</span>
+          <span class="variation-badge ${cls}">${texto}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function setupProviderDashboardListeners() {
+    if (!supabaseClient) return;
+    const radiusSelect = document.getElementById('provider-dashboard-radius');
+    if (radiusSelect) radiusSelect.addEventListener('change', loadProviderDashboard);
+  }
+
+  // --- FASE E, PARTE 2: Favoritos ---
+  const favoritesState = { ids: new Set(), loaded: false };
+
+  async function loadFavoriteIds() {
+    if (!supabaseClient || !authState.user) return;
+    const { data, error } = await supabaseClient
+      .from('provider_favorites')
+      .select('branch_id')
+      .eq('user_id', authState.user.id);
+    if (!error) {
+      favoritesState.ids = new Set((data || []).map(r => r.branch_id));
+      favoritesState.loaded = true;
+    }
+  }
+
+  async function toggleFavorite(branchId, businessName) {
+    if (!authState.user) {
+      showToast('Iniciá sesión para guardar favoritos.');
+      showAuthTab('login');
+      openAuthModal();
+      return;
+    }
+    const isFav = favoritesState.ids.has(branchId);
+    if (isFav) {
+      await supabaseClient.from('provider_favorites').delete().eq('user_id', authState.user.id).eq('branch_id', branchId);
+      favoritesState.ids.delete(branchId);
+      showToast('Sacado de favoritos.');
+    } else {
+      await supabaseClient.from('provider_favorites').insert({ user_id: authState.user.id, branch_id: branchId });
+      favoritesState.ids.add(branchId);
+      showToast(`${businessName} agregado a favoritos.`);
+    }
+    // Si la ficha del mapa está abierta, refresca el botón para mostrar el nuevo estado.
+    if (mapState.lastSelectedBranch && mapState.lastSelectedBranch.branch_id === branchId) {
+      showBranchDetail(branchId, mapState.lastSelectedBranch);
+    }
+  }
+
+  async function loadFavorites() {
+    const list = document.getElementById('favorites-list');
+    if (!authState.user) return;
+    list.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando...</p>';
+
+    const { data, error } = await supabaseClient
+      .from('provider_favorites')
+      .select('id, branch_id, provider_branches(name, locality, whatsapp_phone, providers(business_name))')
+      .eq('user_id', authState.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      list.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+      return;
+    }
+    if (!data || data.length === 0) {
+      list.innerHTML = `
+        <div class="computo-empty-state">
+          <div class="empty-icon">⭐</div>
+          <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no guardaste ningún corralón</h4>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Desde el mapa, tocá un pin y usá el botón de favorito en su ficha.</p>
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = data.map(fav => {
+      const branch = fav.provider_branches;
+      const whatsappUrl = branch.whatsapp_phone
+        ? `https://wa.me/${branch.whatsapp_phone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde NEXOBRA.')}`
+        : null;
+      return `
+        <div class="computation-row">
+          <div class="computation-row-info">
+            <h4>${branch.providers?.business_name || '(proveedor eliminado)'}</h4>
+            <span>${branch.name} · ${branch.locality}</span>
+          </div>
+          <div class="computation-row-actions">
+            ${whatsappUrl ? `<a href="${whatsappUrl}" target="_blank" class="btn-computo" style="padding:7px 12px; font-size:0.78rem; text-decoration:none;">💬 WhatsApp</a>` : ''}
+            <button class="danger" onclick="window.nexoBraApp.removeFavorite('${fav.branch_id}')">Quitar</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function removeFavorite(branchId) {
+    await supabaseClient.from('provider_favorites').delete().eq('user_id', authState.user.id).eq('branch_id', branchId);
+    favoritesState.ids.delete(branchId);
+    showToast('Sacado de favoritos.');
+    loadFavorites();
+  }
+
+  // --- FASE E, PARTE 3: Alertas de precio ---
+  // Importante: modelo "pull", no hay mail/push. El usuario ve la comparación
+  // cuando entra a "Mis Alertas" (o desde el catálogo). No hay cron todavía.
+  const alertsState = { byMaterial: {}, loaded: false };
+
+  async function loadAlertIds() {
+    if (!supabaseClient || !authState.user) return;
+    const { data, error } = await supabaseClient
+      .from('price_alerts')
+      .select('*')
+      .eq('user_id', authState.user.id);
+    if (!error) {
+      alertsState.byMaterial = {};
+      (data || []).forEach(row => { alertsState.byMaterial[row.material_id] = row; });
+      alertsState.loaded = true;
+    }
+  }
+
+  async function toggleMaterialAlert(materialId, materialName) {
+    if (!authState.user) {
+      showToast('Iniciá sesión para crear alertas de precio.');
+      showAuthTab('login');
+      openAuthModal();
+      return;
+    }
+    const existing = alertsState.byMaterial[materialId];
+    if (existing) {
+      await supabaseClient.from('price_alerts').delete().eq('id', existing.id);
+      delete alertsState.byMaterial[materialId];
+      showToast('Alerta eliminada.');
+    } else {
+      const oferta = providerPricesState.byMaterial[materialId];
+      if (!oferta) {
+        showToast('Todavía no hay ofertas de corralones cargadas para este material en tu zona.');
+        return;
+      }
+      const { data, error } = await supabaseClient
+        .from('price_alerts')
+        .insert({
+          user_id: authState.user.id,
+          material_id: materialId,
+          center_lat: mapState.center.lat,
+          center_lng: mapState.center.lng,
+          radius_km: mapState.radiusKm,
+          reference_price: oferta.median_price
+        })
+        .select('*')
+        .single();
+      if (!error) {
+        alertsState.byMaterial[materialId] = data;
+        showToast(`Te avisamos acá si baja el precio de ${materialName}.`);
+      }
+    }
+    renderProducts();
+  }
+
+  async function loadAlerts() {
+    const list = document.getElementById('alerts-list');
+    if (!authState.user) return;
+    list.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando...</p>';
+
+    const { data, error } = await supabaseClient
+      .from('price_alerts')
+      .select('*')
+      .eq('user_id', authState.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      list.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+      return;
+    }
+    if (!data || data.length === 0) {
+      list.innerHTML = `
+        <div class="computo-empty-state">
+          <div class="empty-icon">🔔</div>
+          <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no armaste ninguna alerta</h4>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">En el catálogo, activá "Ofertas de corralones cercanos" y usá el botón de campana en cualquier material.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const rows = await Promise.all(data.map(async alert => {
+      const material = NEXOBRA_DATA.find(m => m.id === alert.material_id);
+      const { data: current } = await supabaseClient.rpc('representative_price_nearby', {
+        p_material_id: alert.material_id,
+        center_lat: alert.center_lat,
+        center_lng: alert.center_lng,
+        radius_km: alert.radius_km
+      });
+      const currentPrice = current?.[0]?.median_price ?? null;
+      const bajó = currentPrice !== null && currentPrice < alert.reference_price;
+      const pct = currentPrice !== null ? Math.round(((currentPrice - alert.reference_price) / alert.reference_price) * 1000) / 10 : null;
+      return { alert, material, currentPrice, bajó, pct };
+    }));
+
+    list.innerHTML = rows.map(({ alert, material, currentPrice, bajó, pct }) => `
+      <div class="computation-row">
+        <div class="computation-row-info">
+          <h4>${material ? material.denominacion : alert.material_id}</h4>
+          <span>Precio de referencia: ${formatMoney(alert.reference_price)} ${currentPrice !== null ? `· Ahora: ${formatMoney(currentPrice)}` : '· Sin ofertas cercanas actuales'}</span>
+        </div>
+        <div class="computation-row-actions" style="align-items:center;">
+          ${currentPrice !== null
+            ? (bajó ? `<span class="price-drop-badge">▼ Bajó ${Math.abs(pct)}%</span>` : `<span class="price-same-badge">Sin bajas</span>`)
+            : ''
+          }
+          <button class="danger" onclick="window.nexoBraApp.removeAlert('${alert.id}', '${alert.material_id}')">Eliminar</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function removeAlert(alertId, materialId) {
+    await supabaseClient.from('price_alerts').delete().eq('id', alertId);
+    delete alertsState.byMaterial[materialId];
+    showToast('Alerta eliminada.');
+    loadAlerts();
+  }
+
+  function setupFavoritesAndAlertsListeners() {
+    if (!supabaseClient) return;
+    const btnOpenFavorites = document.getElementById('btn-open-favorites');
+    const btnOpenAlerts = document.getElementById('btn-open-alerts');
+    if (btnOpenFavorites) btnOpenFavorites.addEventListener('click', () => {
+      authDropdown.style.display = 'none';
+      switchView('favorites');
+    });
+    if (btnOpenAlerts) btnOpenAlerts.addEventListener('click', () => {
+      authDropdown.style.display = 'none';
+      switchView('alerts');
+    });
   }
 
   // --- DOM ELEMENTS ---
@@ -2129,6 +2418,10 @@
     if (providerView) providerView.style.display = viewName === 'provider' ? 'block' : 'none';
     const mapViewEl = document.getElementById('map-view');
     if (mapViewEl) mapViewEl.style.display = viewName === 'map' ? 'block' : 'none';
+    const favoritesViewEl = document.getElementById('favorites-view');
+    if (favoritesViewEl) favoritesViewEl.style.display = viewName === 'favorites' ? 'block' : 'none';
+    const alertsViewEl = document.getElementById('alerts-view');
+    if (alertsViewEl) alertsViewEl.style.display = viewName === 'alerts' ? 'block' : 'none';
 
     navBtnHome.classList.toggle('active', viewName === 'home');
     navBtnCatalogo.classList.toggle('active', viewName === 'catalog');
@@ -2170,6 +2463,28 @@
         if (myComputationsView) myComputationsView.style.display = 'none';
       } else {
         loadMyComputations();
+      }
+    }
+    if (viewName === 'favorites') {
+      if (!authState.user) {
+        showAuthTab('login');
+        openAuthModal();
+        state.currentView = 'home';
+        homeView.style.display = 'block';
+        if (favoritesViewEl) favoritesViewEl.style.display = 'none';
+      } else {
+        loadFavorites();
+      }
+    }
+    if (viewName === 'alerts') {
+      if (!authState.user) {
+        showAuthTab('login');
+        openAuthModal();
+        state.currentView = 'home';
+        homeView.style.display = 'block';
+        if (alertsViewEl) alertsViewEl.style.display = 'none';
+      } else {
+        loadAlerts();
       }
     }
     if (viewName === 'provider') {
@@ -2224,6 +2539,8 @@
     setupMapListeners();
     setupPricingSourceListeners();
     setupOfferPickerListeners();
+    setupProviderDashboardListeners();
+    setupFavoritesAndAlertsListeners();
 
     // Nav buttons
     navBrandLogo.addEventListener('click', (e) => {
@@ -2637,9 +2954,14 @@
             </div>
 
             ${usaOfertas && oferta ? `
-              <button class="btn-choose-provider" onclick="window.nexoBraApp.openOfferPicker('${item.id}')">
-                🏪 Ver ${oferta.offers_count} oferta${oferta.offers_count === 1 ? '' : 's'} y elegir proveedor
-              </button>
+              <div style="display:flex; gap:6px; align-items:stretch;">
+                <button class="btn-choose-provider" style="margin-top:0; flex:1;" onclick="window.nexoBraApp.openOfferPicker('${item.id}')">
+                  🏪 Ver ${oferta.offers_count} oferta${oferta.offers_count === 1 ? '' : 's'} y elegir proveedor
+                </button>
+                <button class="btn-alert-toggle ${alertsState.byMaterial[item.id] ? 'active' : ''}" title="${alertsState.byMaterial[item.id] ? 'Ya tenés una alerta armada — tocá para sacarla' : 'Avisame si baja de precio'}" onclick="window.nexoBraApp.toggleMaterialAlert('${item.id}', ${JSON.stringify(item.denominacion)})">
+                  🔔
+                </button>
+              </div>
             ` : ''}
 
             <div class="card-actions">
@@ -3411,7 +3733,11 @@
     updateOfferStock,
     deleteOffer,
     openOfferPicker,
-    chooseProviderOffer
+    chooseProviderOffer,
+    toggleFavorite,
+    removeFavorite,
+    toggleMaterialAlert,
+    removeAlert
   };
 
   document.addEventListener('DOMContentLoaded', init);
