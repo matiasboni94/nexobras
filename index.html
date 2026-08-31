@@ -87,6 +87,7 @@
             <button type="button" id="btn-open-favorites">Mis Favoritos</button>
             <button type="button" id="btn-open-alerts">Mis Alertas de Precio</button>
             <button type="button" id="btn-open-my-provider" style="display: none;">Mi Corralón</button>
+            <button type="button" id="btn-open-admin" style="display: none;">Panel de Admin</button>
             <button type="button" id="btn-open-profile">Mi Perfil</button>
             <button type="button" id="btn-logout" class="danger">Cerrar sesión</button>
           </div>
@@ -1181,6 +1182,109 @@
         </div>
       </div>
       <div id="alerts-list" class="computations-list"><!-- se completa con loadAlerts() --></div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA 10: PANEL DE ADMINISTRACIÓN (Fase F, solo role='admin')
+       ========================================================================= -->
+  <div id="admin-view" class="view-section" style="display: none;">
+    <div class="container" style="max-width: 1000px;">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Panel de Administración</h2>
+          <p class="catalog-subtitle">Editor de materiales, aprobación de corralones y precios pendientes.</p>
+        </div>
+      </div>
+
+      <!-- F2: EDITOR DE MATERIALES -->
+      <details class="provider-section" open>
+        <summary>🧱 Editor de materiales</summary>
+        <div class="provider-section-body">
+          <div class="config-field" style="margin-bottom: 12px;">
+            <label for="admin-material-search">Buscar material a corregir</label>
+            <input type="text" id="admin-material-search" class="form-select" placeholder="Ej: cemento portland, ladrillo hueco...">
+          </div>
+          <div id="admin-material-results" class="provider-search-results"></div>
+
+          <div id="admin-material-editor" style="display:none; margin-top: 18px; border-top: 2px solid var(--brand-yellow); padding-top: 16px;">
+            <h4 style="margin-bottom: 12px;">Editando: <code id="admin-edit-id"></code></h4>
+            <div class="excel-config-grid">
+              <div class="config-field">
+                <label for="admin-edit-denominacion">Denominación</label>
+                <input type="text" id="admin-edit-denominacion" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-rubro">Rubro</label>
+                <input type="text" id="admin-edit-rubro" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-categoria">Categoría</label>
+                <input type="text" id="admin-edit-categoria" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-subcategoria">Subcategoría</label>
+                <input type="text" id="admin-edit-subcategoria" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-unidad-venta">Unidad de venta</label>
+                <input type="text" id="admin-edit-unidad-venta" class="form-select" placeholder="Ej: Bolsa">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-unidad-computo">Unidad de cómputo</label>
+                <input type="text" id="admin-edit-unidad-computo" class="form-select" placeholder="Ej: kg">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-envase">Envase (cuántas unidades de cómputo por unidad de venta)</label>
+                <input type="number" id="admin-edit-envase" class="form-select" min="0.0001" step="0.0001">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-mes-base">Mes base (formato: abr-25)</label>
+                <input type="text" id="admin-edit-mes-base" class="form-select" placeholder="abr-25">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-precio-venta">Precio base — venta</label>
+                <input type="number" id="admin-edit-precio-venta" class="form-select" min="0" step="0.01">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-precio-computo">
+                  Precio base — cómputo
+                  <button type="button" id="btn-recalc-precio-computo" style="font-size:0.7rem; margin-left:6px; padding:2px 6px;">↻ Calcular (venta ÷ envase)</button>
+                </label>
+                <input type="number" id="admin-edit-precio-computo" class="form-select" min="0" step="0.01">
+              </div>
+            </div>
+            <div class="config-field" style="margin-bottom: 12px;">
+              <label for="admin-edit-tags">Tags / sinónimos (separados por coma)</label>
+              <input type="text" id="admin-edit-tags" class="form-select" placeholder="cemento, portland, loma negra, 50kg">
+            </div>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; margin-bottom:14px;">
+              <input type="checkbox" id="admin-edit-active" style="width:auto;"> Material activo (visible en el catálogo)
+            </label>
+            <div style="display:flex; gap:8px;">
+              <button class="btn-computo" id="btn-save-material-edit">Guardar cambios</button>
+              <button class="btn-action-drawer" id="btn-close-material-editor" type="button">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- F3: CORRALONES PENDIENTES -->
+      <details class="provider-section" open>
+        <summary>🏪 Corralones pendientes de aprobación</summary>
+        <div class="provider-section-body">
+          <div id="admin-pending-providers" class="computations-list"></div>
+        </div>
+      </details>
+
+      <!-- F4: AGENDA DE PRECIOS PENDIENTES -->
+      <details class="provider-section" open>
+        <summary>💲 Precios pendientes de aprobación</summary>
+        <div class="provider-section-body">
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">Materiales nuevos y cambios de precio que cargaron los corralones. El stock se refleja al instante y no aparece acá.</p>
+          <div id="admin-pending-offers"></div>
+        </div>
+      </details>
     </div>
   </div>
 
