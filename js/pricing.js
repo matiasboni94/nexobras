@@ -255,9 +255,9 @@ import * as ST from './state.js';
       };
     }
 
-    // Ítem elegido de un corralón puntual: precio fijo tal cual se cargó al
+    // Ítem elegido de un proveedor puntual: precio fijo tal cual se cargó al
     // elegirlo, no se recalcula contra ningún mes (no hay un "índice" de un
-    // corralón individual, solo lo que tiene puesto ahora mismo).
+    // proveedor individual, solo lo que tiene puesto ahora mismo).
     if (cartItem.providerOfferId) {
       return {
         unitPrice: cartItem.providerPrice,
