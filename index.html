@@ -398,6 +398,17 @@
           </button>
         </div>
 
+        <div id="catalog-providers-controls" style="display:none; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap;">
+          <label for="catalog-radius-select" style="font-size:0.8rem; font-weight:700; color:var(--text-muted);">Radio de búsqueda:</label>
+          <select id="catalog-radius-select" class="sort-select">
+            <option value="10">10 km</option>
+            <option value="25" selected>25 km</option>
+            <option value="50">50 km</option>
+            <option value="100">100 km</option>
+          </select>
+          <span id="catalog-providers-status" style="font-size:0.78rem; color:var(--text-subtle);"></span>
+        </div>
+
         <!-- RUBRO FILTER PILLS -->
         <div class="category-filter-bar" id="rubros-filter-container">
           <!-- Populated via JavaScript -->
