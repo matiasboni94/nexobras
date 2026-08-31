@@ -226,6 +226,7 @@
   export const drawerTotal = document.getElementById('drawer-total');
   export const headerCartCount = document.getElementById('header-cart-count');
   export const btnPrintComputo = document.getElementById('btn-print-computo');
+  export const btnExportComputoExcel = document.getElementById('btn-export-computo-excel');
   export const btnCopyComputo = document.getElementById('btn-copy-computo');
   export const btnClearComputo = document.getElementById('btn-clear-computo');
   export const toastContainer = document.getElementById('toast-container');
@@ -247,6 +248,7 @@
   export const excelPreviewTbody = document.getElementById('excel-preview-tbody');
   export const excelStatsText = document.getElementById('excel-stats-text');
   export const btnDownloadProcessedExcel = document.getElementById('btn-download-processed-excel');
+  export const btnSaveExcelToComputo = document.getElementById('btn-save-excel-to-computo');
   export const btnOpenAuthModal = document.getElementById('btn-open-auth-modal');
   export const authModal = document.getElementById('auth-modal');
   export const authModalBackdrop = document.getElementById('auth-modal-backdrop');
