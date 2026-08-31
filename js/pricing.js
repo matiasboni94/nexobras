@@ -394,4 +394,3 @@ import * as ST from './state.js';
     updateReferenceStatus();
     ST.showToast(`✓ Catálogo actualizado desde NEXOBRA (${remoteMaterials.length} materiales)`);
   }
-
