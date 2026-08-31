@@ -78,7 +78,7 @@ import * as ST from './state.js';
 
     const esFavorito = ST.favoritesState.ids.has(branchId);
     const favBtn = `
-      <button class="btn-favorite-toggle ${esFavorito ? 'active' : ''}" onclick="window.nexoBraApp.toggleFavorite('${branchId}', ${JSON.stringify(branchInfo.business_name)})">
+      <button class="btn-favorite-toggle ${esFavorito ? 'active' : ''}" onclick='window.nexoBraApp.toggleFavorite(${ST.escAttr(branchId)}, ${ST.escAttr(branchInfo.business_name)})'>
         ${esFavorito ? '★ En favoritos' : '☆ Guardar favorito'}
       </button>
     `;
@@ -267,7 +267,7 @@ import * as ST from './state.js';
         <div class="offer-picker-row-price">
           <strong>${ST.formatMoney(offer.amount)}</strong>
           <span style="font-size:0.72rem; color:var(--text-muted);">/ ${offer.unit}</span>
-          <button class="btn-computo" style="padding: 6px 12px; font-size: 0.75rem; margin-top: 4px; display:block;" onclick='window.nexoBraApp.chooseProviderOffer(${JSON.stringify(materialId)}, ${idx})'>
+          <button class="btn-computo" style="padding: 6px 12px; font-size: 0.75rem; margin-top: 4px; display:block;" onclick='window.nexoBraApp.chooseProviderOffer(${ST.escAttr(materialId)}, ${idx})'>
             Elegir
           </button>
         </div>
