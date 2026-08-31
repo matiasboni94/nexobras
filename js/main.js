@@ -94,7 +94,7 @@ import * as ST from './state.js';
     }
     if (viewName === 'provider') {
       if (!ST.authState.user || !Provider.isProvider()) {
-        ST.showToast(!ST.authState.user ? 'Iniciá sesión primero.' : 'Esta sección es solo para cuentas de Corralón.');
+        ST.showToast(!ST.authState.user ? 'Iniciá sesión primero.' : 'Esta sección es solo para cuentas de Proveedor.');
         ST.state.currentView = 'home';
         ST.homeView.style.display = 'block';
         if (ST.providerView) ST.providerView.style.display = 'none';
@@ -374,7 +374,9 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
     approveProvider: Admin.approveProvider,
     rejectProvider: Admin.rejectProvider,
     approveOffer: Admin.approveOffer,
-    rejectOffer: Admin.rejectOffer
+    rejectOffer: Admin.rejectOffer,
+    openProviderReview: Admin.openProviderReview,
+    closeProviderReview: Admin.closeProviderReview
   };
 
 
