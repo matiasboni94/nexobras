@@ -89,7 +89,10 @@ import * as ST from './state.js';
       return `
         <div class="variation-row">
           <span class="variation-name">${row.denomination}${row.stock_status === 'agotado' ? ' <em>(agotado)</em>' : ''}</span>
-          <span class="variation-badge ${cls}">${texto}</span>
+          <span style="text-align:right;">
+            <strong style="display:block; font-size:0.85rem;">${ST.formatMoney(row.branch_amount)}</strong>
+            <span class="variation-badge ${cls}">${texto}</span>
+          </span>
         </div>
       `;
     }).join('');
@@ -161,47 +164,66 @@ import * as ST from './state.js';
     ST.providerPricesState.byMaterial = {};
     (data || []).forEach(row => { ST.providerPricesState.byMaterial[row.material_id] = row; });
     ST.providerPricesState.loaded = true;
+    updateCatalogProvidersStatus(data ? data.length : 0);
+  }
+
+  function updateCatalogProvidersStatus(materialesConOferta) {
+    const status = document.getElementById('catalog-providers-status');
+    if (!status) return;
+    status.textContent = materialesConOferta > 0
+      ? `${materialesConOferta} material${materialesConOferta === 1 ? '' : 'es'} con oferta en ${ST.mapState.radiusKm} km a la redonda de tu ubicación.`
+      : `Ningún corralón cargó precios dentro de ${ST.mapState.radiusKm} km de tu ubicación. Probá ampliar el radio.`;
   }
 
   export function setupPricingSourceListeners() {
     const btnSourceReference = document.getElementById('source-reference');
     const btnSourceProviders = document.getElementById('source-providers');
+    const providersControls = document.getElementById('catalog-providers-controls');
+    const catalogRadiusSelect = document.getElementById('catalog-radius-select');
     if (!btnSourceReference || !btnSourceProviders) return;
+
+    async function refreshProvidersView() {
+      const status = document.getElementById('catalog-providers-status');
+      if (status) status.textContent = 'Buscando ofertas cerca tuyo...';
+      await loadNearbyRepresentativePrices();
+      Catalog.renderProducts();
+    }
 
     async function activateProvidersSource() {
       btnSourceReference.classList.remove('active');
       btnSourceProviders.classList.add('active');
       ST.state.pricingSource = 'providers';
+      if (providersControls) providersControls.style.display = 'flex';
 
-      if (!ST.providerPricesState.loaded) {
-        if (navigator.geolocation) {
-          ST.showToast('Buscando ofertas cerca tuyo...');
-          navigator.geolocation.getCurrentPosition(
-            async (pos) => {
-              ST.mapState.center = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-              await loadNearbyRepresentativePrices();
-              Catalog.renderProducts();
-            },
-            async () => {
-              await loadNearbyRepresentativePrices();
-              Catalog.renderProducts();
-            },
-            { timeout: 8000 }
-          );
-          return; // Catalog.renderProducts() se llama dentro del callback async de arriba
-        }
-        await loadNearbyRepresentativePrices();
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            ST.mapState.center = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            await refreshProvidersView();
+          },
+          async () => { await refreshProvidersView(); },
+          { timeout: 8000 }
+        );
+      } else {
+        await refreshProvidersView();
       }
-      Catalog.renderProducts();
     }
 
     btnSourceReference.addEventListener('click', () => {
       btnSourceProviders.classList.remove('active');
       btnSourceReference.classList.add('active');
       ST.state.pricingSource = 'reference';
+      if (providersControls) providersControls.style.display = 'none';
       Catalog.renderProducts();
     });
     btnSourceProviders.addEventListener('click', activateProvidersSource);
+
+    if (catalogRadiusSelect) {
+      catalogRadiusSelect.addEventListener('change', () => {
+        ST.mapState.radiusKm = parseFloat(catalogRadiusSelect.value);
+        refreshProvidersView();
+      });
+    }
   }
 
   // --- ELEGIR UN PROVEEDOR ESPECÍFICO PARA UN MATERIAL ---
@@ -329,11 +351,19 @@ import * as ST from './state.js';
     }
     const isFav = ST.favoritesState.ids.has(branchId);
     if (isFav) {
-      await ST.supabaseClient.from('provider_favorites').delete().eq('user_id', ST.authState.user.id).eq('branch_id', branchId);
+      const { error } = await ST.supabaseClient.from('provider_favorites').delete().eq('user_id', ST.authState.user.id).eq('branch_id', branchId);
+      if (error) {
+        ST.showToast('No se pudo quitar de favoritos: ' + error.message);
+        return;
+      }
       ST.favoritesState.ids.delete(branchId);
       ST.showToast('Sacado de favoritos.');
     } else {
-      await ST.supabaseClient.from('provider_favorites').insert({ user_id: ST.authState.user.id, branch_id: branchId });
+      const { error } = await ST.supabaseClient.from('provider_favorites').insert({ user_id: ST.authState.user.id, branch_id: branchId });
+      if (error) {
+        ST.showToast('No se pudo guardar el favorito: ' + error.message);
+        return;
+      }
       ST.favoritesState.ids.add(branchId);
       ST.showToast(`${businessName} agregado a favoritos.`);
     }
