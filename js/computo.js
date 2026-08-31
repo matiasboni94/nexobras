@@ -364,7 +364,7 @@ import * as ST from './state.js';
   }
 
   /**
-   * Separa el carrito en grupos por corralón elegido (providerBranchId) más
+   * Separa el carrito en grupos por proveedor elegido (providerBranchId) más
    * un resto "sin proveedor asignado" (referencia NEXOBRA o mano de obra).
    * Conserva el índice original de cada ítem en ST.state.computoCart, porque
    * eliminar/editar cantidad sigue operando por índice sobre ese array plano.
