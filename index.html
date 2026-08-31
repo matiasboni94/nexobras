@@ -539,6 +539,14 @@
           </svg>
           Copiar Texto
         </button>
+        <button class="btn-action-drawer" id="btn-export-computo-excel" style="background: var(--color-success); color: #fff;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Exportar a Excel
+        </button>
       </div>
       <button class="btn-action-drawer" id="btn-clear-computo" style="background: none; color: #EF4444; font-size: 0.78rem; text-decoration: underline; margin-top: 4px;">
         Vaciar cómputo
@@ -810,14 +818,23 @@
             <h4 style="font-size: 1rem; font-weight: 800;" id="excel-results-heading">Materiales cotizados con éxito</h4>
             <span style="font-size: 0.8rem; color: var(--text-muted);" id="excel-stats-text"></span>
           </div>
-          <button class="btn-computo" id="btn-download-processed-excel" style="background-color: var(--color-success); color: white;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            <span>Descargar Excel Cotizado (.xlsx)</span>
-          </button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn-computo" id="btn-save-excel-to-computo" style="background-color: var(--brand-yellow); color: var(--brand-dark);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              </svg>
+              <span>Guardar en Mi Cómputo</span>
+            </button>
+            <button class="btn-computo" id="btn-download-processed-excel" style="background-color: var(--color-success); color: white;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Descargar Excel Cotizado (.xlsx)</span>
+            </button>
+          </div>
         </div>
 
         <div class="table-view-container" style="max-height: 320px; overflow-y: auto;">
@@ -1054,9 +1071,12 @@
         <summary>📊 Carga masiva desde Excel/CSV</summary>
         <div class="provider-section-body">
           <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
-            Subí un archivo con columnas: <strong>SKU</strong> (tu código propio, opcional), <strong>Nombre</strong> (descripción de tu producto), <strong>Precio</strong>, y opcionalmente <strong>Stock</strong> (en stock / a pedido / agotado). Vamos a intentar emparejar cada fila con el catálogo de NEXOBRA — revisá los resultados antes de confirmar.
+            Subí un archivo con columnas: <strong>SKU</strong> (tu código propio, opcional), <strong>Nombre</strong> (descripción de tu producto), <strong>Precio</strong>, <strong>Unidad</strong> (opcional — decinos si tu precio es por unidad de compra, ej. "Bolsa", o por unidad de cómputo, ej. "kg"; si no la ponés, asumimos unidad de compra) y opcionalmente <strong>Stock</strong> (en stock / a pedido / agotado). Vamos a intentar emparejar cada fila con el catálogo de NEXOBRA — revisá los resultados antes de confirmar.
           </p>
-          <input type="file" id="provider-excel-input" accept=".xlsx,.xls,.csv" style="margin-bottom: 12px;">
+          <button class="btn-action-drawer btn-copy" id="btn-download-provider-template" type="button" style="margin-bottom: 12px;">
+            ⬇ Descargar plantilla de ejemplo
+          </button>
+          <input type="file" id="provider-excel-input" accept=".xlsx,.xls,.csv" style="margin-bottom: 12px; display:block;">
           <div id="provider-excel-preview"></div>
           <button class="btn-computo" id="btn-confirm-provider-excel" style="display: none; margin-top: 12px;">Confirmar y cargar al catálogo</button>
         </div>
