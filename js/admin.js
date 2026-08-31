@@ -1,6 +1,6 @@
 // NEXOBRA - admin.js
 // Panel de administración (Fase F): editor de materiales, aprobación de
-// corralones y agenda de precios pendientes. Todo gated a role='admin' --
+// proveedores y agenda de precios pendientes. Todo gated a role='admin' --
 // nadie puede autoasignarse ese rol desde la web (ver 001_initial_schema.sql
 // y el trigger de registro), solo se activa a mano por SQL.
 
@@ -11,7 +11,16 @@ const adminState = {
   materialResults: [],
   editingMaterial: null,
   pendingProviders: [],
-  pendingOffers: []
+  pendingOffers: [],
+  reviewingProvider: null
+};
+
+const materialBrowseState = {
+  page: 0,
+  pageSize: 50,
+  items: [],
+  hasMore: true,
+  loading: false
 };
 
 export function isAdmin() {
@@ -24,14 +33,14 @@ export function updateAdminNavVisibility() {
 }
 
 // ============================================================
-// F2 — Editor de materiales
+// F2, parte A — Búsqueda rápida (como ya existía)
 // ============================================================
 
 function renderMaterialSearchResults() {
   const container = document.getElementById('admin-material-results');
   if (!container) return;
   if (adminState.materialResults.length === 0) {
-    container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Sin resultados.</p>';
+    container.innerHTML = '';
     return;
   }
   container.innerHTML = adminState.materialResults.map(item => `
@@ -56,6 +65,82 @@ export function searchMaterialsForAdmin() {
   adminState.materialResults = Provider.searchMaterialsSimple(query, 12);
   renderMaterialSearchResults();
 }
+
+// ============================================================
+// F2, parte B — Listado completo, con filtro por fecha de modificación
+// ============================================================
+
+function formatDateTime(iso) {
+  if (!iso) return '-';
+  return new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+export async function loadMaterialsBrowse(reset = true) {
+  if (materialBrowseState.loading) return;
+  materialBrowseState.loading = true;
+  if (reset) {
+    materialBrowseState.page = 0;
+    materialBrowseState.items = [];
+    materialBrowseState.hasMore = true;
+  }
+
+  const dateFilter = document.getElementById('admin-material-date-filter').value;
+  const sort = document.getElementById('admin-material-sort').value;
+  const from = materialBrowseState.page * materialBrowseState.pageSize;
+  const to = from + materialBrowseState.pageSize - 1;
+
+  let query = ST.supabaseClient
+    .from('materials')
+    .select('id, denomination, rubro, category, updated_at, active')
+    .range(from, to);
+
+  if (dateFilter) query = query.gte('updated_at', dateFilter);
+
+  if (sort === 'updated_asc') query = query.order('updated_at', { ascending: true });
+  else if (sort === 'name_asc') query = query.order('denomination', { ascending: true });
+  else query = query.order('updated_at', { ascending: false }); // updated_desc, default
+
+  const { data, error } = await query;
+  materialBrowseState.loading = false;
+
+  if (error) {
+    document.getElementById('admin-material-list').innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+    return;
+  }
+
+  materialBrowseState.items = reset ? (data || []) : [...materialBrowseState.items, ...(data || [])];
+  materialBrowseState.hasMore = (data || []).length === materialBrowseState.pageSize;
+  materialBrowseState.page++;
+  renderMaterialBrowseList();
+}
+
+function renderMaterialBrowseList() {
+  const container = document.getElementById('admin-material-list');
+  const btnLoadMore = document.getElementById('btn-load-more-materials');
+  if (!container) return;
+
+  if (materialBrowseState.items.length === 0) {
+    container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Sin materiales para ese filtro.</p>';
+    if (btnLoadMore) btnLoadMore.style.display = 'none';
+    return;
+  }
+
+  container.innerHTML = materialBrowseState.items.map(item => `
+    <div class="provider-search-row">
+      <div class="provider-search-row-info">
+        <strong>${item.denomination}</strong>${item.active === false ? ' <span style="color:#b91c1c; font-size:0.72rem; font-weight:700;">(inactivo)</span>' : ''}<br>
+        <span style="color:var(--text-muted); font-size:0.75rem;">${item.id} · ${item.rubro} · modificado: ${formatDateTime(item.updated_at)}</span>
+      </div>
+      <button class="btn-computo" style="padding: 6px 12px; font-size: 0.78rem;" onclick="window.nexoBraApp.openMaterialEditor(${ST.escAttr(item.id)})">Editar</button>
+    </div>
+  `).join('');
+
+  if (btnLoadMore) btnLoadMore.style.display = materialBrowseState.hasMore ? 'block' : 'none';
+}
+
+// ============================================================
+// F2, parte C — Editor de un material puntual
+// ============================================================
 
 export async function openMaterialEditor(materialId) {
   const { data: material, error: matError } = await ST.supabaseClient
@@ -174,6 +259,7 @@ export async function saveMaterialEdit() {
 
     ST.showToast('Material actualizado.');
     closeMaterialEditor();
+    loadMaterialsBrowse(true); // refresca la lista para que se vea la nueva fecha de modificación
   } catch (err) {
     ST.showToast('No se pudo guardar: ' + err.message);
   } finally {
@@ -182,7 +268,7 @@ export async function saveMaterialEdit() {
 }
 
 // ============================================================
-// F3 — Aprobación de corralones
+// F3 — Aprobación de proveedores (con perfil completo)
 // ============================================================
 
 export async function loadPendingProviders() {
@@ -206,7 +292,7 @@ export async function loadPendingProviders() {
 function renderPendingProviders() {
   const container = document.getElementById('admin-pending-providers');
   if (adminState.pendingProviders.length === 0) {
-    container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">No hay corralones esperando aprobación.</p>';
+    container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">No hay proveedores esperando aprobación.</p>';
     return;
   }
   container.innerHTML = adminState.pendingProviders.map(p => {
@@ -215,38 +301,89 @@ function renderPendingProviders() {
       <div class="computation-row">
         <div class="computation-row-info">
           <h4>${p.business_name}</h4>
-          <span>
-            ${p.tax_id ? `CUIT: ${p.tax_id} · ` : ''}${branch ? `${branch.name}, ${branch.locality}` : 'Sin sucursal cargada'}<br>
-            ${p.contact_phone || ''} ${p.contact_email ? '· ' + p.contact_email : ''}
-            ${p.description ? `<br><em>${p.description}</em>` : ''}
-          </span>
+          <span>${branch ? `${branch.name}, ${branch.locality}` : 'Sin sucursal cargada'} · Cargado el ${formatDateTime(p.created_at)}</span>
         </div>
         <div class="computation-row-actions">
-          <button onclick="window.nexoBraApp.approveProvider(${ST.escAttr(p.id)})">✓ Aprobar</button>
-          <button class="danger" onclick="window.nexoBraApp.rejectProvider(${ST.escAttr(p.id)})">✕ Rechazar</button>
+          <button onclick="window.nexoBraApp.openProviderReview(${ST.escAttr(p.id)})">Ver perfil completo</button>
         </div>
       </div>
     `;
   }).join('');
 }
 
+/** Ficha completa del proveedor (todos los campos + su sucursal) para decidir con criterio, no solo con el nombre. */
+export async function openProviderReview(providerId) {
+  const panel = document.getElementById('admin-provider-review');
+  panel.style.display = 'block';
+  panel.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando ficha...</p>';
+  panel.scrollIntoView({ behavior: 'smooth' });
+
+  const { data: provider, error } = await ST.supabaseClient
+    .from('providers')
+    .select('*, provider_branches(*)')
+    .eq('id', providerId)
+    .single();
+
+  if (error) {
+    panel.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+    return;
+  }
+  adminState.reviewingProvider = provider;
+  const branch = provider.provider_branches?.[0];
+
+  panel.innerHTML = `
+    <h4 style="margin-bottom:10px;">🏪 ${provider.business_name}</h4>
+    <div class="excel-config-grid" style="margin-bottom:14px;">
+      <div><strong>CUIT:</strong> ${provider.tax_id || 's/d'}</div>
+      <div><strong>Sitio web:</strong> ${provider.website_url ? `<a href="${provider.website_url}" target="_blank">${provider.website_url}</a>` : 's/d'}</div>
+      <div><strong>Teléfono:</strong> ${provider.contact_phone || 's/d'}</div>
+      <div><strong>Email:</strong> ${provider.contact_email || 's/d'}</div>
+      <div style="grid-column: 1 / -1;"><strong>Descripción:</strong> ${provider.description || 's/d'}</div>
+    </div>
+    ${branch ? `
+      <h5 style="margin-bottom:8px;">Sucursal</h5>
+      <div class="excel-config-grid" style="margin-bottom:14px;">
+        <div><strong>Nombre:</strong> ${branch.name}</div>
+        <div><strong>Localidad:</strong> ${branch.locality}, ${branch.province || ''}</div>
+        <div><strong>Dirección:</strong> ${branch.address || 's/d'}</div>
+        <div><strong>WhatsApp:</strong> ${branch.whatsapp_phone || 's/d'}</div>
+        <div><strong>Coordenadas:</strong> ${branch.latitude && branch.longitude ? `${branch.latitude}, ${branch.longitude}` : 'sin cargar'}</div>
+        <div><strong>Radio de entrega:</strong> ${branch.delivery_radius_km ? branch.delivery_radius_km + ' km' : 's/d'}</div>
+      </div>
+    ` : '<p style="color:#b91c1c; font-size:0.85rem;">Todavía no cargó ninguna sucursal.</p>'}
+    <div style="display:flex; gap:8px;">
+      <button class="btn-computo" onclick="window.nexoBraApp.approveProvider(${ST.escAttr(provider.id)})">✓ Aprobar proveedor</button>
+      <button class="btn-action-drawer" style="color:#b91c1c;" onclick="window.nexoBraApp.rejectProvider(${ST.escAttr(provider.id)})">✕ Rechazar</button>
+      <button class="btn-action-drawer" type="button" onclick="window.nexoBraApp.closeProviderReview()">Cerrar</button>
+    </div>
+  `;
+}
+
+export function closeProviderReview() {
+  adminState.reviewingProvider = null;
+  document.getElementById('admin-provider-review').style.display = 'none';
+}
+
 export async function approveProvider(id) {
-  const { error } = await ST.supabaseClient.from('providers').update({ verification_status: 'approved' }).eq('id', id);
+  const { error } = await ST.supabaseClient.from('providers').update({ verification_status: 'approved', rejection_reason: null }).eq('id', id);
   if (error) { ST.showToast('No se pudo aprobar: ' + error.message); return; }
-  ST.showToast('Corralón aprobado. Ya aparece en el mapa.');
+  ST.showToast('Proveedor aprobado. Ya aparece en el mapa.');
+  closeProviderReview();
   loadPendingProviders();
 }
 
 export async function rejectProvider(id) {
-  if (!confirm('¿Rechazar este corralón? No va a aparecer públicamente hasta que lo apruebes.')) return;
-  const { error } = await ST.supabaseClient.from('providers').update({ verification_status: 'rejected' }).eq('id', id);
+  const motivo = prompt('¿Por qué rechazás este proveedor? (se lo va a mostrar a la persona en su panel)');
+  if (motivo === null) return; // canceló
+  const { error } = await ST.supabaseClient.from('providers').update({ verification_status: 'rejected', rejection_reason: motivo || null }).eq('id', id);
   if (error) { ST.showToast('No se pudo rechazar: ' + error.message); return; }
-  ST.showToast('Corralón rechazado.');
+  ST.showToast('Proveedor rechazado.');
+  closeProviderReview();
   loadPendingProviders();
 }
 
 // ============================================================
-// F4 — Agenda de precios pendientes (por corralón)
+// F4 — Agenda de precios pendientes (por proveedor)
 // ============================================================
 
 export async function loadPendingOffers() {
@@ -274,7 +411,7 @@ function renderPendingOffers() {
     return;
   }
 
-  // Agrupar por corralón (agenda por corralón, como pediste).
+  // Agrupar por proveedor (agenda por proveedor, como pediste).
   const groups = {};
   const order = [];
   adminState.pendingOffers.forEach(offer => {
@@ -297,7 +434,7 @@ function renderPendingOffers() {
             <div class="provider-catalog-row">
               <div class="provider-catalog-row-info">
                 <h5>${offer.materials?.denomination || '(material eliminado)'}</h5>
-                <span>${offer.provider_sku ? `SKU: ${offer.provider_sku} · ` : ''}${ST.formatMoney(offer.amount)} / ${offer.unit} · ${offer.stock_status}</span>
+                <span>${offer.provider_sku ? `SKU: ${offer.provider_sku} · ` : ''}${ST.formatMoney(offer.amount)} / ${offer.unit} · ${offer.stock_status} · cargado ${formatDateTime(offer.reported_at)}</span>
               </div>
               <div class="provider-catalog-row-controls">
                 <button class="btn-computo" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.approveOffer(${ST.escAttr(offer.id)})">✓ Aprobar</button>
@@ -312,14 +449,16 @@ function renderPendingOffers() {
 }
 
 export async function approveOffer(id) {
-  const { error } = await ST.supabaseClient.from('provider_offers').update({ status: 'approved' }).eq('id', id);
+  const { error } = await ST.supabaseClient.from('provider_offers').update({ status: 'approved', rejection_reason: null }).eq('id', id);
   if (error) { ST.showToast('No se pudo aprobar: ' + error.message); return; }
   ST.showToast('Precio aprobado.');
   loadPendingOffers();
 }
 
 export async function rejectOffer(id) {
-  const { error } = await ST.supabaseClient.from('provider_offers').update({ status: 'rejected' }).eq('id', id);
+  const motivo = prompt('¿Por qué rechazás este precio? (se lo va a mostrar al proveedor en su catálogo)');
+  if (motivo === null) return; // canceló
+  const { error } = await ST.supabaseClient.from('provider_offers').update({ status: 'rejected', rejection_reason: motivo || null }).eq('id', id);
   if (error) { ST.showToast('No se pudo rechazar: ' + error.message); return; }
   ST.showToast('Precio rechazado.');
   loadPendingOffers();
@@ -336,6 +475,9 @@ export function setupAdminListeners() {
   const btnCloseEditor = document.getElementById('btn-close-material-editor');
   const btnSaveEdit = document.getElementById('btn-save-material-edit');
   const btnRecalc = document.getElementById('btn-recalc-precio-computo');
+  const dateFilter = document.getElementById('admin-material-date-filter');
+  const sortSelect = document.getElementById('admin-material-sort');
+  const btnLoadMore = document.getElementById('btn-load-more-materials');
 
   if (btnOpenAdmin) btnOpenAdmin.addEventListener('click', () => {
     ST.authDropdown.style.display = 'none';
@@ -345,9 +487,13 @@ export function setupAdminListeners() {
   if (btnCloseEditor) btnCloseEditor.addEventListener('click', closeMaterialEditor);
   if (btnSaveEdit) btnSaveEdit.addEventListener('click', (e) => { e.preventDefault(); saveMaterialEdit(); });
   if (btnRecalc) btnRecalc.addEventListener('click', recalcPrecioComputo);
+  if (dateFilter) dateFilter.addEventListener('change', () => loadMaterialsBrowse(true));
+  if (sortSelect) sortSelect.addEventListener('change', () => loadMaterialsBrowse(true));
+  if (btnLoadMore) btnLoadMore.addEventListener('click', () => loadMaterialsBrowse(false));
 }
 
 export function loadAdminPanel() {
+  loadMaterialsBrowse(true);
   loadPendingProviders();
   loadPendingOffers();
 }
