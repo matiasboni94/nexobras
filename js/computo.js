@@ -501,6 +501,72 @@ import * as ST from './state.js';
   }
 
   // --- PRINT / PDF EXPORT ---
+  /**
+   * Exporta el cómputo activo a un .xlsx real (no PDF), separando materiales
+   * y mano de obra en tablas, con el mismo criterio de columnas que ya usa
+   * el cotizador de Excel (excel.js) para mantener el archivo consistente
+   * con el resto de las exportaciones del sitio.
+   */
+  export function exportComputoToExcel() {
+    if (ST.state.computoCart.length === 0) {
+      alert('No hay ítems en tu cómputo para exportar.');
+      return;
+    }
+    const { materiales, manoDeObra, subtotalMateriales, subtotalManoObra, total } = computeCartSubtotals();
+    const periodo = ST.monthLabel(ST.state.computoMonth);
+    const nombre = ST.drawerComputationName.value.trim() || 'Mi cómputo';
+
+    const exportData = [
+      [`NEXOBRA - ${nombre}`],
+      [`Precios calculados a: ${periodo}`, `Generado: ${new Date().toLocaleDateString('es-AR')}`],
+      []
+    ];
+
+    if (materiales.length > 0) {
+      exportData.push(['MATERIALES']);
+      exportData.push(['Código', 'Descripción', 'Rubro', 'Cantidad', 'Unidad', 'Precio Unitario (ARS)', 'Subtotal (ARS)', 'Origen']);
+      materiales.forEach(({ item, pricing }) => {
+        exportData.push([
+          item.id,
+          item.denominacion,
+          item.rubro,
+          item.qty,
+          item.unit,
+          pricing.unitPrice,
+          item.qty * pricing.unitPrice,
+          pricing.isProviderSourced ? `Proveedor: ${item.providerBusinessName}` : 'Referencia NEXOBRA'
+        ]);
+      });
+      exportData.push(['', '', '', '', '', 'Subtotal Materiales:', subtotalMateriales, '']);
+      exportData.push([]);
+    }
+
+    if (manoDeObra.length > 0) {
+      exportData.push(['MANO DE OBRA']);
+      exportData.push(['Rol', '', '', 'Cantidad', 'Unidad', 'Precio Unitario (ARS)', 'Subtotal (ARS)', '']);
+      manoDeObra.forEach(({ item, pricing }) => {
+        exportData.push([item.denominacion, '', '', item.qty, item.unit, pricing.unitPrice, item.qty * pricing.unitPrice, '']);
+      });
+      exportData.push(['', '', '', '', '', 'Subtotal Mano de Obra:', subtotalManoObra, '']);
+      exportData.push([]);
+    }
+
+    exportData.push(['', '', '', '', '', 'TOTAL ESTIMADO:', total, 'ARS']);
+    exportData.push([]);
+    exportData.push(['Valores orientativos. No incluyen impuestos, cargas sociales ni flete.']);
+
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    ws['!cols'] = [
+      { wch: 14 }, { wch: 40 }, { wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 18 }, { wch: 28 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Computo_NEXOBRA');
+    const safeName = nombre.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '_') || 'Computo';
+    XLSX.writeFile(wb, `${safeName}_NEXOBRA.xlsx`);
+    ST.showToast('Excel descargado.');
+  }
+
   export function printComputo() {
     if (ST.state.computoCart.length === 0) {
       alert('No hay ítems en tu cómputo para imprimir.');
@@ -673,4 +739,3 @@ import * as ST from './state.js';
   // ==========================================================================
   // EXCEL BULK PROCESSOR (ETAPA 3)
   // ==========================================================================
-
