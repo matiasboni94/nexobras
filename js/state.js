@@ -100,7 +100,7 @@
    * acentos). JSON.stringify solo ya NO alcanza: si el string tiene una
    * comilla, rompe el atributo HTML y tira "Unexpected end of input" en
    * TODA la página, no solo en ese botón (bug real que encontramos: nombres
-   * de corralones con onclick="...${JSON.stringify(x)}..." rompían el parseo
+   * de proveedores con onclick="...${JSON.stringify(x)}..." rompían el parseo
    * de HTML apenas se renderizaba la tarjeta).
    * Uso: onclick='miFuncion(${ST.escAttr(valor)})' -- SIEMPRE con comillas
    * simples afuera del atributo.
