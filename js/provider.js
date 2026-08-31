@@ -9,7 +9,7 @@ import * as ST from './state.js';
     return ST.authState.profile?.role === 'provider';
   }
 
-  /** Se llama desde Auth.refreshAuthUI(): muestra/oculta el acceso a "Mi Corralón" según el rol. */
+  /** Se llama desde Auth.refreshAuthUI(): muestra/oculta el acceso a "Mi Proveedor" según el rol. */
   export function updateProviderNavVisibility() {
     if (ST.btnOpenMyProvider) ST.btnOpenMyProvider.style.display = isProvider() ? 'block' : 'none';
   }
@@ -24,6 +24,21 @@ import * as ST from './state.js';
       .maybeSingle();
 
     ST.providerState.provider = provider || null;
+
+    const statusBanner = document.getElementById('provider-verification-banner');
+    if (statusBanner) {
+      if (!provider || provider.verification_status === 'approved') {
+        statusBanner.style.display = 'none';
+      } else if (provider.verification_status === 'pending') {
+        statusBanner.style.display = 'block';
+        statusBanner.className = 'provider-status-banner pending';
+        statusBanner.innerHTML = '⏳ Tu perfil está pendiente de aprobación. No vas a aparecer en el mapa hasta que un administrador lo revise.';
+      } else if (provider.verification_status === 'rejected') {
+        statusBanner.style.display = 'block';
+        statusBanner.className = 'provider-status-banner rejected';
+        statusBanner.innerHTML = `✕ Tu perfil fue rechazado${provider.rejection_reason ? ': ' + provider.rejection_reason : ''}. Corregí lo que haga falta y guardá de nuevo para volver a quedar pendiente de revisión.`;
+      }
+    }
 
     if (provider) {
       document.getElementById('prov-business-name').value = provider.business_name || '';
@@ -81,10 +96,15 @@ import * as ST from './state.js';
 
       let provider = ST.providerState.provider;
       if (provider) {
-        const { error } = await ST.supabaseClient.from('providers').update(providerPayload).eq('id', provider.id);
+        // Si estaba rechazado, al volver a guardar vuelve a "pending" para que el admin lo revise de nuevo.
+        const updatePayload = provider.verification_status === 'rejected'
+          ? { ...providerPayload, verification_status: 'pending', rejection_reason: null }
+          : providerPayload;
+        const { error } = await ST.supabaseClient.from('providers').update(updatePayload).eq('id', provider.id);
         if (error) throw error;
+        ST.providerState.provider = { ...provider, ...updatePayload };
       } else {
-        // Los corralones nuevos entran en estado "pending": no aparecen en el
+        // Los proveedores nuevos entran en estado "pending": no aparecen en el
         // mapa ni en las búsquedas públicas hasta que un admin los apruebe.
         const { data, error } = await ST.supabaseClient.from('providers').insert({ ...providerPayload, verification_status: 'pending' }).select('*').single();
         if (error) throw error;
@@ -121,6 +141,7 @@ import * as ST from './state.js';
       ST.providerProfileStatus.textContent = '✓ Guardado';
       ST.showToast('Datos comerciales guardados.');
       loadProviderDashboard();
+      loadProviderData(); // refresca el banner de estado (pending/rechazado/aprobado)
     } catch (err) {
       ST.providerProfileStatus.textContent = '';
       ST.showToast('No se pudo guardar: ' + err.message);
@@ -220,7 +241,7 @@ import * as ST from './state.js';
     }
     const { data, error } = await ST.supabaseClient
       .from('provider_offers')
-      .select('id, amount, unit, provider_sku, stock_status, status, materials(id, denomination)')
+      .select('id, amount, unit, provider_sku, stock_status, status, rejection_reason, materials(id, denomination)')
       .eq('branch_id', ST.providerState.branch.id)
       .order('reported_at', { ascending: false });
 
@@ -243,7 +264,7 @@ import * as ST from './state.js';
           <h5>${offer.materials?.denomination || '(material eliminado)'}</h5>
           <span>${offer.provider_sku ? `SKU propio: ${offer.provider_sku} · ` : ''}${offer.unit}</span>
           ${offer.status === 'pending' ? '<br><span style="font-size:0.7rem; font-weight:700; color:#b45309;">⏳ Pendiente de aprobación</span>' : ''}
-          ${offer.status === 'rejected' ? '<br><span style="font-size:0.7rem; font-weight:700; color:#b91c1c;">✕ Rechazado — revisá el precio y volvé a intentar</span>' : ''}
+          ${offer.status === 'rejected' ? `<br><span style="font-size:0.7rem; font-weight:700; color:#b91c1c;">✕ Rechazado${offer.rejection_reason ? ': ' + offer.rejection_reason : ' — revisá el precio y volvé a intentar'}</span>` : ''}
         </div>
         <div class="provider-catalog-row-controls">
           <span class="stock-badge ${offer.stock_status}">${offer.stock_status === 'en_stock' ? 'En stock' : offer.stock_status === 'a_pedido' ? 'A pedido' : 'Agotado'}</span>
@@ -346,7 +367,7 @@ import * as ST from './state.js';
 
       if (!name && !sku) continue;
       const match = Excel.findBestMaterialMatch(sku, name);
-      let mode = 'venta'; // por defecto: precio por unidad de compra (lo mas comun para un corralon)
+      let mode = 'venta'; // por defecto: precio por unidad de compra (lo mas comun para un proveedor)
       let unitAmbiguous = false;
       if (match.item) {
         const unitMatch = Excel.matchUnit(requestedUnit, match.item.unidadVenta, match.item.unidadComputo);
@@ -494,7 +515,7 @@ import * as ST from './state.js';
       return;
     }
     if (!data || data.length === 0) {
-      results.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Todavía no hay otros corralones cargados en tu zona para comparar, o vos mismo no tenés materiales cargados.</p>';
+      results.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Todavía no hay otros proveedores cargados en tu zona para comparar, o vos mismo no tenés materiales cargados.</p>';
       return;
     }
 
