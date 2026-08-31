@@ -1,6 +1,27 @@
 // NEXOBRA - excel.js
 
 import * as ST from './state.js';
+import * as Computo from './computo.js';
+
+  /**
+   * Interpreta la columna "Unidad" de un Excel de forma flexible (tolera
+   * mayúsculas, acentos y plural simple: "Bolsas" ~ "Bolsa", "KG" ~ "kg"),
+   * y la compara contra las dos unidades válidas del material matcheado
+   * (venta = unidad de compra, computo = unidad de cómputo/APU).
+   * No exige coincidencia exacta: si no matchea ninguna, devuelve matched:false
+   * para que quien llama decida un fallback (no bloquea la carga).
+   */
+  function normalizeUnitToken(u) {
+    return ST.normalizeText(u || '').replace(/s$/, '');
+  }
+
+  export function matchUnit(requestedUnit, unidadVenta, unidadComputo) {
+    if (!requestedUnit) return { mode: null, matched: false };
+    const norm = normalizeUnitToken(requestedUnit);
+    if (norm && norm === normalizeUnitToken(unidadVenta)) return { mode: 'venta', matched: true };
+    if (norm && norm === normalizeUnitToken(unidadComputo)) return { mode: 'computo', matched: true };
+    return { mode: null, matched: false };
+  }
 
   export function openExcelModal() {
     ST.excelModal.classList.add('open');
@@ -67,13 +88,14 @@ import * as ST from './state.js';
     let descIdx = header.findIndex(h => h.includes('material') || h.includes('denominacion') || h.includes('descripcion') || h.includes('item') || h.includes('nombre') || h.includes('producto'));
     let qtyIdx = header.findIndex(h => h.includes('cant') || h.includes('cantidad') || h.includes('unidades'));
     let codeIdx = header.findIndex(h => h.includes('codigo') || h.includes('id') || h.includes('cod'));
+    let unidadIdx = header.findIndex(h => h === 'unidad' || h.includes('unidad'));
 
     if (descIdx === -1) descIdx = 0;
     if (qtyIdx === -1) qtyIdx = descIdx === 0 ? 1 : 0;
 
     const processed = [];
     const factor = getActiveFactor();
-    const mode = ST.excelPricingMode.value;
+    const globalMode = ST.excelPricingMode.value;
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
@@ -81,6 +103,7 @@ import * as ST from './state.js';
 
       const requestedCode = codeIdx > -1 && row[codeIdx] ? row[codeIdx].toString().trim() : '';
       const requestedDesc = row[descIdx] ? row[descIdx].toString().trim() : '';
+      const requestedUnit = unidadIdx > -1 && row[unidadIdx] ? row[unidadIdx].toString().trim() : '';
       let qty = qtyIdx > -1 && row[qtyIdx] ? parseFloat(row[qtyIdx]) || 1 : 1;
 
       const matchResult = findBestMaterialMatch(requestedCode, requestedDesc);
@@ -91,8 +114,18 @@ import * as ST from './state.js';
       let unit = '-';
       let unitPriceUpdated = 0;
       let subtotal = 0;
+      let unitAmbiguous = false;
+      let mode = globalMode;
 
       if (matchedItem) {
+        const unitMatch = matchUnit(requestedUnit, matchedItem.unidadVenta, matchedItem.unidadComputo);
+        if (unitMatch.matched) {
+          mode = unitMatch.mode;
+        } else if (requestedUnit) {
+          // Escribieron algo en "Unidad" pero no coincide con ninguna de las dos válidas del material:
+          // no bloqueamos la carga, seguimos con el modo global, pero lo marcamos para que se revise.
+          unitAmbiguous = true;
+        }
         unitPriceBase = mode === 'venta' ? matchedItem.precioVenta : matchedItem.precioComputo;
         unit = mode === 'venta' ? matchedItem.unidadVenta : matchedItem.unidadComputo;
         unitPriceUpdated = unitPriceBase * factor;
@@ -102,6 +135,8 @@ import * as ST from './state.js';
       processed.push({
         requestedName: requestedDesc || requestedCode,
         requestedQty: qty,
+        requestedUnit,
+        unitAmbiguous,
         matchedItem: matchedItem,
         status: status,
         unit: unit,
@@ -112,7 +147,8 @@ import * as ST from './state.js';
 
     ST.state.excelProcessedRows = processed;
     renderExcelPreview();
-    ST.showToast(`✓ Se procesaron ${processed.length} materiales del Excel`);
+    const ambCount = processed.filter(r => r.unitAmbiguous).length;
+    ST.showToast(`✓ Se procesaron ${processed.length} materiales del Excel` + (ambCount > 0 ? ` (${ambCount} con unidad no reconocida, revisalos)` : ''));
   }
 
   export function findBestMaterialMatch(code, text) {
@@ -161,10 +197,12 @@ import * as ST from './state.js';
 
   export function recalculateExcelRows() {
     const factor = getActiveFactor();
-    const mode = ST.excelPricingMode.value;
+    const globalMode = ST.excelPricingMode.value;
 
     ST.state.excelProcessedRows.forEach(row => {
       if (row.matchedItem) {
+        const unitMatch = matchUnit(row.requestedUnit, row.matchedItem.unidadVenta, row.matchedItem.unidadComputo);
+        const mode = unitMatch.matched ? unitMatch.mode : globalMode;
         const unitPriceBase = mode === 'venta' ? row.matchedItem.precioVenta : row.matchedItem.precioComputo;
         row.unit = mode === 'venta' ? row.matchedItem.unidadVenta : row.matchedItem.unidadComputo;
         row.unitPrice = unitPriceBase * factor;
@@ -204,7 +242,7 @@ import * as ST from './state.js';
               ? `<span style="font-size: 0.82rem; color: var(--brand-dark); font-weight: 600;">[${row.matchedItem.id}] ${row.matchedItem.denominacion}</span>` 
               : `<span style="color: var(--text-subtle); font-style: italic;">Sin precio de referencia</span>`}
           </td>
-          <td>${row.requestedQty} ${row.unit}</td>
+          <td>${row.requestedQty} ${row.unit}${row.unitAmbiguous ? ` <span title="Escribiste &quot;${row.requestedUnit}&quot; pero no coincide con ninguna unidad válida de este material. Se usó el modo general (${ST.excelPricingMode.value === 'venta' ? 'Venta' : 'Cómputo'}) por las dudas." style="color:#b45309; font-weight:700; cursor:help;">⚠</span>` : ''}</td>
           <td>${row.matchedItem ? ST.formatMoney(row.unitPrice) : '-'}</td>
           <td style="text-align: right;"><strong>${row.matchedItem ? ST.formatMoney(row.subtotal) : '-'}</strong></td>
         </tr>
@@ -214,21 +252,64 @@ import * as ST from './state.js';
 
   export function generateTemplateExcel() {
     const ws_data = [
-      ["Código (Opcional)", "Material o Descripción", "Cantidad Requerida"],
-      ["BL-003", "Cemento Portland Loma Negra 50kg", 20],
-      ["BG-001", "Arena gruesa 6m3", 2],
-      ["ARN-002", "Hierro torsionado del 8 ADN420", 35],
-      ["CS-001", "Placa Durlock 12.5mm", 15],
-      ["CVLH-002", "Ladrillos huecos 12x18x25", 800],
-      ["CAH-012", "Membrana asfáltica 35kg", 4],
-      ["", "Inodoro blanco Ferrum Bari", 2]
+      ["Código (Opcional)", "Material o Descripción", "Cantidad Requerida", "Unidad"],
+      ["BL-003", "Cemento Portland Loma Negra 50kg", 20, "Bolsa"],
+      ["BG-001", "Arena gruesa 6m3", 2, "m3"],
+      ["ARN-002", "Hierro torsionado del 8 ADN420", 420, "kg"],
+      ["CS-001", "Placa Durlock 12.5mm", 15, ""],
+      ["CVLH-002", "Ladrillos huecos 12x18x25", 800, "un"],
+      ["CAH-012", "Membrana asfáltica 35kg", 4, ""],
+      ["", "Inodoro blanco Ferrum Bari", 2, "un"]
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    ws['!cols'] = [{ wch: 16 }, { wch: 42 }, { wch: 16 }, { wch: 12 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Materiales_NEXOBRA");
     XLSX.writeFile(wb, "Plantilla_Materiales_NEXOBRA.xlsx");
     ST.showToast('Plantilla descargada con éxito');
+  }
+
+  /**
+   * Pasa los materiales matcheados del cotizador de Excel a "Mi Cómputo",
+   * reutilizando el mismo carrito (state.computoCart) que ya soporta guardar,
+   * abrir, editar cantidades y exportar. Así "guardar el Excel en mi cuenta"
+   * no es un sistema aparte: es simplemente cargarlo en el cómputo de siempre.
+   */
+  export function saveExcelToComputo() {
+    const matched = ST.state.excelProcessedRows.filter(r => r.matchedItem);
+    if (matched.length === 0) {
+      ST.showToast('No hay materiales coincidentes para guardar.');
+      return;
+    }
+
+    matched.forEach(row => {
+      const item = row.matchedItem;
+      const mode = row.mode || ST.excelPricingMode.value;
+      const unit = mode === 'venta' ? item.unidadVenta : item.unidadComputo;
+      const existingIndex = ST.state.computoCart.findIndex(
+        i => i.id === item.id && i.type === 'material' && i.mode === mode && !i.providerOfferId
+      );
+      if (existingIndex > -1) {
+        ST.state.computoCart[existingIndex].qty += row.requestedQty;
+      } else {
+        ST.state.computoCart.push({
+          id: item.id,
+          denominacion: item.denominacion,
+          rubro: item.rubro,
+          unit: unit,
+          qty: row.requestedQty,
+          type: 'material',
+          mode: mode
+        });
+      }
+    });
+
+    Computo.saveCart();
+    Computo.updateCartUI();
+    closeExcelModal();
+    Computo.openDrawer();
+    ST.showToast(`${matched.length} material${matched.length === 1 ? '' : 'es'} agregado${matched.length === 1 ? '' : 's'} a Mi Cómputo. Ya podés guardarlo con un nombre.`);
   }
 
   export function exportProcessedExcel() {
@@ -275,4 +356,3 @@ import * as ST from './state.js';
     XLSX.writeFile(wb, `Cotizacion_NEXOBRA_${dateLabel.replace(/\s+/g, '_')}.xlsx`);
     ST.showToast('✓ Archivo Excel cotizado descargado exitosamente');
   }
-
