@@ -84,10 +84,13 @@ import * as ST from './state.js';
         const { error } = await ST.supabaseClient.from('providers').update(providerPayload).eq('id', provider.id);
         if (error) throw error;
       } else {
-        const { data, error } = await ST.supabaseClient.from('providers').insert(providerPayload).select('*').single();
+        // Los corralones nuevos entran en estado "pending": no aparecen en el
+        // mapa ni en las búsquedas públicas hasta que un admin los apruebe.
+        const { data, error } = await ST.supabaseClient.from('providers').insert({ ...providerPayload, verification_status: 'pending' }).select('*').single();
         if (error) throw error;
         provider = data;
         ST.providerState.provider = provider;
+        ST.showToast('Tu perfil quedó pendiente de aprobación. Te vas a poder ver en el mapa una vez que lo revisemos.');
       }
 
       const branchPayload = {
@@ -195,7 +198,7 @@ import * as ST from './state.js';
       unit: unitMode === 'venta' ? material.unidadVenta : material.unidadComputo,
       provider_sku: sku,
       stock_status: stock,
-      status: 'approved',
+      status: 'pending', // nuevo precio: queda pendiente de aprobación del admin
       reported_at: new Date().toISOString()
     });
 
@@ -203,7 +206,7 @@ import * as ST from './state.js';
       ST.showToast('No se pudo agregar: ' + error.message);
       return;
     }
-    ST.showToast(`Agregado: ${material.denominacion.substring(0, 30)}`);
+    ST.showToast(`Agregado: ${material.denominacion.substring(0, 30)} (pendiente de aprobación)`);
     ST.providerAddSearch.value = '';
     ST.providerAddResults.innerHTML = '';
     loadProviderCatalog();
@@ -217,7 +220,7 @@ import * as ST from './state.js';
     }
     const { data, error } = await ST.supabaseClient
       .from('provider_offers')
-      .select('id, amount, unit, provider_sku, stock_status, materials(id, denomination)')
+      .select('id, amount, unit, provider_sku, stock_status, status, materials(id, denomination)')
       .eq('branch_id', ST.providerState.branch.id)
       .order('reported_at', { ascending: false });
 
@@ -239,6 +242,8 @@ import * as ST from './state.js';
         <div class="provider-catalog-row-info">
           <h5>${offer.materials?.denomination || '(material eliminado)'}</h5>
           <span>${offer.provider_sku ? `SKU propio: ${offer.provider_sku} · ` : ''}${offer.unit}</span>
+          ${offer.status === 'pending' ? '<br><span style="font-size:0.7rem; font-weight:700; color:#b45309;">⏳ Pendiente de aprobación</span>' : ''}
+          ${offer.status === 'rejected' ? '<br><span style="font-size:0.7rem; font-weight:700; color:#b91c1c;">✕ Rechazado — revisá el precio y volvé a intentar</span>' : ''}
         </div>
         <div class="provider-catalog-row-controls">
           <span class="stock-badge ${offer.stock_status}">${offer.stock_status === 'en_stock' ? 'En stock' : offer.stock_status === 'a_pedido' ? 'A pedido' : 'Agotado'}</span>
@@ -256,9 +261,11 @@ import * as ST from './state.js';
 
   export async function updateOfferPrice(offerId, newAmount) {
     if (!newAmount || newAmount <= 0) return;
-    const { error } = await ST.supabaseClient.from('provider_offers').update({ amount: newAmount }).eq('id', offerId);
+    // Cambiar el precio vuelve a mandar la oferta a revisión del admin (el
+    // stock NO hace esto -- eso sigue siendo instantáneo, ver updateOfferStock).
+    const { error } = await ST.supabaseClient.from('provider_offers').update({ amount: newAmount, status: 'pending' }).eq('id', offerId);
     if (error) { ST.showToast('No se pudo actualizar: ' + error.message); return; }
-    ST.showToast('Precio actualizado.');
+    ST.showToast('Precio actualizado — vuelve a quedar pendiente de aprobación.');
     loadProviderCatalog();
   }
 
@@ -404,7 +411,7 @@ import * as ST from './state.js';
       unit: row.mode === 'venta' ? row.matchedItem.unidadVenta : row.matchedItem.unidadComputo,
       provider_sku: row.sku || null,
       stock_status: row.stock,
-      status: 'approved',
+      status: 'pending', // carga masiva: igual que la individual, entra pendiente de aprobación
       reported_at: new Date().toISOString()
     }));
 
@@ -415,7 +422,7 @@ import * as ST from './state.js';
       ST.showToast('No se pudo cargar el archivo: ' + error.message);
       return;
     }
-    ST.showToast(`¡Listo! Se cargaron ${rows.length} materiales a tu catálogo.`);
+    ST.showToast(`¡Listo! Se cargaron ${rows.length} materiales, pendientes de aprobación.`);
     ST.providerState.excelPending = [];
     ST.providerExcelPreview.innerHTML = '';
     ST.btnConfirmProviderExcel.style.display = 'none';
