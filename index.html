@@ -86,7 +86,7 @@
             <button type="button" id="btn-open-my-computations">Mis Presupuestos</button>
             <button type="button" id="btn-open-favorites">Mis Favoritos</button>
             <button type="button" id="btn-open-alerts">Mis Alertas de Precio</button>
-            <button type="button" id="btn-open-my-provider" style="display: none;">Mi Corralón</button>
+            <button type="button" id="btn-open-my-provider" style="display: none;">Mi Proveedor</button>
             <button type="button" id="btn-open-admin" style="display: none;">Panel de Admin</button>
             <button type="button" id="btn-open-profile">Mi Perfil</button>
             <button type="button" id="btn-logout" class="danger">Cerrar sesión</button>
@@ -122,7 +122,7 @@
           Compará precios y armá tus cómputos <span class="accent-word">con datos claros y trazables</span>
         </h1>
         <p class="hero-main-desc">
-          <strong>NEXOBRA</strong> ayuda a arquitectos, ingenieros y constructores a comparar materiales y presupuestar. Consultá valores de referencia con su fecha, fuente y fórmula de actualización, y comparalos con precios informados por corralones de tu zona.
+          <strong>NEXOBRA</strong> ayuda a arquitectos, ingenieros y constructores a comparar materiales y presupuestar. Consultá valores de referencia con su fecha, fuente y fórmula de actualización, y comparalos con precios informados por proveedores de tu zona.
         </p>
 
         <!-- SEARCH BAR CENTRAL -->
@@ -230,7 +230,7 @@
           <article class="pilar-card">
             <div class="pilar-icon-box">🏪</div>
             <h3 class="pilar-title">Ofertas de proveedores locales</h3>
-            <p class="pilar-text">Cuando estén disponibles, se mostrarán separadas del promedio, con corralón, sucursal, fecha informada y disponibilidad a confirmar.</p>
+            <p class="pilar-text">Cuando estén disponibles, se mostrarán separadas del promedio, con proveedor, sucursal, fecha informada y disponibilidad a confirmar.</p>
           </article>
         </div>
 
@@ -390,7 +390,7 @@
                 Referencia NEXOBRA
               </button>
               <button class="mode-btn" id="source-providers" data-source="providers" type="button">
-                Ofertas de corralones cercanos
+                Ofertas de proveedores cercanos
               </button>
             </div>
           </div>
@@ -565,7 +565,7 @@
         <div class="modal-icon-badge">👤</div>
         <div>
           <h3 id="modal-auth-title" style="font-size: 1.25rem; font-weight: 800; margin-bottom: 2px;">Mi cuenta NEXOBRA</h3>
-          <p style="font-size: 0.8rem; color: var(--text-subtle);">Guardá tus presupuestos o cargá tu corralón</p>
+          <p style="font-size: 0.8rem; color: var(--text-subtle);">Guardá tus presupuestos o cargá tu proveedor</p>
         </div>
       </div>
       <button class="modal-close-btn" id="auth-modal-close-btn">&times;</button>
@@ -626,7 +626,7 @@
             <label class="auth-role-option">
               <input type="radio" name="register-role" value="provider">
               <div>
-                <strong>Soy corralón / proveedor</strong>
+                <strong>Soy proveedor / proveedor</strong>
                 <span>Quiero cargar mis precios y ganar visibilidad</span>
               </div>
             </label>
@@ -727,7 +727,7 @@
             <label class="auth-role-option">
               <input type="radio" name="onboarding-role" value="provider">
               <div>
-                <strong>Soy corralón / proveedor</strong>
+                <strong>Soy proveedor / proveedor</strong>
                 <span>Quiero cargar mis precios y ganar visibilidad</span>
               </div>
             </label>
@@ -911,7 +911,7 @@
         <article class="pilar-card">
           <div class="pilar-icon-box">🏪</div>
           <h3 class="pilar-title">Ofertas de proveedores locales</h3>
-          <p class="pilar-text">Cuando estén disponibles, se mostrarán separadas del promedio, con corralón, sucursal, fecha informada y disponibilidad a confirmar.</p>
+          <p class="pilar-text">Cuando estén disponibles, se mostrarán separadas del promedio, con proveedor, sucursal, fecha informada y disponibilidad a confirmar.</p>
         </article>
       </div>
 
@@ -969,7 +969,7 @@
     <div class="container" style="max-width: 980px;">
       <div class="catalog-header-banner">
         <div>
-          <h2 class="catalog-title">Mi Corralón</h2>
+          <h2 class="catalog-title">Mi Proveedor</h2>
           <p class="catalog-subtitle">Datos comerciales, catálogo propio y precios reportados a NEXOBRA.</p>
         </div>
       </div>
@@ -978,6 +978,7 @@
       <details class="provider-section" open>
         <summary>📋 Datos comerciales</summary>
         <div class="provider-section-body">
+          <div id="provider-verification-banner" style="display:none;"></div>
           <form id="provider-profile-form">
             <div class="excel-config-grid">
               <div class="config-field">
@@ -1002,7 +1003,7 @@
               </div>
               <div class="config-field">
                 <label for="prov-description">Descripción breve</label>
-                <input type="text" id="prov-description" class="form-select" placeholder="Ej: Corralón mayorista, 20 años en la zona">
+                <input type="text" id="prov-description" class="form-select" placeholder="Ej: Proveedor mayorista, 20 años en la zona">
               </div>
             </div>
 
@@ -1111,7 +1112,7 @@
             </select>
           </div>
           <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
-            Por cada material que tenés cargado, así se compara tu precio contra la mediana de otros corralones en el radio elegido. No mostramos precios individuales de la competencia, solo la mediana de la zona.
+            Por cada material que tenés cargado, así se compara tu precio contra la mediana de otros proveedores en el radio elegido. No mostramos precios individuales de la competencia, solo la mediana de la zona.
           </p>
           <div id="provider-dashboard-results"><!-- se completa con loadProviderDashboard() --></div>
         </div>
@@ -1127,7 +1128,7 @@
       <div class="catalog-header-banner">
         <div>
           <h2 class="catalog-title">Mapa de Proveedores</h2>
-          <p class="catalog-subtitle">Corralones cerca tuyo, y cómo se comparan sus precios con la mediana de la zona.</p>
+          <p class="catalog-subtitle">Proveedores cerca tuyo, y cómo se comparan sus precios con la mediana de la zona.</p>
         </div>
         <div class="map-controls">
           <button class="btn-computo" id="btn-geolocate" style="padding: 9px 14px;">📍 Usar mi ubicación</button>
@@ -1163,7 +1164,7 @@
       <div class="catalog-header-banner">
         <div>
           <h2 class="catalog-title">Mis Favoritos</h2>
-          <p class="catalog-subtitle">Corralones que guardaste para contactar rápido.</p>
+          <p class="catalog-subtitle">Proveedores que guardaste para contactar rápido.</p>
         </div>
       </div>
       <div id="favorites-list" class="computations-list"><!-- se completa con loadFavorites() --></div>
@@ -1193,7 +1194,7 @@
       <div class="catalog-header-banner">
         <div>
           <h2 class="catalog-title">Panel de Administración</h2>
-          <p class="catalog-subtitle">Editor de materiales, aprobación de corralones y precios pendientes.</p>
+          <p class="catalog-subtitle">Editor de materiales, aprobación de proveedores y precios pendientes.</p>
         </div>
       </div>
 
@@ -1206,6 +1207,22 @@
             <input type="text" id="admin-material-search" class="form-select" placeholder="Ej: cemento portland, ladrillo hueco...">
           </div>
           <div id="admin-material-results" class="provider-search-results"></div>
+
+          <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-light, #eee);">
+            <h4 style="margin-bottom: 10px; font-size: 0.9rem;">O navegá el listado completo</h4>
+            <div class="provider-bulk-edit" style="margin-bottom: 14px;">
+              <label for="admin-material-date-filter">Modificados desde:</label>
+              <input type="date" id="admin-material-date-filter" class="form-select" style="width: auto;">
+              <label for="admin-material-sort">Ordenar por:</label>
+              <select id="admin-material-sort" class="sort-select">
+                <option value="updated_desc" selected>Más recientes primero</option>
+                <option value="updated_asc">Más antiguos primero</option>
+                <option value="name_asc">Nombre A-Z</option>
+              </select>
+            </div>
+            <div id="admin-material-list" class="provider-search-results"></div>
+            <button class="btn-action-drawer" id="btn-load-more-materials" type="button" style="display:none; margin-top: 10px;">Cargar más</button>
+          </div>
 
           <div id="admin-material-editor" style="display:none; margin-top: 18px; border-top: 2px solid var(--brand-yellow); padding-top: 16px;">
             <h4 style="margin-bottom: 12px;">Editando: <code id="admin-edit-id"></code></h4>
@@ -1271,9 +1288,10 @@
 
       <!-- F3: CORRALONES PENDIENTES -->
       <details class="provider-section" open>
-        <summary>🏪 Corralones pendientes de aprobación</summary>
+        <summary>🏪 Proveedores pendientes de aprobación</summary>
         <div class="provider-section-body">
           <div id="admin-pending-providers" class="computations-list"></div>
+          <div id="admin-provider-review" style="display:none; margin-top: 16px; border-top: 2px solid var(--brand-yellow); padding-top: 14px;"></div>
         </div>
       </details>
 
@@ -1281,7 +1299,7 @@
       <details class="provider-section" open>
         <summary>💲 Precios pendientes de aprobación</summary>
         <div class="provider-section-body">
-          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">Materiales nuevos y cambios de precio que cargaron los corralones. El stock se refleja al instante y no aparece acá.</p>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">Materiales nuevos y cambios de precio que cargaron los proveedores. El stock se refleja al instante y no aparece acá.</p>
           <div id="admin-pending-offers"></div>
         </div>
       </details>
