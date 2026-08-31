@@ -12397,3 +12397,4 @@ const NEXOBRA_METRICS = {
   region: "Noreste / Argentina (Zona A)"
 };
 window.NEXOBRA_DATA = NEXOBRA_DATA;
+window.NEXOBRA_METRICS = NEXOBRA_METRICS;
