@@ -454,7 +454,10 @@ import * as ST from './state.js';
       return `
         <div class="variation-row">
           <span class="variation-name">${row.denomination}${row.stock_status === 'agotado' ? ' <em>(agotado)</em>' : ''}</span>
-          <span class="variation-badge ${cls}">${texto}</span>
+          <span style="text-align:right;">
+            <strong style="display:block; font-size:0.85rem;">${ST.formatMoney(row.branch_amount)}</strong>
+            <span class="variation-badge ${cls}">${texto}</span>
+          </span>
         </div>
       `;
     }).join('');
