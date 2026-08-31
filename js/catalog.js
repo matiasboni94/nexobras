@@ -225,7 +225,7 @@ import * as ST from './state.js';
       return true;
     });
 
-    // Modo "Ofertas de corralones cercanos": solo se muestran los materiales
+    // Modo "Ofertas de proveedores cercanos": solo se muestran los materiales
     // que efectivamente tienen alguna oferta dentro del radio elegido.
     if (ST.state.pricingSource === 'providers') {
       items = items.filter(item => ST.providerPricesState.byMaterial[item.id]);
@@ -339,7 +339,7 @@ import * as ST from './state.js';
               ${priceBoxExtra}
             </div>
 
-            ${usaOfertas ? '' : Pricing.renderPriceTrace(item)}
+            ${''}
 
             <div class="card-tags">
               ${tagsHtml}
