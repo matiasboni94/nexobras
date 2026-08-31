@@ -350,7 +350,7 @@ import * as ST from './state.js';
                 <button class="btn-choose-provider" style="margin-top:0; flex:1;" onclick="window.nexoBraApp.MapModule.openOfferPicker('${item.id}')">
                   🏪 Ver ${oferta.offers_count} oferta${oferta.offers_count === 1 ? '' : 's'} y elegir proveedor
                 </button>
-                <button class="btn-alert-toggle ${ST.alertsState.byMaterial[item.id] ? 'active' : ''}" title="${ST.alertsState.byMaterial[item.id] ? 'Ya tenés una alerta armada — tocá para sacarla' : 'Avisame si baja de precio'}" onclick="window.nexoBraApp.MapModule.toggleMaterialAlert('${item.id}', ${JSON.stringify(item.denominacion)})">
+                <button class="btn-alert-toggle ${ST.alertsState.byMaterial[item.id] ? 'active' : ''}" title="${ST.alertsState.byMaterial[item.id] ? 'Ya tenés una alerta armada — tocá para sacarla' : 'Avisame si baja de precio'}" onclick='window.nexoBraApp.toggleMaterialAlert(${ST.escAttr(item.id)}, ${ST.escAttr(item.denominacion)})'>
                   🔔
                 </button>
               </div>
