@@ -2468,3 +2468,22 @@ body {
   background: #f1f3f7;
   color: #666;
 }
+
+/* --- Fase F: banner de estado de verificación del corralón --- */
+.provider-status-banner {
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.provider-status-banner.pending {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+.provider-status-banner.rejected {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
