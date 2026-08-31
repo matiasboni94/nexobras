@@ -158,7 +158,7 @@ import * as ST from './state.js';
       radius_km: ST.mapState.radiusKm
     });
     if (error) {
-      ST.showToast('No se pudieron cargar las ofertas de corralones: ' + error.message);
+      ST.showToast('No se pudieron cargar las ofertas de proveedores: ' + error.message);
       return;
     }
     ST.providerPricesState.byMaterial = {};
@@ -172,7 +172,7 @@ import * as ST from './state.js';
     if (!status) return;
     status.textContent = materialesConOferta > 0
       ? `${materialesConOferta} material${materialesConOferta === 1 ? '' : 'es'} con oferta en ${ST.mapState.radiusKm} km a la redonda de tu ubicación.`
-      : `Ningún corralón cargó precios dentro de ${ST.mapState.radiusKm} km de tu ubicación. Probá ampliar el radio.`;
+      : `Ningún proveedor cargó precios dentro de ${ST.mapState.radiusKm} km de tu ubicación. Probá ampliar el radio.`;
   }
 
   export function setupPricingSourceListeners() {
@@ -229,9 +229,9 @@ import * as ST from './state.js';
   // --- ELEGIR UN PROVEEDOR ESPECÍFICO PARA UN MATERIAL ---
   // A diferencia de los materiales "de referencia" (que siempre se recalculan
   // en vivo contra el mes elegido en Mi Cómputo), un ítem elegido de un
-  // corralón puntual guarda el precio de ese momento tal cual — no hay "mes"
-  // al que llevarlo, es lo que ese corralón tiene cargado ahora. Si el
-  // corralón cambia después su precio, hay que sacarlo y volver a elegirlo.
+  // proveedor puntual guarda el precio de ese momento tal cual — no hay "mes"
+  // al que llevarlo, es lo que ese proveedor tiene cargado ahora. Si el
+  // proveedor cambia después su precio, hay que sacarlo y volver a elegirlo.
   export async function openOfferPicker(materialId) {
     const material = NEXOBRA_DATA.find(m => m.id === materialId);
     if (!material) return;
@@ -326,9 +326,9 @@ import * as ST from './state.js';
     ST.offerPickerModalBackdrop.addEventListener('click', closeOfferPicker);
   }
 
-  // --- FASE E, PARTE 1: Dashboard de competitividad (dentro de "Mi Corralón") ---
+  // --- FASE E, PARTE 1: Dashboard de competitividad (dentro de "Mi Proveedor") ---
   // Reutiliza branch_price_variation(), ya construida en la Fase D para la
-  // ficha que ve el USUARIO al tocar un pin. Acá el corralón ve exactamente
+  // ficha que ve el USUARIO al tocar un pin. Acá el proveedor ve exactamente
   // lo mismo, pero de su propio negocio, sin salir de su panel.
   export async function loadFavoriteIds() {
     if (!ST.supabaseClient || !ST.authState.user) return;
@@ -392,7 +392,7 @@ import * as ST from './state.js';
       list.innerHTML = `
         <div class="computo-empty-ST.state">
           <div class="empty-icon">⭐</div>
-          <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no guardaste ningún corralón</h4>
+          <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no guardaste ningún proveedor</h4>
           <p style="font-size: 0.85rem; color: var(--text-muted);">Desde el mapa, tocá un pin y usá el botón de favorito en su ficha.</p>
         </div>
       `;
@@ -457,7 +457,7 @@ import * as ST from './state.js';
     } else {
       const oferta = ST.providerPricesState.byMaterial[materialId];
       if (!oferta) {
-        ST.showToast('Todavía no hay ofertas de corralones cargadas para este material en tu zona.');
+        ST.showToast('Todavía no hay ofertas de proveedores cargadas para este material en tu zona.');
         return;
       }
       const { data, error } = await ST.supabaseClient
@@ -500,7 +500,7 @@ import * as ST from './state.js';
         <div class="computo-empty-ST.state">
           <div class="empty-icon">🔔</div>
           <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no armaste ninguna alerta</h4>
-          <p style="font-size: 0.85rem; color: var(--text-muted);">En el catálogo, activá "Ofertas de corralones cercanos" y usá el botón de campana en cualquier material.</p>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">En el catálogo, activá "Ofertas de proveedores cercanos" y usá el botón de campana en cualquier material.</p>
         </div>
       `;
       return;
