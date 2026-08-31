@@ -12396,3 +12396,4 @@ const NEXOBRA_METRICS = {
   lastUpdate: "Abril 2025",
   region: "Noreste / Argentina (Zona A)"
 };
+window.NEXOBRA_DATA = NEXOBRA_DATA;
