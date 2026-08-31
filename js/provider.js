@@ -156,6 +156,10 @@ import * as ST from './state.js';
         </div>
         <div class="provider-search-row-controls">
           <input type="text" id="prov-sku-${item.id}" placeholder="Tu SKU (opcional)">
+          <select id="prov-unit-${item.id}">
+            <option value="venta">Por ${item.unidadVenta} (compra)</option>
+            <option value="computo">Por ${item.unidadComputo} (cómputo)</option>
+          </select>
           <input type="number" id="prov-price-${item.id}" placeholder="Precio" min="0" step="0.01">
           <select id="prov-stock-${item.id}">
             <option value="en_stock">En stock</option>
@@ -181,13 +185,14 @@ import * as ST from './state.js';
     }
     const sku = document.getElementById(`prov-sku-${materialId}`).value.trim() || null;
     const stock = document.getElementById(`prov-stock-${materialId}`).value;
+    const unitMode = document.getElementById(`prov-unit-${materialId}`).value; // 'venta' | 'computo'
 
     const { error } = await ST.supabaseClient.from('provider_offers').insert({
       branch_id: ST.providerState.branch.id,
       material_id: materialId,
-      price_kind: 'sale',
+      price_kind: unitMode === 'venta' ? 'sale' : 'measurement',
       amount: price,
-      unit: material.unidadVenta,
+      unit: unitMode === 'venta' ? material.unidadVenta : material.unidadComputo,
       provider_sku: sku,
       stock_status: stock,
       status: 'approved',
@@ -314,6 +319,7 @@ import * as ST from './state.js';
     let nameIdx = header.findIndex(h => h.includes('nombre') || h.includes('descripcion') || h.includes('material') || h.includes('producto'));
     let priceIdx = header.findIndex(h => h.includes('precio'));
     let stockIdx = header.findIndex(h => h.includes('stock') || h.includes('disponib'));
+    let unidadIdx = header.findIndex(h => h === 'unidad' || h.includes('unidad'));
 
     if (nameIdx === -1) nameIdx = 0;
     if (priceIdx === -1) priceIdx = 1;
@@ -325,6 +331,7 @@ import * as ST from './state.js';
       const sku = skuIdx > -1 && row[skuIdx] ? row[skuIdx].toString().trim() : '';
       const name = nameIdx > -1 && row[nameIdx] ? row[nameIdx].toString().trim() : '';
       const price = priceIdx > -1 && row[priceIdx] ? parseFloat(row[priceIdx]) : 0;
+      const requestedUnit = unidadIdx > -1 && row[unidadIdx] ? row[unidadIdx].toString().trim() : '';
       const stockRaw = stockIdx > -1 && row[stockIdx] ? ST.normalizeText(row[stockIdx].toString()) : '';
       let stock = 'en_stock';
       if (stockRaw.includes('pedido')) stock = 'a_pedido';
@@ -332,7 +339,17 @@ import * as ST from './state.js';
 
       if (!name && !sku) continue;
       const match = Excel.findBestMaterialMatch(sku, name);
-      pending.push({ sku, name, price, stock, matchedItem: match.item, status: match.status });
+      let mode = 'venta'; // por defecto: precio por unidad de compra (lo mas comun para un corralon)
+      let unitAmbiguous = false;
+      if (match.item) {
+        const unitMatch = Excel.matchUnit(requestedUnit, match.item.unidadVenta, match.item.unidadComputo);
+        if (unitMatch.matched) {
+          mode = unitMatch.mode;
+        } else if (requestedUnit) {
+          unitAmbiguous = true; // escribieron algo pero no coincide con ninguna unidad valida del material
+        }
+      }
+      pending.push({ sku, name, price, stock, requestedUnit, unitAmbiguous, mode, matchedItem: match.item, status: match.status });
     }
 
     ST.providerState.excelPending = pending;
@@ -346,15 +363,23 @@ import * as ST from './state.js';
       ST.btnConfirmProviderExcel.style.display = 'none';
       return;
     }
-    ST.providerExcelPreview.innerHTML = ST.providerState.excelPending.map(row => `
+    ST.providerExcelPreview.innerHTML = ST.providerState.excelPending.map(row => {
+      const unidadResuelta = row.matchedItem
+        ? (row.mode === 'venta' ? row.matchedItem.unidadVenta : row.matchedItem.unidadComputo)
+        : '-';
+      const warn = row.unitAmbiguous
+        ? ` <span title="Escribiste &quot;${row.requestedUnit}&quot; pero no coincide con ninguna unidad válida de este material. Se cargó por unidad de compra (venta) por defecto." style="color:#b45309; font-weight:700; cursor:help;">⚠</span>`
+        : '';
+      return `
       <div class="excel-preview-row status-${row.status}">
         <div>
           <strong>${row.name || row.sku}</strong>
           ${row.matchedItem ? `→ ${row.matchedItem.denominacion} (${row.matchedItem.id})` : ' → sin coincidencia, no se va a cargar'}
         </div>
-        <div>$${row.price || 0} · ${row.stock}</div>
+        <div>$${row.price || 0} / ${unidadResuelta}${warn} · ${row.stock}</div>
       </div>
-    `).join('');
+    `;
+    }).join('');
     ST.btnConfirmProviderExcel.style.display = validCount > 0 ? 'inline-flex' : 'none';
     ST.showToast(`${validCount} de ${ST.providerState.excelPending.length} filas emparejadas con el catálogo.`);
   }
@@ -374,9 +399,9 @@ import * as ST from './state.js';
     const inserts = rows.map(row => ({
       branch_id: ST.providerState.branch.id,
       material_id: row.matchedItem.id,
-      price_kind: 'sale',
+      price_kind: row.mode === 'venta' ? 'sale' : 'measurement',
       amount: row.price,
-      unit: row.matchedItem.unidadVenta,
+      unit: row.mode === 'venta' ? row.matchedItem.unidadVenta : row.matchedItem.unidadComputo,
       provider_sku: row.sku || null,
       stock_status: row.stock,
       status: 'approved',
@@ -398,6 +423,22 @@ import * as ST from './state.js';
     loadProviderCatalog();
   }
 
+  export function generateProviderTemplate() {
+    const ws_data = [
+      ["SKU (Opcional)", "Nombre", "Precio", "Unidad", "Stock"],
+      ["MICOD-001", "Cemento Portland Loma Negra 50kg", 8500, "Bolsa", "En stock"],
+      ["MICOD-002", "Hierro torsionado del 8 ADN420", 950, "kg", "En stock"],
+      ["MICOD-003", "Ladrillos huecos 12x18x25", 480, "un", "A pedido"],
+      ["", "Placa Durlock 12.5mm", 15000, "", "Agotado"]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    ws['!cols'] = [{ wch: 16 }, { wch: 42 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Mi_Catalogo_NEXOBRA");
+    XLSX.writeFile(wb, "Plantilla_Catalogo_Corralon_NEXOBRA.xlsx");
+    ST.showToast('Plantilla descargada con éxito');
+  }
+
   export function setupProviderListeners() {
     if (!ST.supabaseClient) return;
     ST.btnOpenMyProvider.addEventListener('click', () => {
@@ -411,6 +452,8 @@ import * as ST from './state.js';
     });
     ST.btnConfirmProviderExcel.addEventListener('click', confirmProviderExcelUpload);
     ST.btnApplyBulkPercent.addEventListener('click', applyBulkPercent);
+    const btnDownloadProviderTemplate = document.getElementById('btn-download-provider-template');
+    if (btnDownloadProviderTemplate) btnDownloadProviderTemplate.addEventListener('click', generateProviderTemplate);
   }
 
   // --- MAPA DE PROVEEDORES (Fase D) ---
