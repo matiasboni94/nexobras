@@ -1,5 +1,6 @@
 // NEXOBRA - main.js
 
+import * as Admin from './admin.js';
 import * as Auth from './auth.js';
 import * as Catalog from './catalog.js';
 import * as Computo from './computo.js';
@@ -24,6 +25,8 @@ import * as ST from './state.js';
     if (favoritesViewEl) favoritesViewEl.style.display = viewName === 'favorites' ? 'block' : 'none';
     const alertsViewEl = document.getElementById('alerts-view');
     if (alertsViewEl) alertsViewEl.style.display = viewName === 'alerts' ? 'block' : 'none';
+    const adminViewEl = document.getElementById('admin-view');
+    if (adminViewEl) adminViewEl.style.display = viewName === 'admin' ? 'block' : 'none';
 
     ST.navBtnHome.classList.toggle('active', viewName === 'home');
     ST.navBtnCatalogo.classList.toggle('active', viewName === 'catalog');
@@ -99,6 +102,16 @@ import * as ST from './state.js';
         Provider.loadProviderData();
       }
     }
+    if (viewName === 'admin') {
+      if (!ST.authState.user || !Admin.isAdmin()) {
+        ST.showToast('Esta sección es solo para administradores.');
+        ST.state.currentView = 'home';
+        ST.homeView.style.display = 'block';
+        if (adminViewEl) adminViewEl.style.display = 'none';
+      } else {
+        Admin.loadAdminPanel();
+      }
+    }
     if (viewName === 'map') {
       // Leaflet necesita el contenedor visible para calcular tamaño correctamente:
       // primero se muestra el div (ya hecho arriba), recién ahí se inicializa/redibuja.
@@ -124,6 +137,7 @@ import * as ST from './state.js';
     Auth.setupRoleListeners();
     Computo.setupComputationListeners();
     Provider.setupProviderListeners();
+    Admin.setupAdminListeners();
     MapModule.setupMapListeners();
     MapModule.setupPricingSourceListeners();
     MapModule.setupOfferPickerListeners();
@@ -355,7 +369,12 @@ chooseProviderOffer: MapModule.chooseProviderOffer,
 toggleFavorite: MapModule.toggleFavorite,
 removeFavorite: MapModule.removeFavorite,
 toggleMaterialAlert: MapModule.toggleMaterialAlert,
-    removeAlert: MapModule.removeAlert
+    removeAlert: MapModule.removeAlert,
+    openMaterialEditor: Admin.openMaterialEditor,
+    approveProvider: Admin.approveProvider,
+    rejectProvider: Admin.rejectProvider,
+    approveOffer: Admin.approveOffer,
+    rejectOffer: Admin.rejectOffer
   };
 
 
