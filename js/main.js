@@ -280,6 +280,7 @@ import * as ST from './state.js';
 
     // Drawer Actions
     ST.btnPrintComputo.addEventListener('click', Computo.printComputo);
+    if (ST.btnExportComputoExcel) ST.btnExportComputoExcel.addEventListener('click', Computo.exportComputoToExcel);
     ST.btnCopyComputo.addEventListener('click', Computo.copyComputoToClipboard);
     ST.btnClearComputo.addEventListener('click', Computo.clearComputoCart);
 
@@ -328,6 +329,7 @@ import * as ST from './state.js';
 
     ST.btnDownloadTemplate.addEventListener('click', Excel.generateTemplateExcel);
     ST.btnDownloadProcessedExcel.addEventListener('click', Excel.exportProcessedExcel);
+    if (ST.btnSaveExcelToComputo) ST.btnSaveExcelToComputo.addEventListener('click', Excel.saveExcelToComputo);
   }
 
   // --- RENDER SUBAREAS EN EL HOME ---
