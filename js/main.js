@@ -294,7 +294,8 @@ import * as ST from './state.js';
 
     // Drawer Actions
     ST.btnPrintComputo.addEventListener('click', Computo.printComputo);
-    if (ST.btnExportComputoExcel) ST.btnExportComputoExcel.addEventListener('click', Computo.exportComputoToExcel);
+    if (ST.btnExportPresupuestoReferencia) ST.btnExportPresupuestoReferencia.addEventListener('click', Computo.exportPresupuestoReferencia);
+    if (ST.btnExportListaCompra) ST.btnExportListaCompra.addEventListener('click', Computo.exportListaDeCompra);
     ST.btnCopyComputo.addEventListener('click', Computo.copyComputoToClipboard);
     ST.btnClearComputo.addEventListener('click', Computo.clearComputoCart);
 
