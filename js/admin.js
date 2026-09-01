@@ -505,8 +505,8 @@ export async function saveIndexValue() {
   const { error } = await ST.supabaseClient
     .from('index_values')
     .upsert(
-      { index_series_id: seriesId, reference_month: referenceMonth, value, is_published: true },
-      { onConflict: 'index_series_id,reference_month' }
+      { series_id: seriesId, reference_month: referenceMonth, value, is_published: true },
+      { onConflict: 'series_id,reference_month' }
     );
 
   if (error) {
@@ -527,7 +527,7 @@ export async function loadRecentIndexValues() {
   const { data, error } = await ST.supabaseClient
     .from('index_values')
     .select('id, reference_month, value')
-    .eq('index_series_id', seriesId)
+    .eq('series_id', seriesId)
     .order('reference_month', { ascending: false })
     .limit(12);
 
