@@ -2719,3 +2719,39 @@ body {
 .btn-unassign-provider-small:hover {
   background: var(--surface-1, #f7f5f0);
 }
+
+/* --- Fase F5: logo del proveedor --- */
+.provider-logo-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-light, #eee);
+}
+.provider-logo-preview {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  background: var(--surface-1, #f7f5f0);
+  border: 1.5px dashed var(--border-light, #ddd);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.provider-logo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.provider-logo-mini {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--border-light, #eee);
+}
