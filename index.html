@@ -36,10 +36,11 @@
       <!-- MAIN NAV LINKS -->
       <nav class="nav-links-desktop">
         <button class="nav-link active" id="nav-btn-home">Inicio</button>
+        <button class="nav-link" id="nav-btn-quienes-somos">Quiénes Somos</button>
         <button class="nav-link" id="nav-btn-rubros">Rubros de Obra</button>
         <button class="nav-link" id="nav-btn-catalogo">Catálogo Completo</button>
         <button class="nav-link" id="nav-btn-manoobra">Mano de Obra</button>
-        <button class="nav-link" id="nav-btn-mapa">Mapa de Proveedores</button>
+        <button class="nav-link" id="nav-btn-como-calcula">Cómo se calcula el valor</button>
         <a class="nav-link" href="mailto:nexobra.info@gmail.com?subject=Sugerencia%20NEXOBRA" id="nav-btn-contacto">Contacto</a>
       </nav>
 
@@ -102,10 +103,11 @@
   <nav class="mobile-menu-panel" id="mobile-menu-panel" aria-label="Menú de navegación">
     <button class="mobile-menu-close" id="mobile-menu-close" aria-label="Cerrar menú">&times;</button>
     <button class="mobile-menu-link active" id="mobile-nav-btn-home">Inicio</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-quienes-somos">Quiénes Somos</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-rubros">Rubros de Obra</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-catalogo">Catálogo Completo</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-manoobra">Mano de Obra</button>
-    <button class="mobile-menu-link" id="mobile-nav-btn-mapa">Mapa de Proveedores</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-como-calcula">Cómo se calcula el valor</button>
     <a class="mobile-menu-link" href="mailto:nexobra.info@gmail.com?subject=Sugerencia%20NEXOBRA">Contacto</a>
   </nav>
 
@@ -167,108 +169,60 @@
       </div>
     </section>
 
-    <!-- PILARES DE INNOVACIÓN (QUÉ ES NEXOBRA) -->
-    <section class="section-pilares">
+    <!-- MAPA DE PROVEEDORES CON BÚSQUEDA DE MATERIAL (Fase G5) -->
+    <section class="section-map-home">
       <div class="container">
         <div class="section-heading-center">
-          <div class="subheading-accent">Nuestra Propuesta de Valor</div>
-          <h2 class="section-title">El núcleo de innovación de NEXOBRA</h2>
-          <p class="section-desc">Resolvemos el proceso analógico, lento y fragmentado de cotización de materiales en dos pilares fundamentales:</p>
+          <div class="subheading-accent">Precios en tu zona</div>
+          <h2 class="section-title">Mapa de Proveedores</h2>
+          <p class="section-desc">Buscá un material y mirá qué proveedores lo tienen cerca tuyo, o explorá todos los proveedores de la zona.</p>
         </div>
 
-        <div class="pilares-grid">
-          <!-- Pilar 1 -->
-          <div class="pilar-card">
-            <div class="pilar-icon-box">🏷️</div>
-            <h3 class="pilar-title">1. Indexación Inteligente por Tags</h3>
-            <p class="pilar-text">
-              Eliminamos la disparidad entre nombres comerciales, marcas y nomenclaturas técnicas. Nuestro motor asocia términos coloquiales como <em>"durlock"</em>, <em>"ceresita"</em> o <em>"sintenax"</em> con el material técnico exacto de la base de datos.
-            </p>
+        <div class="home-map-search-row">
+          <div class="search-input-wrapper" style="max-width: 480px;">
+            <span class="search-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </span>
+            <input type="text" id="home-map-material-search" class="search-input" placeholder="Buscar un material en el mapa (ej: cemento, hierro)..." autocomplete="off">
           </div>
+          <button class="btn-action-drawer btn-copy" id="btn-clear-map-material-search" type="button" style="display:none;">✕ Ver todos los proveedores</button>
+        </div>
+        <div id="home-map-material-results" class="provider-search-results" style="margin-bottom: 10px;"></div>
 
-          <!-- Pilar 2 -->
-          <div class="pilar-card">
-            <div class="pilar-icon-box">📐</div>
-            <h3 class="pilar-title">2. Dualidad Venta vs. Cómputo</h3>
-            <p class="pilar-text">
-              Consultá tanto el precio comercial por bulto/envase (bolsa, lata, barra, rollo) como el valor por unidad de cómputo métrico (m², m³, ml, kg), agilizando el cálculo de rendimientos y presupuestos de obra.
-            </p>
+        <div class="catalog-header-banner" style="margin-top: 0;">
+          <p id="map-status-msg" style="font-size: 0.8rem; color: var(--text-muted); margin: 0;"></p>
+          <div class="map-controls">
+            <button class="btn-computo" id="btn-geolocate" style="padding: 9px 14px;">📍 Usar mi ubicación</button>
+            <label for="map-radius-select" style="font-size: 0.8rem; font-weight: 700; margin-left: 6px;">Radio:</label>
+            <select id="map-radius-select" class="sort-select">
+              <option value="10">10 km</option>
+              <option value="25" selected>25 km</option>
+              <option value="50">50 km</option>
+              <option value="100">100 km</option>
+            </select>
           </div>
+        </div>
 
-          <!-- Pilar 3 -->
-          <div class="pilar-card">
-            <div class="pilar-icon-box">📈</div>
-          <h3 class="pilar-title">3. Actualización Trazable</h3>
-            <p class="pilar-text">
-              Cada valor de referencia informa su precio y mes base, índice aplicado, fórmula, fuente y fecha de actualización. El IPC se usa como referencia para materiales; las escalas UOCRA se aplican exclusivamente a mano de obra.
-            </p>
+        <div class="map-layout">
+          <div id="provider-map" class="provider-map-container"></div>
+          <div id="map-branch-panel" class="map-branch-panel">
+            <div class="map-branch-panel-empty">
+              <div style="font-size: 2rem;">🗺️</div>
+              <p>Buscá un material arriba, o tocá un pin para ver la ficha del proveedor.</p>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- METODOLOGÍA Y TRAZABILIDAD DE PRECIOS (teaser, la explicación completa está en su propia sección) -->
-    <section class="section-pilares" id="seccion-metodologia">
-      <div class="container">
-        <div class="section-heading-center">
-          <div class="subheading-accent">Transparencia de datos</div>
-          <h2 class="section-title">Sabé qué precio estás mirando y cómo se calcula</h2>
-          <p class="section-desc">Los valores de NEXOBRA son orientativos. Antes de decidir, podés revisar el origen del dato y consultar disponibilidad con cada proveedor.</p>
-        </div>
-
-        <div class="pilares-grid">
-          <article class="pilar-card">
-            <div class="pilar-icon-box">🧾</div>
-            <h3 class="pilar-title">Precio de referencia NEXOBRA</h3>
-            <p class="pilar-text">Parte de un precio y mes base. Mostramos el factor acumulado y la fórmula: <strong>precio base × factor de actualización</strong>.</p>
-          </article>
-          <article class="pilar-card">
-            <div class="pilar-icon-box">📅</div>
-            <h3 class="pilar-title">Índices con vigencia visible</h3>
-            <p class="pilar-text">Los índices se cargan y validan mes a mes. Cada actualización queda identificada por su fuente, período y fecha de publicación.</p>
-          </article>
-          <article class="pilar-card">
-            <div class="pilar-icon-box">🏪</div>
-            <h3 class="pilar-title">Ofertas de proveedores locales</h3>
-            <p class="pilar-text">Cuando estén disponibles, se mostrarán separadas del promedio, con proveedor, sucursal, fecha informada y disponibilidad a confirmar.</p>
-          </article>
-        </div>
-
-        <div style="text-align: center; margin-top: 2rem;">
-          <button class="btn-action-drawer btn-copy" id="btn-open-methodology-home" type="button">
-            Cómo se calcula el valor &rarr;
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- EXPLORAR POR RUBROS / SUBÁREAS DE LA CONSTRUCCIÓN -->
-    <section class="section-rubros" id="seccion-rubros">
-      <div class="container">
-        <div class="section-heading-between">
-          <div>
-            <div class="subheading-accent">Estructura por Especialidad</div>
-            <h2 class="section-title">Subáreas de la Construcción</h2>
-            <p class="section-desc">Seleccioná un rubro para explorar sus materiales, especificaciones técnicas y precios actualizados.</p>
-          </div>
-          <button class="btn-action-drawer btn-copy" id="btn-see-all-catalog" style="font-weight: 700;">
-            Ver catálogo completo (538 ítems) &rarr;
-          </button>
-        </div>
-
-        <div class="rubros-hub-grid" id="rubros-hub-grid">
-          <!-- Populated by JavaScript with rich cards -->
-        </div>
-
-      </div>
-    </section>
-
-    <!-- BANNER: PROCESADOR EXCEL MASIVO -->
+    <!-- BANNER: COTIZADOR DE EXCEL -->
     <section class="section-excel-cta">
       <div class="container">
         <div class="excel-banner-card">
           <div class="excel-banner-content">
-            <span class="excel-banner-badge">ETAPA 3 • PROCESAMIENTO MASIVO</span>
             <h3 class="excel-banner-title">¿Ya tenés tu listado de materiales en Excel?</h3>
             <p class="excel-banner-text">
               Subí tu propia planilla de cómputo métrico (.xlsx o .csv) y NEXOBRA te devolverá el archivo cotizado y actualizado a la fecha o mes que elijas en segundos.
@@ -292,6 +246,20 @@
               <div class="mock-sheet-row"><span>Hierro ADN420 8mm</span><span>25 b</span><span>$ 13.877</span><span>$ 346.925</span></div>
               <div class="mock-sheet-row total"><span>TOTAL GENERAL</span><span></span><span></span><span>$ 1.055.903</span></div>
             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACTO -->
+    <section class="section-contacto-home">
+      <div class="container">
+        <div class="contacto-home-card">
+          <div class="contacto-home-icon">✉️</div>
+          <div>
+            <h3 class="pilar-title" style="margin-bottom: 4px;">¿Sugerencias, dudas o querés cargar tu negocio?</h3>
+            <p class="pilar-text" style="margin-bottom: 10px;">Escribinos, te respondemos directo:</p>
+            <a href="mailto:nexobra.info@gmail.com?subject=Sugerencia%20NEXOBRA" class="contacto-home-email">nexobra.info@gmail.com</a>
           </div>
         </div>
       </div>
@@ -957,13 +925,19 @@
         <div class="ipc-explainer-text">
           <h3 class="pilar-title">El proceso, paso a paso</h3>
           <p class="pilar-text">
-            Todos los meses tomamos los índices de precios al consumidor que publica el INDEC para la <strong>Zona Noreste (NEA)</strong>, la región que le corresponde a nuestra base. Sacamos el <strong>promedio</strong> de esos índices y así obtenemos el <strong>IPC del mes</strong>.
+            Cada mes, NEXOBRA calcula el precio de referencia de cada material de dos maneras posibles, según qué dato haya disponible:
           </p>
           <p class="pilar-text">
-            Con ese valor actualizamos cada material: cada uno tiene un precio y un mes base (por ejemplo, abril de 2025), y para llevarlo al mes que elijas aplicamos la variación real del índice entre esos dos meses:
+            <strong>1) Precio de mercado real:</strong> si <strong>3 o más proveedores distintos</strong> cargaron precio para ese material en el mes en cuestión, tomamos la <strong>mediana</strong> de esos valores — el precio que realmente está cobrando el mercado en tu zona de proveedores activos.
+          </p>
+          <p class="pilar-text">
+            <strong>2) Proyección por IPC:</strong> si no hay suficientes proveedores cargando ese material todavía, tomamos los índices de precios al consumidor que publica el INDEC para la <strong>Zona Noreste (NEA)</strong>, sacamos su promedio, y proyectamos el último precio real conocido (de mercado o el precio base original) con la fórmula:
           </p>
           <p class="pilar-text" style="font-weight: 600; padding: 10px 14px; background: rgba(245,176,0,0.12); border-radius: 8px; display: inline-block;">
             precio actualizado = precio base × (índice del mes elegido ÷ índice del mes base)
+          </p>
+          <p class="pilar-text">
+            Con el tiempo, a medida que más proveedores reales carguen precios, cada vez más materiales van a depender del mercado real en vez de la proyección por IPC.
           </p>
           <p class="pilar-text">
             La mano de obra funciona distinto: los jornales de UOCRA Zona A ya vienen expresados en pesos mes a mes, así que no hace falta ningún factor — se toma el valor directo del mes elegido.
@@ -975,9 +949,95 @@
         </div>
       </div>
 
+      <div class="section-heading-center" style="margin: 2.5rem 0 1.5rem;">
+        <div class="subheading-accent">Ejemplos de aplicación</div>
+        <h2 class="section-title" style="font-size: 1.5rem;">Cómo se ve esto en la práctica</h2>
+      </div>
+
+      <div class="pilares-grid">
+        <article class="pilar-card">
+          <div class="pilar-icon-box">📊</div>
+          <h3 class="pilar-title">Ejemplo: precio de mercado</h3>
+          <p class="pilar-text">5 proveedores cargaron cemento este mes, con precios entre $17.000 y $18.500. Como son 3 o más, NEXOBRA muestra la <strong>mediana</strong> de esos valores como precio de referencia — no un promedio de NEXOBRA "inventado", sino lo que el mercado real está cobrando.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">📈</div>
+          <h3 class="pilar-title">Ejemplo: proyección por IPC</h3>
+          <p class="pilar-text">Un material puntual (ej: un caño de PVC de una medida poco común) todavía no tiene 3 proveedores cargándolo. NEXOBRA toma el último precio real conocido y lo ajusta según cuánto subió el IPC desde ese mes hasta hoy.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🏪</div>
+          <h3 class="pilar-title">Ejemplo: comparar un proveedor puntual</h3>
+          <p class="pilar-text">Un proveedor cerca tuyo tiene el hierro un 12% más barato que la referencia de la zona. Podés verlo en el catálogo (activando "Comparar con proveedores cercanos") o en el mapa, y elegirlo directamente para tu presupuesto.</p>
+        </article>
+      </div>
+
       <p class="pilar-text" style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted);">
-        Fuente: INDEC (IPC, Zona Noreste) y UOCRA (Zona A). Todos los valores son orientativos, no incluyen impuestos, cargas sociales ni flete. Confirmá siempre el precio final, la disponibilidad y las condiciones con el proveedor.
+        Fuente: INDEC (IPC, Zona Noreste), UOCRA (Zona A), y los precios reales cargados por proveedores verificados en NEXOBRA. Todos los valores son orientativos, no incluyen impuestos, cargas sociales ni flete. Confirmá siempre el precio final, la disponibilidad y las condiciones con el proveedor.
       </p>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA: QUIÉNES SOMOS
+       ========================================================================= -->
+  <div id="about-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Quiénes Somos</h2>
+          <p class="catalog-subtitle">Qué es NEXOBRA y por qué lo construimos así.</p>
+        </div>
+      </div>
+
+      <div class="section-heading-center" style="margin-bottom: 1.5rem;">
+        <div class="subheading-accent">Nuestra Propuesta de Valor</div>
+        <h2 class="section-title">El núcleo de innovación de NEXOBRA</h2>
+        <p class="section-desc">Resolvemos el proceso analógico, lento y fragmentado de cotización de materiales en tres pilares fundamentales:</p>
+      </div>
+
+      <div class="pilares-grid">
+        <div class="pilar-card">
+          <div class="pilar-icon-box">🏷️</div>
+          <h3 class="pilar-title">1. Indexación Inteligente por Tags</h3>
+          <p class="pilar-text">
+            Eliminamos la disparidad entre nombres comerciales, marcas y nomenclaturas técnicas. Nuestro motor asocia términos coloquiales como <em>"durlock"</em>, <em>"ceresita"</em> o <em>"sintenax"</em> con el material técnico exacto de la base de datos.
+          </p>
+        </div>
+        <div class="pilar-card">
+          <div class="pilar-icon-box">📐</div>
+          <h3 class="pilar-title">2. Dualidad Venta vs. Cómputo</h3>
+          <p class="pilar-text">
+            Consultá tanto el precio comercial por bulto/envase (bolsa, lata, barra, rollo) como el valor por unidad de cómputo métrico (m², m³, ml, kg), agilizando el cálculo de rendimientos y presupuestos de obra.
+          </p>
+        </div>
+        <div class="pilar-card">
+          <div class="pilar-icon-box">🤝</div>
+          <h3 class="pilar-title">3. Marketplace de Proveedores</h3>
+          <p class="pilar-text">
+            No nos quedamos solo con precios de referencia: los proveedores reales de tu zona cargan sus propios precios, que podés comparar y elegir directamente para armar tu presupuesto.
+          </p>
+        </div>
+      </div>
+
+      <p style="text-align:center; margin-top: 2rem; font-size: 0.85rem; color: var(--text-muted);">
+        NEXOBRA es parte del ecosistema <a href="https://www.hidearconstrucciones.com.ar/" target="_blank" rel="noopener" style="color: var(--brand-yellow); font-weight:700;">HIDEARCONSTRUCCIONES</a>.
+      </p>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA: RUBROS DE OBRA
+       ========================================================================= -->
+  <div id="rubros-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Rubros de Obra</h2>
+          <p class="catalog-subtitle">Seleccioná un rubro para explorar sus materiales, especificaciones técnicas y precios actualizados.</p>
+        </div>
+      </div>
+      <div class="rubros-hub-grid" id="rubros-hub-grid"><!-- Populated by JavaScript --></div>
     </div>
   </div>
 
@@ -1161,39 +1221,6 @@
   <!-- =========================================================================
        VISTA 7: MAPA DE PROVEEDORES (Fase D)
        ========================================================================= -->
-  <div id="map-view" class="view-section" style="display: none;">
-    <div class="container" style="max-width: 1100px;">
-      <div class="catalog-header-banner">
-        <div>
-          <h2 class="catalog-title">Mapa de Proveedores</h2>
-          <p class="catalog-subtitle">Proveedores cerca tuyo, y cómo se comparan sus precios con la mediana de la zona.</p>
-        </div>
-        <div class="map-controls">
-          <button class="btn-computo" id="btn-geolocate" style="padding: 9px 14px;">📍 Usar mi ubicación</button>
-          <label for="map-radius-select" style="font-size: 0.8rem; font-weight: 700; margin-left: 6px;">Radio:</label>
-          <select id="map-radius-select" class="sort-select">
-            <option value="10">10 km</option>
-            <option value="25" selected>25 km</option>
-            <option value="50">50 km</option>
-            <option value="100">100 km</option>
-          </select>
-        </div>
-      </div>
-
-      <p id="map-status-msg" style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 12px;"></p>
-
-      <div class="map-layout">
-        <div id="provider-map" class="provider-map-container"></div>
-        <div id="map-branch-panel" class="map-branch-panel">
-          <div class="map-branch-panel-empty">
-            <div style="font-size: 2rem;">🗺️</div>
-            <p>Tocá un pin del mapa para ver la ficha del proveedor y cómo se comparan sus precios con el resto de la zona.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- =========================================================================
        VISTA 8: MIS FAVORITOS (Fase E)
        ========================================================================= -->
