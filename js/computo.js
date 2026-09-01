@@ -70,6 +70,12 @@ import * as ST from './state.js';
     }
 
     const name = ST.drawerComputationName.value.trim() || 'Mi cómputo';
+    const obraData = {
+      obra_nombre: ST.drawerObraNombre.value.trim() || null,
+      obra_ubicacion: ST.drawerObraUbicacion.value.trim() || null,
+      obra_comitente: ST.drawerObraComitente.value.trim() || null,
+      obra_referencia: ST.drawerObraReferencia.value.trim() || null
+    };
     ST.btnSaveComputation.disabled = true;
 
     try {
@@ -78,7 +84,7 @@ import * as ST from './state.js';
       if (computationId) {
         const { error } = await ST.supabaseClient
           .from('computations')
-          .update({ name, locality: ST.authState.profile?.locality || null })
+          .update({ name, locality: ST.authState.profile?.locality || null, ...obraData })
           .eq('id', computationId);
         if (error) throw error;
 
@@ -90,7 +96,7 @@ import * as ST from './state.js';
       } else {
         const { data, error } = await ST.supabaseClient
           .from('computations')
-          .insert({ name, user_id: ST.authState.user.id, locality: ST.authState.profile?.locality || null })
+          .insert({ name, user_id: ST.authState.user.id, locality: ST.authState.profile?.locality || null, ...obraData })
           .select('id')
           .single();
         if (error) throw error;
@@ -116,6 +122,10 @@ import * as ST from './state.js';
     ST.state.computoCart = [];
     saveCart();
     ST.drawerComputationName.value = 'Mi cómputo';
+    ST.drawerObraNombre.value = '';
+    ST.drawerObraUbicacion.value = '';
+    ST.drawerObraComitente.value = '';
+    ST.drawerObraReferencia.value = '';
     updateComputationNameUI();
     updateCartUI();
     ST.showToast('Empezaste un presupuesto nuevo.');
@@ -168,7 +178,7 @@ import * as ST from './state.js';
 
   export async function openComputation(id) {
     const [{ data: comp, error: compError }, { data: items, error: itemsError }] = await Promise.all([
-      ST.supabaseClient.from('computations').select('id, name').eq('id', id).single(),
+      ST.supabaseClient.from('computations').select('id, name, obra_nombre, obra_ubicacion, obra_comitente, obra_referencia').eq('id', id).single(),
       ST.supabaseClient.from('computation_items').select('*').eq('computation_id', id)
     ]);
 
@@ -181,6 +191,10 @@ import * as ST from './state.js';
     ST.state.computoCart = (items || []).map(rowToCartItem);
     saveCart();
     ST.drawerComputationName.value = comp.name;
+    ST.drawerObraNombre.value = comp.obra_nombre || '';
+    ST.drawerObraUbicacion.value = comp.obra_ubicacion || '';
+    ST.drawerObraComitente.value = comp.obra_comitente || '';
+    ST.drawerObraReferencia.value = comp.obra_referencia || '';
     // Al reabrir, el cómputo vuelve a arrancar en el mes más actual disponible
     // (no en el que se guardó la última vez) — el usuario lo cambia si quiere.
     if (Pricing.sharedMonths.length > 0) {
@@ -195,7 +209,7 @@ import * as ST from './state.js';
 
   export async function duplicateComputation(id) {
     const [{ data: comp, error: compError }, { data: items, error: itemsError }] = await Promise.all([
-      ST.supabaseClient.from('computations').select('name, locality').eq('id', id).single(),
+      ST.supabaseClient.from('computations').select('name, locality, obra_nombre, obra_ubicacion, obra_comitente, obra_referencia').eq('id', id).single(),
       ST.supabaseClient.from('computation_items').select('*').eq('computation_id', id)
     ]);
     if (compError || itemsError) {
@@ -205,7 +219,11 @@ import * as ST from './state.js';
 
     const { data: newComp, error: insertError } = await ST.supabaseClient
       .from('computations')
-      .insert({ name: `${comp.name} (copia)`, user_id: ST.authState.user.id, locality: comp.locality })
+      .insert({
+        name: `${comp.name} (copia)`, user_id: ST.authState.user.id, locality: comp.locality,
+        obra_nombre: comp.obra_nombre, obra_ubicacion: comp.obra_ubicacion,
+        obra_comitente: comp.obra_comitente, obra_referencia: comp.obra_referencia
+      })
       .select('id')
       .single();
     if (insertError) {
@@ -647,6 +665,19 @@ import * as ST from './state.js';
     const dateStr = new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
     const periodoPresupuesto = ST.monthLabel(ST.state.computoMonth);
 
+    // Datos de obra: opcionales, solo se muestran las filas que el usuario completó.
+    const obraCampos = [
+      { label: 'Obra', value: ST.drawerObraNombre.value.trim() },
+      { label: 'Ubicación', value: ST.drawerObraUbicacion.value.trim() },
+      { label: 'Comitente', value: ST.drawerObraComitente.value.trim() },
+      { label: 'Referencia', value: ST.drawerObraReferencia.value.trim() }
+    ].filter(c => c.value);
+    const obraDataBlock = obraCampos.length === 0 ? '' : `
+      <div class="obra-data-box">
+        ${obraCampos.map(c => `<div><strong>${c.label}:</strong> ${c.value}</div>`).join('')}
+      </div>
+    `;
+
     const filaMaterial = ({ item, pricing }) => `
       <tr>
         <td><strong>${item.id}</strong></td>
@@ -709,6 +740,7 @@ import * as ST from './state.js';
           .logo span { color: #F5B000; }
           .meta { font-size: 13px; color: #555; }
           .periodo-banner { background: #FEF3C7; border: 1px solid #F5B000; border-radius: 8px; padding: 10px 14px; font-size: 14px; font-weight: 700; margin-bottom: 20px; }
+          .obra-data-box { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; background: #F8F9FB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 13px; }
           table { width: 100%; border-collapse: collapse; margin-top: 10px; }
           th { background: #F1F3F7; text-align: left; padding: 10px; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #CCC; }
           td { padding: 10px; border-bottom: 1px solid #EEE; font-size: 13px; }
@@ -730,6 +762,7 @@ import * as ST from './state.js';
 
         <h2 style="margin-bottom: 4px;">Resumen de Cómputo y Presupuesto de Obra</h2>
         <div class="periodo-banner">📅 Presupuesto calculado a precios de: ${periodoPresupuesto}</div>
+        ${obraDataBlock}
 
         ${tablaMateriales}
         ${tablaManoObra}
