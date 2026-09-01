@@ -758,6 +758,41 @@
     </div>
   </div>
 
+  <!-- ========================= MODAL: PROPONER/CREAR MATERIAL NUEVO (Fase G3) ========================= -->
+  <div class="modal-backdrop" id="new-material-modal-backdrop"></div>
+  <div class="excel-modal" id="new-material-modal" role="dialog" aria-labelledby="modal-new-material-title" style="max-width: 480px;">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-new-material-title" style="font-size: 1.15rem; font-weight: 800; margin-bottom: 2px;">Proponer material nuevo</h3>
+        <p style="font-size: 0.8rem; color: var(--text-subtle);">Para productos o servicios que todavía no están en el catálogo de NEXOBRA.</p>
+      </div>
+      <button class="modal-close-btn" id="new-material-modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="config-field">
+        <label for="new-material-nombre">Nombre</label>
+        <input type="text" id="new-material-nombre" class="form-select">
+      </div>
+      <div class="config-field">
+        <label for="new-material-rubro">Rubro</label>
+        <input type="text" id="new-material-rubro" class="form-select" placeholder="Ej: Servicios, Básicos, Aberturas...">
+      </div>
+      <div class="config-field">
+        <label for="new-material-unidad-venta">Unidad de compra</label>
+        <input type="text" id="new-material-unidad-venta" class="form-select" placeholder="Ej: Unidad, Bolsa, Hora, Viaje">
+      </div>
+      <div class="config-field">
+        <label for="new-material-unidad-computo">Unidad de cómputo (si es distinta a la de compra)</label>
+        <input type="text" id="new-material-unidad-computo" class="form-select" placeholder="Ej: kg, m2, ml — dejalo vacío si es igual">
+      </div>
+      <div class="config-field">
+        <label for="new-material-envase">Envase (cuántas unidades de cómputo trae 1 unidad de compra)</label>
+        <input type="number" id="new-material-envase" class="form-select" value="1" min="0.0001" step="0.0001">
+      </div>
+      <button class="btn-computo" id="btn-submit-new-material" type="button" style="width:100%; justify-content:center;">Crear material</button>
+    </div>
+  </div>
+
   <!-- ================================================================================= -->
   <div class="modal-backdrop" id="excel-modal-backdrop"></div>
   <div class="excel-modal" id="excel-modal" role="dialog" aria-labelledby="modal-excel-title">
@@ -1205,6 +1240,9 @@
       <details class="provider-section" open>
         <summary>🧱 Editor de materiales</summary>
         <div class="provider-section-body">
+          <button class="btn-choose-provider" id="btn-open-new-material-admin" type="button" style="margin: 0 0 14px;">
+            ➕ Crear material nuevo
+          </button>
           <div class="config-field" style="margin-bottom: 12px;">
             <label for="admin-material-search">Buscar material a corregir</label>
             <input type="text" id="admin-material-search" class="form-select" placeholder="Ej: cemento portland, ladrillo hueco...">
