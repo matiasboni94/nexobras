@@ -451,6 +451,7 @@ import * as ST from './state.js';
             <span class="card-code" style="font-size: 0.7rem;">${esManoDeObra ? 'MANO DE OBRA' : item.id}</span>
             <h4 class="computo-item-title">${item.denominacion}</h4>
             ${pricing.isProviderSourced ? '<span class="cart-badge-provider">Precio fijo del proveedor</span>' : ''}
+            ${pricing.projectedFromEarlierMonth ? `<span class="cart-badge-provider" style="background:#fef3c7; color:#92400e;">📈 Con dato de ${ST.monthLabel(pricing.projectedFromEarlierMonth)}</span>` : ''}
             ${item.roundedFrom ? `<span class="cart-badge-provider" style="background:#dbeafe; color:#1e40af;">Redondeado desde ${item.roundedFrom.qty} ${item.roundedFrom.unit}</span>` : ''}
           </div>
           <button class="btn-remove-item" onclick="window.nexoBraApp.removeCartItem(${idx})" title="Eliminar ítem">&times;</button>
