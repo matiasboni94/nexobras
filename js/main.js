@@ -26,20 +26,32 @@ import * as ST from './state.js';
     if (adminViewEl) adminViewEl.style.display = viewName === 'admin' ? 'block' : 'none';
     const aboutViewEl = document.getElementById('about-view');
     if (aboutViewEl) aboutViewEl.style.display = viewName === 'about' ? 'block' : 'none';
+    const guideViewEl = document.getElementById('guide-view');
+    if (guideViewEl) guideViewEl.style.display = viewName === 'guide' ? 'block' : 'none';
+    const contactViewEl = document.getElementById('contact-view');
+    if (contactViewEl) contactViewEl.style.display = viewName === 'contact' ? 'block' : 'none';
 
     ST.navBtnCatalogo.classList.toggle('active', viewName === 'catalog');
     if (ST.navBtnManoObra) ST.navBtnManoObra.classList.toggle('active', viewName === 'labor');
     const navBtnQuienesSomosEl = document.getElementById('nav-btn-quienes-somos');
     if (navBtnQuienesSomosEl) navBtnQuienesSomosEl.classList.toggle('active', viewName === 'about');
+    const navBtnGuiaEl = document.getElementById('nav-btn-guia');
+    if (navBtnGuiaEl) navBtnGuiaEl.classList.toggle('active', viewName === 'guide');
+    const navBtnContactoEl = document.getElementById('nav-btn-contacto');
+    if (navBtnContactoEl) navBtnContactoEl.classList.toggle('active', viewName === 'contact');
 
     const mHome = document.getElementById('mobile-nav-btn-home');
     const mCatalogo = document.getElementById('mobile-nav-btn-catalogo');
     const mManoObra = document.getElementById('mobile-nav-btn-manoobra');
     const mQuienesSomos = document.getElementById('mobile-nav-btn-quienes-somos');
+    const mGuia = document.getElementById('mobile-nav-btn-guia');
+    const mContacto = document.getElementById('mobile-nav-btn-contacto');
     if (mHome) mHome.classList.toggle('active', viewName === 'home');
     if (mCatalogo) mCatalogo.classList.toggle('active', viewName === 'catalog');
     if (mManoObra) mManoObra.classList.toggle('active', viewName === 'labor');
     if (mQuienesSomos) mQuienesSomos.classList.toggle('active', viewName === 'about');
+    if (mGuia) mGuia.classList.toggle('active', viewName === 'guide');
+    if (mContacto) mContacto.classList.toggle('active', viewName === 'contact');
 
     if (viewName === 'catalog') {
       if (rubroFilter) {
@@ -171,14 +183,12 @@ import * as ST from './state.js';
     if (btnMethodologyCatalog) btnMethodologyCatalog.addEventListener('click', () => switchView('about'));
     const navBtnQuienesSomos = document.getElementById('nav-btn-quienes-somos');
     if (navBtnQuienesSomos) navBtnQuienesSomos.addEventListener('click', () => switchView('about'));
+    const navBtnGuia = document.getElementById('nav-btn-guia');
+    if (navBtnGuia) navBtnGuia.addEventListener('click', () => switchView('guide'));
 
     // Contacto: lleva al home y hace scroll a la sección de contacto (no abre mailto directo).
     function goToContact() {
-      switchView('home');
-      setTimeout(() => {
-        const section = document.querySelector('.section-contacto-home');
-        if (section) section.scrollIntoView({ behavior: 'smooth' });
-      }, 150);
+      switchView('contact');
     }
     const navBtnContacto = document.getElementById('nav-btn-contacto');
     if (navBtnContacto) navBtnContacto.addEventListener('click', goToContact);
@@ -213,12 +223,14 @@ import * as ST from './state.js';
     const mobileNavBtnCatalogo = document.getElementById('mobile-nav-btn-catalogo');
     const mobileNavBtnManoObra = document.getElementById('mobile-nav-btn-manoobra');
     const mobileNavBtnQuienesSomos = document.getElementById('mobile-nav-btn-quienes-somos');
+    const mobileNavBtnGuia = document.getElementById('mobile-nav-btn-guia');
     const mobileNavBtnContacto = document.getElementById('mobile-nav-btn-contacto');
 
     if (mobileNavBtnHome) mobileNavBtnHome.addEventListener('click', () => mobileNavAction(() => switchView('home')));
     if (mobileNavBtnCatalogo) mobileNavBtnCatalogo.addEventListener('click', () => mobileNavAction(() => switchView('catalog', 'Todos', '')));
     if (mobileNavBtnManoObra) mobileNavBtnManoObra.addEventListener('click', () => mobileNavAction(() => switchView('labor')));
     if (mobileNavBtnQuienesSomos) mobileNavBtnQuienesSomos.addEventListener('click', () => mobileNavAction(() => switchView('about')));
+    if (mobileNavBtnGuia) mobileNavBtnGuia.addEventListener('click', () => mobileNavAction(() => switchView('guide')));
     if (mobileNavBtnContacto) mobileNavBtnContacto.addEventListener('click', () => mobileNavAction(goToContact));
 
     // Quick tag pills en el Home: ahora buscan directo en el mapa de proveedores.
