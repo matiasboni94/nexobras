@@ -137,6 +137,7 @@ import * as ST from './state.js';
     Auth.setupRoleListeners();
     Computo.setupComputationListeners();
     Provider.setupProviderListeners();
+    Provider.setupNewMaterialListeners();
     Admin.setupAdminListeners();
     MapModule.setupMapListeners();
     MapModule.setupPricingSourceListeners();
@@ -377,7 +378,8 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
     approveOffer: Admin.approveOffer,
     rejectOffer: Admin.rejectOffer,
     openProviderReview: Admin.openProviderReview,
-    closeProviderReview: Admin.closeProviderReview
+    closeProviderReview: Admin.closeProviderReview,
+    openNewMaterialForm: Provider.openNewMaterialForm
   };
 
 
