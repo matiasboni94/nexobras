@@ -75,7 +75,7 @@ import * as ST from './state.js';
    * de meses disponibles en ambas series y fija ahí el único período del presupuesto,
    * para que materiales y mano de obra nunca queden con fechas distintas.
    */
-  export function reconcilePriceMonth() {
+  export async function reconcilePriceMonth() {
     if (!ST.indexState.loaded && !ST.laborState.loaded) return;
 
     if (ST.indexState.loaded && ST.laborState.loaded) {
@@ -94,6 +94,7 @@ import * as ST from './state.js';
       // Solo la primera vez: "Mi Cómputo" arranca siempre en el mes más actual disponible.
       ST.state.computoMonth = sharedMonths[sharedMonths.length - 1];
     }
+    await loadMarketAnchors(ST.state.priceMonth); // ancla de mercado ANTES de renderizar, si no la primera pasada queda con el respaldo viejo
     populateMonthSelect();
     populateLaborMonthSelect();
     populateComputoMonthSelect();
@@ -117,12 +118,13 @@ import * as ST from './state.js';
     );
   }
 
-  export function setPriceMonth(value, { silent = false } = {}) {
+  export async function setPriceMonth(value, { silent = false } = {}) {
     ST.state.priceMonth = value;
     ST.REFERENCE_PRICE_INFO.period = ST.monthLabel(ST.state.priceMonth);
     ST.REFERENCE_PRICE_INFO.updatedAt = new Date(`${ST.state.priceMonth}T00:00:00`).toLocaleDateString('es-AR');
     ST.REFERENCE_PRICE_INFO.source = 'INDEC (IPC) y UOCRA · único período para todo el presupuesto';
     if (silent) return;
+    await loadMarketAnchors(value);
     populateMonthSelect();
     populateLaborMonthSelect();
     updateReferenceStatus();
@@ -203,10 +205,60 @@ import * as ST from './state.js';
     });
   }
 
+  /**
+   * Caché de "anclas" de precio de mercado (Fase G1): para cada material,
+   * desde qué mes/precio hay que proyectar por IPC. Se recalcula server-side
+   * (ver 025_precio_referencia_mercado.sql) cada vez que cambia el mes
+   * elegido, y se guarda acá para no tener que consultar Supabase en cada
+   * renderizado de cada una de las 943 tarjetas del catálogo.
+   */
+  export const marketAnchorsState = {
+    sale: { forMonth: null, byMaterial: {}, loaded: false },
+    measurement: { forMonth: null, byMaterial: {}, loaded: false }
+  };
+
+  export async function loadMarketAnchors(targetMonth) {
+    if (!ST.supabaseClient || !targetMonth) return;
+    await Promise.all(['sale', 'measurement'].map(async (kind) => {
+      const { data, error } = await ST.supabaseClient.rpc('get_reference_anchors_bulk', {
+        p_target_month: targetMonth,
+        p_price_kind: kind
+      });
+      if (error) {
+        console.warn(`No se pudieron cargar las anclas de mercado (${kind}): ${error.message}`);
+        return;
+      }
+      const byMaterial = {};
+      (data || []).forEach(row => { byMaterial[row.material_id] = row; });
+      marketAnchorsState[kind] = { forMonth: targetMonth, byMaterial, loaded: true };
+    }));
+  }
+
   export function getReferencePrice(item, mode = ST.state.pricingMode, targetMonthOverride = null) {
-    const ventaBase = Number(item.precioBase);
-    const baseDate = ST.baseLabelToDate(item.mesBase);
     const targetDate = targetMonthOverride || ST.state.priceMonth;
+    const kind = mode === 'venta' ? 'sale' : 'measurement';
+    const cache = marketAnchorsState[kind];
+    const anchor = (cache.loaded && cache.forMonth === targetDate) ? cache.byMaterial[item.id] : null;
+
+    let baseDate, basePrice, isMarketSourced, basePeriodLabel;
+
+    if (anchor && anchor.anchor_price != null) {
+      // Camino nuevo: el ancla ya viene resuelta desde el server (mercado real
+      // con 3+ proveedores ese mes, o el precio base de siempre si no había).
+      baseDate = anchor.anchor_month; // ya viene como "YYYY-MM-01", coincide con las claves de indexState
+      basePrice = Number(anchor.anchor_price);
+      isMarketSourced = anchor.is_market_sourced;
+      basePeriodLabel = ST.monthLabel(baseDate);
+    } else {
+      // Respaldo: todavía no cargaron las anclas (recién se abrió la página) o
+      // no hay dato para este material puntual. Mismo cálculo de siempre.
+      baseDate = ST.baseLabelToDate(item.mesBase);
+      const ventaBase = Number(item.precioBase);
+      basePrice = mode === 'venta' ? ventaBase : ventaBase * (Number(item.precioComputo) / Number(item.precioVenta || 1));
+      isMarketSourced = false;
+      basePeriodLabel = item.mesBase || 'período base no informado';
+    }
+
     const indiceBase = baseDate ? ST.indexState.values[baseDate] : undefined;
     const indiceDestino = targetDate ? ST.indexState.values[targetDate] : undefined;
 
@@ -215,12 +267,13 @@ import * as ST from './state.js';
     if (ST.indexState.loaded && indiceBase && indiceDestino) {
       factor = indiceDestino / indiceBase;
       dynamic = true;
-    } else {
+    } else if (!anchor) {
+      // Mismo respaldo estático de siempre, solo aplica si tampoco hay ancla.
       const ventaCurrent = Number(item.precioVenta);
+      const ventaBase = Number(item.precioBase);
       factor = ventaBase > 0 && ventaCurrent > 0 ? ventaCurrent / ventaBase : 1;
     }
 
-    const basePrice = mode === 'venta' ? ventaBase : ventaBase * (Number(item.precioComputo) / Number(item.precioVenta || 1));
     const currentPrice = basePrice * factor;
 
     return {
@@ -228,7 +281,8 @@ import * as ST from './state.js';
       basePrice,
       factor,
       dynamic,
-      basePeriod: item.mesBase || 'período base no informado',
+      isMarketSourced,
+      basePeriod: basePeriodLabel,
       targetPeriod: targetDate ? ST.monthLabel(targetDate) : ST.REFERENCE_PRICE_INFO.period,
       targetMonth: targetDate,
       unit: mode === 'venta' ? item.unidadVenta : item.unidadComputo
