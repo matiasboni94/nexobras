@@ -1445,6 +1445,34 @@
         </div>
       </details>
 
+      <!-- ÍNDICES: IPC Y MANO DE OBRA -->
+      <details class="provider-section" open>
+        <summary>📈 Índices (IPC y Mano de Obra)</summary>
+        <div class="provider-section-body">
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">
+            Cargá acá el valor de cada mes para el IPC (materiales) o para cualquiera de los roles de UOCRA (mano de obra). Si volvés a cargar un mes que ya existía, se actualiza el valor (no se duplica).
+          </p>
+          <div class="excel-config-grid" style="margin-bottom:14px;">
+            <div class="config-field">
+              <label for="admin-index-series-select">Serie</label>
+              <select id="admin-index-series-select" class="form-select"></select>
+            </div>
+            <div class="config-field">
+              <label for="admin-index-month">Mes</label>
+              <input type="month" id="admin-index-month" class="form-select">
+            </div>
+            <div class="config-field">
+              <label for="admin-index-value">Valor</label>
+              <input type="number" id="admin-index-value" class="form-select" step="0.0001" min="0">
+            </div>
+          </div>
+          <button class="btn-computo" id="btn-save-index-value" type="button" style="margin-bottom:16px;">Guardar valor</button>
+
+          <h4 style="font-size:0.85rem; margin-bottom:8px;">Últimos valores cargados de esta serie</h4>
+          <div id="admin-index-recent-values" class="provider-search-results"></div>
+        </div>
+      </details>
+
       <!-- F3: CORRALONES PENDIENTES -->
       <details class="provider-section" open>
         <summary>🏪 Proveedores pendientes de aprobación</summary>
