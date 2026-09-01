@@ -257,6 +257,12 @@ import * as ST from './state.js';
       Catalog.renderProducts();
     });
 
+    // Paginación del catálogo
+    const btnLoadMoreCatalog = document.getElementById('btn-load-more-catalog');
+    if (btnLoadMoreCatalog) btnLoadMoreCatalog.addEventListener('click', () => Catalog.loadMoreCatalogItems());
+    const catalogPageSizeSelect = document.getElementById('catalog-page-size-select');
+    if (catalogPageSizeSelect) catalogPageSizeSelect.addEventListener('change', (e) => Catalog.setCatalogPageSize(e.target.value));
+
     // Pricing Mode Toggle
     ST.modeVentaBtn.addEventListener('click', () => {
       ST.state.pricingMode = 'venta';
