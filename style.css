@@ -2599,3 +2599,32 @@ body {
   z-index: 1;
   isolation: isolate;
 }
+
+/* --- Datos de obra opcionales en Mi Cómputo (para el PDF) --- */
+.drawer-obra-data {
+  margin: 10px 0;
+  border: 1px solid var(--border-light, #eee);
+  border-radius: 10px;
+  padding: 4px 12px;
+}
+.drawer-obra-data summary {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 8px 0;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.drawer-obra-data-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+.drawer-obra-data-grid input {
+  font-size: 0.82rem;
+}
+@media (max-width: 480px) {
+  .drawer-obra-data-grid {
+    grid-template-columns: 1fr;
+  }
+}
