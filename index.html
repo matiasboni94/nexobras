@@ -34,6 +34,7 @@
       <!-- MAIN NAV LINKS -->
       <nav class="nav-links-desktop">
         <button class="nav-link" id="nav-btn-quienes-somos">Quiénes Somos</button>
+        <button class="nav-link" id="nav-btn-guia">Guía de Uso</button>
         <button class="nav-link" id="nav-btn-catalogo">Catálogo Completo</button>
         <button class="nav-link" id="nav-btn-manoobra">Mano de Obra</button>
         <button class="nav-link" id="nav-btn-contacto">Contacto</button>
@@ -99,6 +100,7 @@
     <button class="mobile-menu-close" id="mobile-menu-close" aria-label="Cerrar menú">&times;</button>
     <button class="mobile-menu-link active" id="mobile-nav-btn-home">Inicio</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-quienes-somos">Quiénes Somos</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-guia">Guía de Uso</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-catalogo">Catálogo Completo</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-manoobra">Mano de Obra</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-contacto">Contacto</button>
@@ -233,20 +235,6 @@
               <div class="mock-sheet-row"><span>Hierro ADN420 8mm</span><span>25 b</span><span>$ 13.877</span><span>$ 346.925</span></div>
               <div class="mock-sheet-row total"><span>TOTAL GENERAL</span><span></span><span></span><span>$ 1.055.903</span></div>
             </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- CONTACTO -->
-    <section class="section-contacto-home">
-      <div class="container">
-        <div class="contacto-home-card">
-          <div class="contacto-home-icon">✉️</div>
-          <div>
-            <h3 class="pilar-title" style="margin-bottom: 4px;">¿Sugerencias, dudas o querés cargar tu negocio?</h3>
-            <p class="pilar-text" style="margin-bottom: 10px;">Escribinos, te respondemos directo:</p>
-            <a href="mailto:nexobra.info@gmail.com?subject=Sugerencia%20NEXOBRA" class="contacto-home-email">nexobra.info@gmail.com</a>
           </div>
         </div>
       </div>
@@ -1028,14 +1016,19 @@
       <p class="pilar-text" style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted);">
         Fuente: INDEC (IPC, Zona Noreste), UOCRA (Zona A), y los precios reales cargados por proveedores verificados en NEXOBRA. Todos los valores son orientativos, no incluyen impuestos, cargas sociales ni flete. Confirmá siempre el precio final, la disponibilidad y las condiciones con el proveedor.
       </p>
+    </div>
+  </div>
 
-      <hr style="margin: 3rem 0; border: none; border-top: 1px solid var(--border-light, #eee);">
-
-      <!-- CÓMO USAR NEXOBRA -->
-      <div class="section-heading-center" style="margin-bottom: 1.5rem;">
-        <div class="subheading-accent">Guía rápida</div>
-        <h2 class="section-title">Cómo usar NEXOBRA</h2>
-        <p class="section-desc">Lo esencial para sacarle provecho al sitio, paso a paso.</p>
+  <!-- =========================================================================
+       VISTA: GUÍA DE USO
+       ========================================================================= -->
+  <div id="guide-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Guía de Uso</h2>
+          <p class="catalog-subtitle">Lo esencial para sacarle provecho a NEXOBRA, paso a paso.</p>
+        </div>
       </div>
 
       <div class="pilares-grid">
@@ -1069,6 +1062,59 @@
           <h3 class="pilar-title">6. Guardá lo que te sirve</h3>
           <p class="pilar-text">Marcá proveedores favoritos y armá alertas de precio desde tu cuenta, para no tener que buscar todo de nuevo la próxima vez.</p>
         </article>
+      </div>
+
+      <hr style="margin: 3rem 0; border: none; border-top: 1px solid var(--border-light, #eee);">
+
+      <div class="section-heading-center" style="margin-bottom: 1.5rem;">
+        <div class="subheading-accent">¿Necesitás una cuenta?</div>
+        <h2 class="section-title" style="font-size: 1.5rem;">Sin registrarte vs. con una cuenta</h2>
+        <p class="section-desc">Podés usar buena parte de NEXOBRA sin crear una cuenta. Con cuenta, se guarda todo para la próxima vez.</p>
+      </div>
+
+      <div class="guide-compare-grid">
+        <div class="guide-compare-col">
+          <h3 class="pilar-title" style="margin-bottom: 12px;">👤 Sin registrarte</h3>
+          <ul class="guide-compare-list">
+            <li>Buscar materiales y ver el precio de referencia</li>
+            <li>Ver el mapa y comparar precios de proveedores cercanos</li>
+            <li>Armar un cómputo/presupuesto y elegir proveedor por material</li>
+            <li>Exportar Presupuesto de Referencia o Lista de Compra</li>
+            <li>Subir tu Excel y cotizarlo</li>
+            <li>Contactar proveedores por WhatsApp</li>
+          </ul>
+        </div>
+        <div class="guide-compare-col highlight">
+          <h3 class="pilar-title" style="margin-bottom: 12px;">✅ Con una cuenta</h3>
+          <ul class="guide-compare-list">
+            <li>Todo lo anterior, ​y además:</li>
+            <li><strong>Guardar tus presupuestos</strong> en la nube, para verlos desde cualquier dispositivo</li>
+            <li><strong>Marcar proveedores favoritos</strong></li>
+            <li><strong>Armar alertas de precio</strong> por material</li>
+            <li>Con cuenta de <strong>Proveedor</strong>: cargar tu propio catálogo de precios y aparecer en el mapa</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA: CONTACTO
+       ========================================================================= -->
+  <div id="contact-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Contacto</h2>
+          <p class="catalog-subtitle">¿Sugerencias, dudas o querés cargar tu negocio? Escribinos, te respondemos directo.</p>
+        </div>
+      </div>
+      <div class="contacto-home-card">
+        <div class="contacto-home-icon">✉️</div>
+        <div>
+          <h3 class="pilar-title" style="margin-bottom: 4px;">Escribinos a:</h3>
+          <a href="mailto:nexobra.info@gmail.com?subject=Sugerencia%20NEXOBRA" class="contacto-home-email">nexobra.info@gmail.com</a>
+        </div>
       </div>
     </div>
   </div>
