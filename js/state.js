@@ -241,7 +241,8 @@
   export const drawerTotal = document.getElementById('drawer-total');
   export const headerCartCount = document.getElementById('header-cart-count');
   export const btnPrintComputo = document.getElementById('btn-print-computo');
-  export const btnExportComputoExcel = document.getElementById('btn-export-computo-excel');
+  export const btnExportPresupuestoReferencia = document.getElementById('btn-export-presupuesto-referencia');
+  export const btnExportListaCompra = document.getElementById('btn-export-lista-compra');
   export const btnCopyComputo = document.getElementById('btn-copy-computo');
   export const btnClearComputo = document.getElementById('btn-clear-computo');
   export const toastContainer = document.getElementById('toast-container');
