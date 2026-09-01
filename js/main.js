@@ -401,7 +401,8 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
     openProviderReview: Admin.openProviderReview,
     closeProviderReview: Admin.closeProviderReview,
     openNewMaterialForm: Provider.openNewMaterialForm,
-    selectMaterialOnMap: MapModule.selectMaterialOnMap
+    selectMaterialOnMap: MapModule.selectMaterialOnMap,
+    deleteIndexValue: Admin.deleteIndexValue
   };
 
 
