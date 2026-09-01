@@ -402,7 +402,8 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
     closeProviderReview: Admin.closeProviderReview,
     openNewMaterialForm: Provider.openNewMaterialForm,
     selectMaterialOnMap: MapModule.selectMaterialOnMap,
-    deleteIndexValue: Admin.deleteIndexValue
+    deleteIndexValue: Admin.deleteIndexValue,
+    unassignProvider: Computo.unassignProvider
   };
 
 
