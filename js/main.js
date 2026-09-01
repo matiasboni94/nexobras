@@ -19,14 +19,16 @@ import * as ST from './state.js';
     if (ST.methodologyView) ST.methodologyView.style.display = viewName === 'methodology' ? 'block' : 'none';
     if (ST.myComputationsView) ST.myComputationsView.style.display = viewName === 'my-computations' ? 'block' : 'none';
     if (ST.providerView) ST.providerView.style.display = viewName === 'provider' ? 'block' : 'none';
-    const mapViewEl = document.getElementById('map-view');
-    if (mapViewEl) mapViewEl.style.display = viewName === 'map' ? 'block' : 'none';
     const favoritesViewEl = document.getElementById('favorites-view');
     if (favoritesViewEl) favoritesViewEl.style.display = viewName === 'favorites' ? 'block' : 'none';
     const alertsViewEl = document.getElementById('alerts-view');
     if (alertsViewEl) alertsViewEl.style.display = viewName === 'alerts' ? 'block' : 'none';
     const adminViewEl = document.getElementById('admin-view');
     if (adminViewEl) adminViewEl.style.display = viewName === 'admin' ? 'block' : 'none';
+    const aboutViewEl = document.getElementById('about-view');
+    if (aboutViewEl) aboutViewEl.style.display = viewName === 'about' ? 'block' : 'none';
+    const rubrosViewEl = document.getElementById('rubros-view');
+    if (rubrosViewEl) rubrosViewEl.style.display = viewName === 'rubros' ? 'block' : 'none';
 
     ST.navBtnHome.classList.toggle('active', viewName === 'home');
     ST.navBtnCatalogo.classList.toggle('active', viewName === 'catalog');
@@ -112,9 +114,10 @@ import * as ST from './state.js';
         Admin.loadAdminPanel();
       }
     }
-    if (viewName === 'map') {
-      // Leaflet necesita el contenedor visible para calcular tamaño correctamente:
-      // primero se muestra el div (ya hecho arriba), recién ahí se inicializa/redibuja.
+    if (viewName === 'home') {
+      // El mapa ahora vive en el home (Fase G5). Leaflet necesita el contenedor
+      // visible para calcular tamaño correctamente: se inicializa/redibuja cada
+      // vez que se vuelve al home, por si estuvo oculto en otra vista.
       MapModule.initProviderMap();
       setTimeout(() => {
         if (ST.mapState.map) ST.mapState.map.invalidateSize();
@@ -145,6 +148,15 @@ import * as ST from './state.js';
     Provider.setupProviderDashboardListeners();
     MapModule.setupFavoritesAndAlertsListeners();
 
+    // El mapa vive en el home (Fase G5) y el home es la vista por defecto al
+    // cargar la página (visible por CSS, sin pasar por switchView('home')) —
+    // por eso hay que inicializarlo acá también, no solo dentro de switchView.
+    MapModule.initProviderMap();
+    setTimeout(() => {
+      if (ST.mapState.map) ST.mapState.map.invalidateSize();
+      MapModule.loadNearbyBranchesOnMap();
+    }, 300);
+
     // Nav buttons
     ST.navBrandLogo.addEventListener('click', (e) => {
       e.preventDefault();
@@ -155,21 +167,15 @@ import * as ST from './state.js';
     ST.navBtnCatalogo.addEventListener('click', () => switchView('catalog', 'Todos', ''));
     if (ST.navBtnManoObra) ST.navBtnManoObra.addEventListener('click', () => switchView('labor'));
 
-    const btnMethodologyHome = document.getElementById('btn-open-methodology-home');
-    if (btnMethodologyHome) btnMethodologyHome.addEventListener('click', () => switchView('methodology'));
     const btnMethodologyCatalog = document.getElementById('btn-open-methodology-catalog');
     if (btnMethodologyCatalog) btnMethodologyCatalog.addEventListener('click', () => switchView('methodology'));
+    const navBtnComoCalcula = document.getElementById('nav-btn-como-calcula');
+    if (navBtnComoCalcula) navBtnComoCalcula.addEventListener('click', () => switchView('methodology'));
+    const navBtnQuienesSomos = document.getElementById('nav-btn-quienes-somos');
+    if (navBtnQuienesSomos) navBtnQuienesSomos.addEventListener('click', () => switchView('about'));
     ST.btnBackHome.addEventListener('click', () => switchView('home'));
-    ST.btnSeeAllCatalog.addEventListener('click', () => switchView('catalog', 'Todos', ''));
 
-    ST.navBtnRubros.addEventListener('click', () => {
-      if (ST.state.currentView !== 'home') {
-        switchView('home');
-      }
-      setTimeout(() => {
-        document.getElementById('seccion-rubros').scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    });
+    ST.navBtnRubros.addEventListener('click', () => switchView('rubros'));
 
     // --- Menú mobile (hamburguesa) ---
     const btnMobileMenu = document.getElementById('btn-mobile-menu');
@@ -201,16 +207,15 @@ import * as ST from './state.js';
     const mobileNavBtnRubros = document.getElementById('mobile-nav-btn-rubros');
     const mobileNavBtnCatalogo = document.getElementById('mobile-nav-btn-catalogo');
     const mobileNavBtnManoObra = document.getElementById('mobile-nav-btn-manoobra');
+    const mobileNavBtnQuienesSomos = document.getElementById('mobile-nav-btn-quienes-somos');
+    const mobileNavBtnComoCalcula = document.getElementById('mobile-nav-btn-como-calcula');
 
     if (mobileNavBtnHome) mobileNavBtnHome.addEventListener('click', () => mobileNavAction(() => switchView('home')));
     if (mobileNavBtnCatalogo) mobileNavBtnCatalogo.addEventListener('click', () => mobileNavAction(() => switchView('catalog', 'Todos', '')));
     if (mobileNavBtnManoObra) mobileNavBtnManoObra.addEventListener('click', () => mobileNavAction(() => switchView('labor')));
-    if (mobileNavBtnRubros) mobileNavBtnRubros.addEventListener('click', () => mobileNavAction(() => {
-      if (ST.state.currentView !== 'home') switchView('home');
-      setTimeout(() => {
-        document.getElementById('seccion-rubros').scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    }));
+    if (mobileNavBtnRubros) mobileNavBtnRubros.addEventListener('click', () => mobileNavAction(() => switchView('rubros')));
+    if (mobileNavBtnQuienesSomos) mobileNavBtnQuienesSomos.addEventListener('click', () => mobileNavAction(() => switchView('about')));
+    if (mobileNavBtnComoCalcula) mobileNavBtnComoCalcula.addEventListener('click', () => mobileNavAction(() => switchView('methodology')));
 
     // Home Search Listeners
     ST.homeSearchSubmit.addEventListener('click', () => {
@@ -379,7 +384,8 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
     rejectOffer: Admin.rejectOffer,
     openProviderReview: Admin.openProviderReview,
     closeProviderReview: Admin.closeProviderReview,
-    openNewMaterialForm: Provider.openNewMaterialForm
+    openNewMaterialForm: Provider.openNewMaterialForm,
+    selectMaterialOnMap: MapModule.selectMaterialOnMap
   };
 
 
