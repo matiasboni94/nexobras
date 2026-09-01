@@ -89,6 +89,16 @@ import * as ST from './state.js';
       sharedMonths = ST.indexState.loaded ? ST.indexState.months : ST.laborState.months;
     }
 
+    // El mes calendario ACTUAL siempre queda seleccionable, aunque el IPC o
+    // UOCRA todavía no lo hayan publicado (el IPC sale recién a mitad del mes
+    // siguiente) -- así, si 3+ proveedores ya cargaron precios de ese mes,
+    // se puede ver el precio de mercado real sin esperar la publicación oficial.
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    if (!sharedMonths.includes(currentMonthKey)) {
+      sharedMonths = [...sharedMonths, currentMonthKey].sort();
+    }
+
     setPriceMonth(sharedMonths[sharedMonths.length - 1], { silent: true });
     if (!ST.state.computoMonth) {
       // Solo la primera vez: "Mi Cómputo" arranca siempre en el mes más actual disponible.
@@ -260,7 +270,24 @@ import * as ST from './state.js';
     }
 
     const indiceBase = baseDate ? ST.indexState.values[baseDate] : undefined;
-    const indiceDestino = targetDate ? ST.indexState.values[targetDate] : undefined;
+    let indiceDestino = targetDate ? ST.indexState.values[targetDate] : undefined;
+    let projectedFromEarlierMonth = null;
+
+    if (indiceDestino === undefined && baseDate !== targetDate && ST.indexState.loaded && ST.indexState.months.length > 0) {
+      // No hay IPC publicado todavía para el mes exacto elegido (típico: el
+      // mes actual, ya que el IPC sale recién a mitad del mes siguiente).
+      // En vez de dejar el precio completamente congelado en el valor base
+      // sin ningún ajuste, usamos el último mes de IPC disponible <= el
+      // elegido -- así se sigue proyectando con la mejor info que hay.
+      const mesesDisponibles = ST.indexState.months.filter(m => m <= targetDate);
+      if (mesesDisponibles.length > 0) {
+        const sustituto = mesesDisponibles[mesesDisponibles.length - 1];
+        if (sustituto !== targetDate) {
+          indiceDestino = ST.indexState.values[sustituto];
+          projectedFromEarlierMonth = sustituto;
+        }
+      }
+    }
 
     let factor = 1;
     let dynamic = false;
@@ -282,6 +309,7 @@ import * as ST from './state.js';
       factor,
       dynamic,
       isMarketSourced,
+      projectedFromEarlierMonth, // null, o el mes real usado porque el elegido todavía no tiene IPC
       basePeriod: basePeriodLabel,
       targetPeriod: targetDate ? ST.monthLabel(targetDate) : ST.REFERENCE_PRICE_INFO.period,
       targetMonth: targetDate,
@@ -299,13 +327,28 @@ import * as ST from './state.js';
   export function resolveItemPricing(cartItem, targetMonth) {
     if (cartItem.type === 'labor') {
       const role = ST.laborState.roles.find(r => r.code === cartItem.id);
-      const valor = role ? role.values[targetMonth] : undefined;
+      let valor = role ? role.values[targetMonth] : undefined;
+      let projectedFromEarlierMonth = null;
+
+      if (valor === undefined && role && ST.laborState.loaded) {
+        // UOCRA todavía no publicó este mes (recién sale a mitad del mes
+        // siguiente) -- usamos el último mes disponible en vez de dejar
+        // "sin dato" directamente.
+        const mesesDisponibles = ST.laborState.months.filter(m => m <= targetMonth && role.values[m] !== undefined);
+        if (mesesDisponibles.length > 0) {
+          const sustituto = mesesDisponibles[mesesDisponibles.length - 1];
+          valor = role.values[sustituto];
+          projectedFromEarlierMonth = sustituto;
+        }
+      }
+
       return {
         unitPrice: valor !== undefined ? valor : 0,
         basePrice: null,
         factor: null,
         basePeriod: null,
-        disponible: valor !== undefined
+        disponible: valor !== undefined,
+        projectedFromEarlierMonth
       };
     }
 
@@ -333,7 +376,9 @@ import * as ST from './state.js';
       basePrice: trace.basePrice,
       factor: trace.factor,
       basePeriod: trace.basePeriod,
-      disponible: true
+      disponible: true,
+      isMarketSourced: trace.isMarketSourced,
+      projectedFromEarlierMonth: trace.projectedFromEarlierMonth
     };
   }
 
