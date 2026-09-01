@@ -375,9 +375,14 @@ import * as ST from './state.js';
   // proveedor puntual guarda el precio de ese momento tal cual — no hay "mes"
   // al que llevarlo, es lo que ese proveedor tiene cargado ahora. Si el
   // proveedor cambia después su precio, hay que sacarlo y volver a elegirlo.
-  export async function openOfferPicker(materialId) {
+  export async function openOfferPicker(materialId, cartIndex = null) {
     const material = NEXOBRA_DATA.find(m => m.id === materialId);
     if (!material) return;
+
+    // Si viene de "Elegir proveedor" en un ítem que YA está en Mi Cómputo (por
+    // ejemplo, uno que llegó de un Excel cotizado), guardamos el índice para
+    // actualizar ESE ítem en lugar de agregar uno nuevo al elegir.
+    ST.mapState.offerPickerCartIndex = cartIndex;
 
     ST.offerPickerSubtitle.textContent = material.denominacion;
     ST.offerPickerResults.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Buscando ofertas...</p>';
@@ -426,12 +431,36 @@ import * as ST from './state.js';
     ST.offerPickerModal.classList.remove('open');
     ST.offerPickerModalBackdrop.classList.remove('open');
     document.body.style.overflow = '';
+    ST.mapState.offerPickerCartIndex = null;
   }
 
   export function chooseProviderOffer(materialId, offerIndex) {
     const offer = window.__offerPickerData?.[offerIndex];
     const material = NEXOBRA_DATA.find(m => m.id === materialId);
     if (!offer || !material) return;
+
+    const cartIndex = ST.mapState.offerPickerCartIndex;
+
+    // Caso 1: el material YA está en Mi Cómputo (llegó del catálogo en modo
+    // referencia, o de un Excel cotizado) y lo que se quiere es asignarle un
+    // proveedor sin tocar la cantidad que ya tenía cargada.
+    if (cartIndex !== null && cartIndex !== undefined && ST.state.computoCart[cartIndex]) {
+      const existingItem = ST.state.computoCart[cartIndex];
+      existingItem.unit = offer.unit;
+      existingItem.providerOfferId = offer.offer_id;
+      existingItem.providerBranchId = offer.branch_id;
+      existingItem.providerBusinessName = offer.business_name;
+      existingItem.providerBranchName = offer.branch_name;
+      existingItem.providerWhatsapp = offer.whatsapp_phone;
+      existingItem.providerPrice = offer.amount;
+      existingItem.roundedFrom = null;
+      ST.mapState.offerPickerCartIndex = null;
+      Computo.saveCart();
+      Computo.updateCartUI();
+      closeOfferPicker();
+      ST.showToast(`${material.denominacion.substring(0, 30)} → ${offer.business_name}`);
+      return;
+    }
 
     const qtyInput = document.getElementById(`qty-${materialId}`);
     const typedQty = qtyInput ? Math.max(1, parseFloat(qtyInput.value) || 1) : 1;
