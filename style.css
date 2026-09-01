@@ -2487,3 +2487,24 @@ body {
   color: #991b1b;
   border: 1px solid #ef4444;
 }
+
+/* --- Fase G2: comparación con proveedores + indicador de origen del precio --- */
+#btn-toggle-compare-providers {
+  border: 1.5px solid var(--border-light, #ddd);
+}
+#btn-toggle-compare-providers.active {
+  border-color: var(--brand-dark, #22262B);
+}
+
+.price-source-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 0;
+  margin-top: 2px;
+}
+.price-source-tag.market {
+  color: #15803d;
+}
+.price-source-tag.ipc {
+  color: var(--text-subtle, #888);
+}
