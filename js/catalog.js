@@ -244,12 +244,30 @@ import * as ST from './state.js';
     return items;
   }
 
+  let lastCatalogFilterSignature = null;
+
   // --- RENDER PRODUCTS (GRID & TABLE) ---
   export function renderProducts() {
+    // Si cambió la búsqueda, el rubro o el orden, la paginación vuelve a empezar
+    // desde la página 1 -- así nunca te quedás "perdido" en la página 5 de un
+    // filtro que ya no aplica. Cambiar el mes o el modo de precio NO resetea
+    // la página, porque esos cambios no alteran qué materiales aparecen.
+    const filterSignature = `${ST.state.searchQuery}|${ST.state.activeRubro}|${ST.state.sortBy}`;
+    if (filterSignature !== lastCatalogFilterSignature) {
+      ST.state.catalogPage = 1;
+      lastCatalogFilterSignature = filterSignature;
+    }
+
     const filtered = getFilteredItems();
+    const pageSize = ST.state.catalogPageSize || 25;
+    const visibleCount = ST.state.catalogPage * pageSize;
+    const visible = filtered.slice(0, visibleCount);
 
     ST.visibleCount.textContent = filtered.length;
     ST.activeFilterLabel.textContent = ST.state.activeRubro !== 'Todos' ? ` en ${ST.state.activeRubro}` : '';
+
+    const btnLoadMoreCatalog = document.getElementById('btn-load-more-catalog');
+    const catalogPaginationStatus = document.getElementById('catalog-pagination-status');
 
     if (filtered.length === 0) {
       ST.productsGrid.innerHTML = `
@@ -265,11 +283,13 @@ import * as ST from './state.js';
         </div>
       `;
       ST.productsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem;">No hay materiales para mostrar</td></tr>`;
+      if (btnLoadMoreCatalog) btnLoadMoreCatalog.style.display = 'none';
+      if (catalogPaginationStatus) catalogPaginationStatus.textContent = '';
       return;
     }
 
     // Grid HTML
-    ST.productsGrid.innerHTML = filtered.map(item => {
+    ST.productsGrid.innerHTML = visible.map(item => {
       const isVentaMode = ST.state.pricingMode === 'venta';
       const mainTrace = Pricing.getReferencePrice(item, ST.state.pricingMode);
       const secondaryTrace = Pricing.getReferencePrice(item, isVentaMode ? 'computo' : 'venta');
@@ -382,7 +402,7 @@ import * as ST from './state.js';
     }).join('');
 
     // Table HTML
-    ST.productsTableBody.innerHTML = filtered.map(item => {
+    ST.productsTableBody.innerHTML = visible.map(item => {
       const ventaTrace = Pricing.getReferencePrice(item, 'venta');
       const computoTrace = Pricing.getReferencePrice(item, 'computo');
       return `
@@ -425,6 +445,25 @@ import * as ST from './state.js';
         ST.catalogSearchInput.focus();
       });
     });
+
+    // Paginación: "Cargar más" + texto de estado ("Mostrando 25 de 943").
+    if (btnLoadMoreCatalog) {
+      btnLoadMoreCatalog.style.display = visible.length < filtered.length ? 'inline-flex' : 'none';
+    }
+    if (catalogPaginationStatus) {
+      catalogPaginationStatus.textContent = `Mostrando ${visible.length} de ${filtered.length} materiales`;
+    }
+  }
+
+  export function loadMoreCatalogItems() {
+    ST.state.catalogPage++;
+    renderProducts();
+  }
+
+  export function setCatalogPageSize(size) {
+    ST.state.catalogPageSize = parseInt(size, 10) || 25;
+    ST.state.catalogPage = 1;
+    renderProducts();
   }
 
   export function clearCatalogSearch() {
