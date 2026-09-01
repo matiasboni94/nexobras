@@ -2509,3 +2509,58 @@ body {
 .price-source-tag.ipc {
   color: var(--text-subtle, #888);
 }
+
+/* --- Fase G5 + reorganización de home --- */
+.section-map-home {
+  padding: 3rem 0;
+}
+.home-map-search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+#home-map-material-results {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.section-contacto-home {
+  padding: 3rem 0;
+}
+.contacto-home-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--surface-1, #f7f5f0);
+  border-radius: var(--radius-lg, 16px);
+  padding: 2rem;
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: left;
+}
+.contacto-home-icon {
+  font-size: 2.5rem;
+  flex-shrink: 0;
+}
+.contacto-home-email {
+  display: inline-block;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--brand-dark, #22262B);
+  background: var(--brand-yellow, #F5B000);
+  padding: 8px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+}
+.contacto-home-email:hover {
+  filter: brightness(1.05);
+}
+
+@media (max-width: 640px) {
+  .contacto-home-card {
+    flex-direction: column;
+    text-align: center;
+  }
+}
