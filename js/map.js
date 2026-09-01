@@ -130,7 +130,10 @@ import * as ST from './state.js';
 
     ST.mapBranchPanel.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-        <h3 style="margin-bottom:2px;">${offer.business_name}</h3>
+        <div style="display:flex; align-items:center; gap:10px;">
+          ${offer.logo_url ? `<img src="${offer.logo_url}" class="provider-logo-mini" alt="">` : ''}
+          <h3 style="margin-bottom:2px;">${offer.business_name}</h3>
+        </div>
         <button class="btn-favorite-toggle ${esFavorito ? 'active' : ''}" onclick='window.nexoBraApp.toggleFavorite(${ST.escAttr(offer.branch_id)}, ${ST.escAttr(offer.business_name)})'>★</button>
       </div>
       <div class="branch-meta">${offer.branch_name} · ${offer.locality || ''} · ${offer.distance_km.toFixed(1)} km de tu ubicación</div>
@@ -240,7 +243,10 @@ import * as ST from './state.js';
     }).join('');
 
     ST.mapBranchPanel.innerHTML = `
-      <h3>${branchInfo.business_name}</h3>
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:2px;">
+        ${branchInfo.logo_url ? `<img src="${branchInfo.logo_url}" class="provider-logo-mini" alt="">` : ''}
+        <h3 style="margin-bottom:0;">${branchInfo.business_name}</h3>
+      </div>
       <div class="branch-meta">${branchInfo.branch_name} · ${branchInfo.locality} · ${branchInfo.distance_km.toFixed(1)} km de tu ubicación</div>
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;">${whatsappLink}${favBtn}</div>
       <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">Variación de precio vs. la mediana de proveedores en ${ST.mapState.radiusKm} km a la redonda:</p>
