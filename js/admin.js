@@ -332,7 +332,10 @@ export async function openProviderReview(providerId) {
   const branch = provider.provider_branches?.[0];
 
   panel.innerHTML = `
-    <h4 style="margin-bottom:10px;">🏪 ${provider.business_name}</h4>
+    <h4 style="margin-bottom:10px; display:flex; align-items:center; gap:10px;">
+      ${provider.logo_url ? `<img src="${provider.logo_url}" class="provider-logo-mini" alt="">` : '🏪'}
+      ${provider.business_name}
+    </h4>
     <div class="excel-config-grid" style="margin-bottom:14px;">
       <div><strong>CUIT:</strong> ${provider.tax_id || 's/d'}</div>
       <div><strong>Sitio web:</strong> ${provider.website_url ? `<a href="${provider.website_url}" target="_blank">${provider.website_url}</a>` : 's/d'}</div>
