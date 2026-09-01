@@ -316,5 +316,10 @@
   export const offerPickerModal = document.getElementById('offer-picker-modal');
   export const offerPickerModalBackdrop = document.getElementById('offer-picker-modal-backdrop');
   export const offerPickerModalCloseBtn = document.getElementById('offer-picker-modal-close-btn');
+  export const newMaterialModal = document.getElementById('new-material-modal');
+  export const newMaterialModalBackdrop = document.getElementById('new-material-modal-backdrop');
+  export const newMaterialModalCloseBtn = document.getElementById('new-material-modal-close-btn');
+  export const btnSubmitNewMaterial = document.getElementById('btn-submit-new-material');
+  export const btnOpenNewMaterialAdmin = document.getElementById('btn-open-new-material-admin');
   export const offerPickerSubtitle = document.getElementById('offer-picker-subtitle');
   export const offerPickerResults = document.getElementById('offer-picker-results');
