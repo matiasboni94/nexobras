@@ -2685,3 +2685,37 @@ body {
   padding-top: 1rem;
   border-top: 1px solid var(--border-light, #eee);
 }
+
+/* --- Fase F4: elegir/cambiar proveedor desde un ítem ya cargado en Mi Cómputo --- */
+.computo-item-provider-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.btn-choose-provider-small,
+.btn-unassign-provider-small {
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.btn-choose-provider-small {
+  border: 1.5px dashed var(--brand-yellow, #F5B000);
+  background: rgba(245,176,0,0.08);
+  color: var(--brand-dark, #22262B);
+}
+.btn-choose-provider-small:hover {
+  background: rgba(245,176,0,0.18);
+}
+.btn-unassign-provider-small {
+  border: 1px solid var(--border-light, #e2e5ea);
+  background: transparent;
+  color: var(--text-muted);
+}
+.btn-unassign-provider-small:hover {
+  background: var(--surface-1, #f7f5f0);
+}
