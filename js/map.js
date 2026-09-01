@@ -4,6 +4,7 @@ import * as Auth from './auth.js';
 import * as Catalog from './catalog.js';
 import * as Computo from './computo.js';
 import * as Main from './main.js';
+import * as Pricing from './pricing.js';
 import * as Provider from './provider.js';
 import * as ST from './state.js';
 
@@ -58,6 +59,14 @@ import * as ST from './state.js';
     document.getElementById('home-map-material-search').value = materialName;
     document.getElementById('btn-clear-map-material-search').style.display = 'inline-flex';
     ST.mapStatusMsg.textContent = `Buscando ofertas de "${materialName}" cerca tuyo...`;
+    // Limpia el panel lateral ANTES de esperar la respuesta -- así nunca queda
+    // "colgada" la ficha de un proveedor viejo mientras carga la búsqueda nueva.
+    ST.mapBranchPanel.innerHTML = `
+      <div class="map-branch-panel-empty">
+        <div style="font-size: 2rem;">🔎</div>
+        <p>Buscando ofertas de "${materialName}"...</p>
+      </div>
+    `;
 
     const { data, error } = await ST.supabaseClient.rpc('nearby_offers_for_material', {
       p_material_id: materialId,
@@ -80,14 +89,69 @@ import * as ST from './state.js';
     const conCoordenadas = (data || []).filter(o => o.latitude && o.longitude);
     conCoordenadas.forEach(offer => {
       const marker = L.marker([offer.latitude, offer.longitude]).addTo(ST.mapState.map);
-      const stockTxt = offer.stock_status === 'agotado' ? ' · <strong style="color:#b91c1c;">Agotado</strong>' : offer.stock_status === 'a_pedido' ? ' · A pedido' : ' · En stock';
-      marker.bindPopup(`<strong>${offer.business_name}</strong><br>${offer.branch_name} · ${offer.distance_km.toFixed(1)} km<br>${materialName}: <strong>${ST.formatMoney(offer.amount)}</strong> / ${offer.unit}${stockTxt}`);
+      // Sin popup propio de Leaflet: el detalle se muestra siempre en el panel
+      // lateral (#map-branch-panel), así hay un solo lugar de verdad y nunca
+      // queda desincronizado entre lo que muestra el popup y lo que muestra el panel.
+      marker.on('click', () => showMaterialOfferDetail(offer, materialId, materialName));
       ST.mapState.markers.push(marker);
     });
 
-    ST.mapStatusMsg.textContent = conCoordenadas.length > 0
-      ? `${conCoordenadas.length} oferta${conCoordenadas.length === 1 ? '' : 's'} de "${materialName}" en ${ST.mapState.radiusKm} km a la redonda.`
-      : `Ningún proveedor cargó "${materialName}" en ${ST.mapState.radiusKm} km a la redonda todavía.`;
+    if (conCoordenadas.length > 0) {
+      ST.mapStatusMsg.textContent = `${conCoordenadas.length} oferta${conCoordenadas.length === 1 ? '' : 's'} de "${materialName}" en ${ST.mapState.radiusKm} km a la redonda. Tocá un pin para ver el detalle.`;
+      showMaterialOfferDetail(conCoordenadas[0], materialId, materialName); // muestra la primera de una, no hace falta esperar el click
+    } else {
+      ST.mapStatusMsg.textContent = `Ningún proveedor cargó "${materialName}" en ${ST.mapState.radiusKm} km a la redonda todavía.`;
+      ST.mapBranchPanel.innerHTML = `
+        <div class="map-branch-panel-empty">
+          <div style="font-size: 2rem;">😕</div>
+          <p>Nadie cerca tuyo cargó "${materialName}" todavía. Probá ampliar el radio de búsqueda.</p>
+        </div>
+      `;
+    }
+  }
+
+  /**
+   * Panel enfocado en UNA oferta puntual de UN material (no la lista completa
+   * de materiales del proveedor -- eso es lo que pediste explícitamente).
+   * Muestra precio, variación vs. la referencia, contacto y favorito.
+   */
+  async function showMaterialOfferDetail(offer, materialId, materialName) {
+    const material = NEXOBRA_DATA.find(m => m.id === materialId);
+    const trace = material ? Pricing.getReferencePrice(material, 'venta') : null;
+    const refPrice = trace ? trace.currentPrice : null;
+    const variacion = refPrice && !isNaN(refPrice) ? Math.round(((offer.amount - refPrice) / refPrice) * 100) : null;
+    const varClass = variacion === null ? 'equal' : variacion < -1 ? 'below' : variacion > 1 ? 'above' : 'equal';
+    const varTxt = variacion === null ? 'sin referencia para comparar' : `${variacion > 0 ? '+' : ''}${variacion}% vs. referencia`;
+    const esFavorito = ST.favoritesState.ids.has(offer.branch_id);
+    const stockLabel = offer.stock_status === 'agotado' ? 'Agotado' : offer.stock_status === 'a_pedido' ? 'A pedido' : 'En stock';
+    const whatsappLink = offer.whatsapp_phone
+      ? `<a class="btn-computo" style="text-decoration:none;" href="https://wa.me/${offer.whatsapp_phone}?text=${encodeURIComponent(`Hola! Vi en NEXOBRA que tenés ${materialName} a ${ST.formatMoney(offer.amount)}/${offer.unit}. ¿Seguís teniendo disponible?`)}" target="_blank" rel="noopener">💬 Contactar por WhatsApp</a>`
+      : '';
+
+    ST.mapBranchPanel.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+        <h3 style="margin-bottom:2px;">${offer.business_name}</h3>
+        <button class="btn-favorite-toggle ${esFavorito ? 'active' : ''}" onclick='window.nexoBraApp.toggleFavorite(${ST.escAttr(offer.branch_id)}, ${ST.escAttr(offer.business_name)})'>★</button>
+      </div>
+      <div class="branch-meta">${offer.branch_name} · ${offer.locality || ''} · ${offer.distance_km.toFixed(1)} km de tu ubicación</div>
+
+      <div class="card-price-box" style="margin: 14px 0;">
+        <div class="price-main-row">
+          <span class="price-main-val">${ST.formatMoney(offer.amount)}</span>
+          <span class="price-unit-tag">/ ${offer.unit}</span>
+        </div>
+        <div class="price-secondary-row" style="color: ${varClass === 'below' ? '#15803d' : varClass === 'above' ? '#b91c1c' : 'var(--text-subtle)'};">
+          <span>${materialName}</span>
+          <strong>${varTxt}</strong>
+        </div>
+        <div class="price-secondary-row">
+          <span>Stock:</span>
+          <strong>${stockLabel}</strong>
+        </div>
+      </div>
+
+      ${whatsappLink}
+    `;
   }
 
   export function clearMaterialSearchOnMap() {
