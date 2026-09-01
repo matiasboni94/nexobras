@@ -309,7 +309,7 @@ import * as Computo from './computo.js';
     Computo.updateCartUI();
     closeExcelModal();
     Computo.openDrawer();
-    ST.showToast(`${matched.length} material${matched.length === 1 ? '' : 'es'} agregado${matched.length === 1 ? '' : 's'} a Mi Cómputo. Ya podés guardarlo con un nombre.`);
+    ST.showToast(`${matched.length} material${matched.length === 1 ? '' : 'es'} agregado${matched.length === 1 ? '' : 's'} a Mi Cómputo. Elegí proveedor en cada ítem para armar tu lista de compra.`);
   }
 
   export function exportProcessedExcel() {
