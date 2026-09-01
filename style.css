@@ -27,6 +27,10 @@
   
   --border-light: #E2E6EC;
   --border-subtle: #ECEFF4;
+
+  /* Superficies (antes solo existían como fallback, ahora son variables reales) */
+  --surface-1: #F7F5F0;
+  --surface-2: #FFFFFF;
   
   /* Status */
   --color-success: #10B981;
@@ -49,6 +53,66 @@
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ==========================================================================
+   MODO OSCURO
+   - Por defecto sigue la preferencia del sistema operativo (prefers-color-scheme).
+   - El botón del header puede anular esa preferencia: JS pone data-theme="dark"
+     o data-theme="light" en <html>, y eso manda por sobre el sistema.
+   - Mismos nombres de variable, mismos componentes -- no hace falta tocar
+     ningún otro selector del archivo, todo lo que ya usa var(--algo) se
+     adapta solo.
+   ========================================================================== */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --brand-yellow-light: #2B2410;
+    --brand-yellow-border: #6B5620;
+
+    --bg-app: #16181D;
+    --bg-card: #1E2229;
+    --bg-card-hover: #262B34;
+    --bg-subtle: #20242C;
+
+    --text-main: #F0F2F5;
+    --text-muted: #A7B0BC;
+    --text-subtle: #7A8492;
+
+    --border-light: #2E333D;
+    --border-subtle: #262A32;
+
+    --surface-1: #1C1F26;
+    --surface-2: #1E2229;
+
+    --color-success: #34D399;
+    --color-success-light: #0F2922;
+    --color-accent: #60A5FA;
+    --color-accent-light: #111E33;
+  }
+}
+html[data-theme="dark"] {
+  --brand-yellow-light: #2B2410;
+  --brand-yellow-border: #6B5620;
+
+  --bg-app: #16181D;
+  --bg-card: #1E2229;
+  --bg-card-hover: #262B34;
+  --bg-subtle: #20242C;
+
+  --text-main: #F0F2F5;
+  --text-muted: #A7B0BC;
+  --text-subtle: #7A8492;
+
+  --border-light: #2E333D;
+  --border-subtle: #262A32;
+
+  --surface-1: #1C1F26;
+  --surface-2: #1E2229;
+
+  --color-success: #34D399;
+  --color-success-light: #0F2922;
+  --color-accent: #60A5FA;
+  --color-accent-light: #111E33;
 }
 
 /* Reset & Base */
@@ -1637,7 +1701,7 @@ body {
   bottom: 0;
   width: 78%;
   max-width: 320px;
-  background: #fff;
+  background: var(--bg-card);
   z-index: 95;
   display: flex;
   flex-direction: column;
@@ -1795,7 +1859,7 @@ body {
   position: absolute;
   right: 0;
   top: calc(100% + 8px);
-  background: #fff;
+  background: var(--bg-card);
   border: 1px solid var(--border-light, #e5e5e5);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.15);
@@ -1823,7 +1887,7 @@ body {
   color: #b91c1c;
 }
 .auth-dropdown button:hover {
-  background: #f7f5f0;
+  background: var(--surface-1);
 }
 
 .auth-tabs {
@@ -1847,7 +1911,7 @@ body {
   cursor: pointer;
 }
 .auth-tab.active {
-  background: #fff;
+  background: var(--bg-card);
   color: var(--brand-dark, #111);
   box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
@@ -1938,14 +2002,14 @@ body {
   padding: 10px;
   border-radius: 8px;
   border: 1.5px solid var(--border-light, #e5e5e5);
-  background: #fff;
+  background: var(--bg-card);
   font-family: inherit;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }
 .btn-google-auth:hover {
-  background: #f7f5f0;
+  background: var(--surface-1);
 }
 
 /* --- Páginas legales (privacidad.html, terminos.html) --- */
@@ -2038,7 +2102,7 @@ body {
   padding: 7px 12px;
   border-radius: 7px;
   border: 1px solid var(--border-light, #ddd);
-  background: #fff;
+  background: var(--bg-card);
   font-family: inherit;
   font-size: 0.78rem;
   font-weight: 600;
@@ -2082,7 +2146,7 @@ body {
 
 /* --- Fase C: Panel de Corralón --- */
 .provider-section {
-  background: #fff;
+  background: var(--bg-card);
   border: 1px solid var(--border-light, #eee);
   border-radius: 12px;
   margin-bottom: 14px;
@@ -2244,7 +2308,7 @@ body {
   background: #eef1f5;
 }
 .map-branch-panel {
-  background: #fff;
+  background: var(--bg-card);
   border: 1px solid var(--border-light, #eee);
   border-radius: 14px;
   padding: 18px;
@@ -2425,7 +2489,7 @@ body {
   padding: 6px 12px;
   border-radius: 8px;
   border: 1.5px solid var(--border-light, #eee);
-  background: #fff;
+  background: var(--bg-card);
   font-family: inherit;
   font-size: 0.75rem;
   font-weight: 700;
@@ -2442,7 +2506,7 @@ body {
   padding: 6px 10px;
   border-radius: 8px;
   border: 1.5px solid var(--border-light, #eee);
-  background: #fff;
+  background: var(--bg-card);
   font-family: inherit;
   font-size: 0.72rem;
   font-weight: 700;
@@ -2754,4 +2818,24 @@ body {
   object-fit: cover;
   flex-shrink: 0;
   border: 1px solid var(--border-light, #eee);
+}
+
+/* --- Botón de tema claro/oscuro --- */
+.btn-theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  flex-shrink: 0;
+}
+.btn-theme-toggle:hover {
+  background: var(--surface-1);
+  color: var(--text-main);
 }
