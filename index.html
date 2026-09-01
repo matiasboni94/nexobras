@@ -1168,6 +1168,19 @@
         <summary>📋 Datos comerciales</summary>
         <div class="provider-section-body">
           <div id="provider-verification-banner" style="display:none;"></div>
+
+          <div class="provider-logo-upload-row">
+            <div class="provider-logo-preview" id="provider-logo-preview">
+              <span id="provider-logo-placeholder">🏪</span>
+              <img id="provider-logo-img" style="display:none;" alt="Logo del negocio">
+            </div>
+            <div>
+              <label for="provider-logo-input" class="btn-action-drawer btn-copy" style="display:inline-flex; cursor:pointer;">Subir logo</label>
+              <input type="file" id="provider-logo-input" accept="image/png,image/jpeg,image/webp" style="display:none;">
+              <p style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">PNG, JPG o WEBP. Máximo 2 MB. Se muestra en el mapa y en tu ficha.</p>
+            </div>
+          </div>
+
           <form id="provider-profile-form">
             <div class="excel-config-grid">
               <div class="config-field">
