@@ -100,7 +100,7 @@ import * as ST from './state.js';
               <input type="number" id="${inputId}" class="qty-input" value="1" min="0.5" step="0.5">
               <button class="qty-btn" onclick="window.nexoBraApp.changeLaborQty('${role.code}', 1)" title="Aumentar cantidad">+</button>
             </div>
-            <button class="btn-add-computo" onclick="window.nexoBraApp.Computo.addLaborToComputo('${role.code}')">
+            <button class="btn-add-computo" onclick="window.nexoBraApp.addLaborToComputo('${role.code}')">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -347,7 +347,7 @@ import * as ST from './state.js';
 
             ${usaOfertas && oferta ? `
               <div style="display:flex; gap:6px; align-items:stretch;">
-                <button class="btn-choose-provider" style="margin-top:0; flex:1;" onclick="window.nexoBraApp.MapModule.openOfferPicker('${item.id}')">
+                <button class="btn-choose-provider" style="margin-top:0; flex:1;" onclick="window.nexoBraApp.openOfferPicker('${item.id}')">
                   🏪 Ver ${oferta.offers_count} oferta${oferta.offers_count === 1 ? '' : 's'} y elegir proveedor
                 </button>
                 <button class="btn-alert-toggle ${ST.alertsState.byMaterial[item.id] ? 'active' : ''}" title="${ST.alertsState.byMaterial[item.id] ? 'Ya tenés una alerta armada — tocá para sacarla' : 'Avisame si baja de precio'}" onclick='window.nexoBraApp.toggleMaterialAlert(${ST.escAttr(item.id)}, ${ST.escAttr(item.denominacion)})'>
@@ -358,11 +358,11 @@ import * as ST from './state.js';
 
             <div class="card-actions">
               <div class="qty-control">
-                <button class="qty-btn" onclick="window.nexoBraApp.Computo.changeCardQty('${item.id}', -1)" title="Reducir cantidad">-</button>
+                <button class="qty-btn" onclick="window.nexoBraApp.changeCardQty('${item.id}', -1)" title="Reducir cantidad">-</button>
                 <input type="number" id="qty-${item.id}" class="qty-input" value="1" min="1" max="999">
-                <button class="qty-btn" onclick="window.nexoBraApp.Computo.changeCardQty('${item.id}', 1)" title="Aumentar cantidad">+</button>
+                <button class="qty-btn" onclick="window.nexoBraApp.changeCardQty('${item.id}', 1)" title="Aumentar cantidad">+</button>
               </div>
-              <button class="btn-add-computo" id="btn-add-${item.id}" onclick="window.nexoBraApp.Computo.addToComputo('${item.id}')">
+              <button class="btn-add-computo" id="btn-add-${item.id}" onclick="window.nexoBraApp.addToComputo('${item.id}')">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                   <line x1="12" y1="5" x2="12" y2="19"></line>
                   <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -400,7 +400,7 @@ import * as ST from './state.js';
             <div class="table-price-trace">Base ${ST.formatMoney(computoTrace.basePrice)} · × ${ST.formatFactor(computoTrace.factor)}</div>
           </td>
           <td style="text-align: right;">
-            <button class="btn-add-computo" style="padding: 6px 12px; font-size: 0.78rem; display: inline-flex;" onclick="window.nexoBraApp.Computo.addToComputo('${item.id}')">
+            <button class="btn-add-computo" style="padding: 6px 12px; font-size: 0.78rem; display: inline-flex;" onclick="window.nexoBraApp.addToComputo('${item.id}')">
               + Cómputo
             </button>
           </td>
