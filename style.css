@@ -233,11 +233,11 @@ body {
    HOME VIEW STYLES
    ========================================================================== */
 .hero-home {
-  background: linear-gradient(180deg, var(--brand-dark) 0%, #222731 100%);
-  color: var(--text-inverse);
+  background: var(--surface-1, #f7f5f0);
+  color: var(--brand-dark);
   padding: 4.5rem 0 3.5rem;
   text-align: center;
-  border-bottom: 1px solid var(--brand-dark-border);
+  border-bottom: 1px solid var(--border-light, #eee);
 }
 
 .hero-home-content {
@@ -265,6 +265,7 @@ body {
   line-height: 1.15;
   letter-spacing: -1px;
   margin-bottom: 1.25rem;
+  color: var(--brand-dark);
 }
 
 .hero-main-title .accent-word {
@@ -273,9 +274,9 @@ body {
 
 .hero-main-desc {
   font-size: 1.12rem;
-  color: #CBD5E1;
+  color: var(--text-muted);
   line-height: 1.6;
-  max-width: 780px;
+  max-width: 1300px;
   margin: 0 auto 2.5rem;
 }
 
@@ -342,9 +343,9 @@ body {
 }
 
 .tag-pill {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #E2E8F0;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: var(--surface-2, #fff);
+  color: var(--text-muted);
+  border: 1px solid var(--border-light, #e2e5ea);
   padding: 5px 12px;
   border-radius: var(--radius-full);
   font-size: 0.78rem;
