@@ -1347,8 +1347,9 @@ body {
   gap: 10px;
   margin-top: 6px;
 }
-.drawer-actions #btn-export-computo-excel {
-  grid-column: 1 / -1;
+.drawer-actions #btn-export-presupuesto-referencia,
+.drawer-actions #btn-export-lista-compra {
+  font-size: 0.78rem;
 }
 
 .btn-action-drawer {
