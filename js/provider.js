@@ -47,6 +47,7 @@ import * as ST from './state.js';
       document.getElementById('prov-contact-phone').value = provider.contact_phone || '';
       document.getElementById('prov-contact-email').value = provider.contact_email || '';
       document.getElementById('prov-description').value = provider.description || '';
+      updateLogoPreview(provider.logo_url);
 
       const { data: branch } = await ST.supabaseClient
         .from('provider_branches')
@@ -73,6 +74,70 @@ import * as ST from './state.js';
 
     await loadProviderCatalog();
     await loadProviderDashboard();
+  }
+
+  function updateLogoPreview(url) {
+    const img = document.getElementById('provider-logo-img');
+    const placeholder = document.getElementById('provider-logo-placeholder');
+    if (!img || !placeholder) return;
+    if (url) {
+      img.src = url;
+      img.style.display = 'block';
+      placeholder.style.display = 'none';
+    } else {
+      img.style.display = 'none';
+      placeholder.style.display = 'block';
+    }
+  }
+
+  export async function uploadProviderLogo(file) {
+    if (!ST.authState.user) {
+      ST.showToast('Iniciá sesión primero.');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      ST.showToast('Tiene que ser una imagen (PNG, JPG o WEBP).');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      ST.showToast('La imagen pesa más de 2 MB. Achicala e intentá de nuevo.');
+      return;
+    }
+    if (!ST.providerState.provider) {
+      ST.showToast('Guardá primero tus datos comerciales (razón social), y después subí el logo.');
+      return;
+    }
+
+    const ext = file.name.split('.').pop().toLowerCase();
+    const path = `${ST.authState.user.id}/logo.${ext}`;
+
+    const { error: uploadError } = await ST.supabaseClient.storage
+      .from('provider-logos')
+      .upload(path, file, { upsert: true, cacheControl: '3600' });
+
+    if (uploadError) {
+      ST.showToast('No se pudo subir el logo: ' + uploadError.message);
+      return;
+    }
+
+    const { data: publicUrlData } = ST.supabaseClient.storage.from('provider-logos').getPublicUrl(path);
+    // Le agregamos un "cache-buster" a la URL guardada para que, si reemplazás
+    // el logo despues, no se siga viendo el viejo por el caché del navegador.
+    const logoUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`;
+
+    const { error: updateError } = await ST.supabaseClient
+      .from('providers')
+      .update({ logo_url: logoUrl })
+      .eq('id', ST.providerState.provider.id);
+
+    if (updateError) {
+      ST.showToast('El logo se subió pero no se pudo guardar: ' + updateError.message);
+      return;
+    }
+
+    ST.providerState.provider.logo_url = logoUrl;
+    updateLogoPreview(logoUrl);
+    ST.showToast('Logo actualizado.');
   }
 
   export async function handleProviderProfileSubmit(e) {
@@ -575,6 +640,10 @@ import * as ST from './state.js';
       Main.switchView('provider');
     });
     ST.providerProfileForm.addEventListener('submit', handleProviderProfileSubmit);
+    const providerLogoInput = document.getElementById('provider-logo-input');
+    if (providerLogoInput) providerLogoInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) uploadProviderLogo(e.target.files[0]);
+    });
     ST.providerAddSearch.addEventListener('input', renderProviderAddResults);
     ST.providerExcelInput.addEventListener('change', (e) => {
       if (e.target.files[0]) handleProviderExcelFile(e.target.files[0]);
