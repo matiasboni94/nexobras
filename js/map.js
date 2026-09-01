@@ -176,23 +176,21 @@ import * as ST from './state.js';
   }
 
   export function setupPricingSourceListeners() {
-    const btnSourceReference = document.getElementById('source-reference');
-    const btnSourceProviders = document.getElementById('source-providers');
+    const btnToggleCompare = document.getElementById('btn-toggle-compare-providers');
     const providersControls = document.getElementById('catalog-providers-controls');
     const catalogRadiusSelect = document.getElementById('catalog-radius-select');
-    if (!btnSourceReference || !btnSourceProviders) return;
+    if (!btnToggleCompare) return;
 
     async function refreshProvidersView() {
       const status = document.getElementById('catalog-providers-status');
-      if (status) status.textContent = 'Buscando ofertas cerca tuyo...';
+      if (status) status.textContent = 'Buscando proveedores cerca tuyo...';
       await loadNearbyRepresentativePrices();
       Catalog.renderProducts();
     }
 
-    async function activateProvidersSource() {
-      btnSourceReference.classList.remove('active');
-      btnSourceProviders.classList.add('active');
-      ST.state.pricingSource = 'providers';
+    async function activateCompare() {
+      btnToggleCompare.classList.add('active');
+      ST.state.compareNearbyProviders = true;
       if (providersControls) providersControls.style.display = 'flex';
 
       if (navigator.geolocation) {
@@ -209,14 +207,17 @@ import * as ST from './state.js';
       }
     }
 
-    btnSourceReference.addEventListener('click', () => {
-      btnSourceProviders.classList.remove('active');
-      btnSourceReference.classList.add('active');
-      ST.state.pricingSource = 'reference';
+    function deactivateCompare() {
+      btnToggleCompare.classList.remove('active');
+      ST.state.compareNearbyProviders = false;
       if (providersControls) providersControls.style.display = 'none';
       Catalog.renderProducts();
+    }
+
+    btnToggleCompare.addEventListener('click', () => {
+      if (ST.state.compareNearbyProviders) deactivateCompare();
+      else activateCompare();
     });
-    btnSourceProviders.addEventListener('click', activateProvidersSource);
 
     if (catalogRadiusSelect) {
       catalogRadiusSelect.addEventListener('change', () => {
