@@ -12,7 +12,7 @@
     excelProcessedRows: [],
     priceMonth: null, // "YYYY-MM-01", mes elegido por el usuario para EXPLORAR precios en el catálogo
     computoMonth: null, // "YYYY-MM-01", mes al que se recalcula TODO "Mi Cómputo" (independiente del anterior)
-    pricingSource: 'reference' // 'reference' (IPC) | 'providers' (ofertas reales cercanas)
+    compareNearbyProviders: false // true = mostrar comparación con proveedores cercanos (Fase G2, ya no es un "modo" que reemplaza el precio)
   };
 
   // Serie de índices IPC cargada desde public.index_values (tabla real, no valores fijos).
