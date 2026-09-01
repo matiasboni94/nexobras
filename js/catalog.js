@@ -225,12 +225,6 @@ import * as ST from './state.js';
       return true;
     });
 
-    // Modo "Ofertas de proveedores cercanos": solo se muestran los materiales
-    // que efectivamente tienen alguna oferta dentro del radio elegido.
-    if (ST.state.pricingSource === 'providers') {
-      items = items.filter(item => ST.providerPricesState.byMaterial[item.id]);
-    }
-
     if (ST.state.sortBy === 'price-asc') {
       items.sort((a, b) => {
         const pA = Pricing.getReferencePrice(a).currentPrice;
@@ -280,30 +274,29 @@ import * as ST from './state.js';
       const mainTrace = Pricing.getReferencePrice(item, ST.state.pricingMode);
       const secondaryTrace = Pricing.getReferencePrice(item, isVentaMode ? 'computo' : 'venta');
 
-      const usaOfertas = ST.state.pricingSource === 'providers';
-      const oferta = usaOfertas ? ST.providerPricesState.byMaterial[item.id] : null;
+      const oferta = ST.state.compareNearbyProviders ? ST.providerPricesState.byMaterial[item.id] : null;
+      const mainPrice = mainTrace.currentPrice;
+      const mainUnit = mainTrace.unit;
 
-      let mainPrice, mainUnit, priceBoxExtra;
-      if (usaOfertas && oferta) {
-        mainPrice = oferta.median_price;
-        mainUnit = item.unidadVenta;
+      let priceBoxExtra;
+      if (oferta) {
+        // Comparación: nunca reemplaza el precio de referencia, solo dice cuánto se alejan los proveedores cercanos de ESE precio.
+        const pctMin = Math.round(((oferta.min_price - mainPrice) / mainPrice) * 100);
+        const pctMax = Math.round(((oferta.max_price - mainPrice) / mainPrice) * 100);
+        const fmtPct = (p) => `${p > 0 ? '+' : ''}${p}%`;
         priceBoxExtra = `
           <div class="price-secondary-row" style="color: #15803d;">
-            <span>🏪 ${oferta.offers_count} oferta${oferta.offers_count === 1 ? '' : 's'} cerca tuyo</span>
-            <strong>${ST.formatMoney(oferta.min_price)} - ${ST.formatMoney(oferta.max_price)}</strong>
+            <span>🏪 ${oferta.offers_count} proveedor${oferta.offers_count === 1 ? '' : 'es'} cerca</span>
+            <strong>${fmtPct(pctMin)} a ${fmtPct(pctMax)} vs. referencia</strong>
           </div>
         `;
-      } else if (usaOfertas && !oferta) {
-        mainPrice = mainTrace.currentPrice;
-        mainUnit = mainTrace.unit;
+      } else if (ST.state.compareNearbyProviders) {
         priceBoxExtra = `
           <div class="price-secondary-row" style="color: var(--text-subtle);">
-            <span>Sin ofertas cercanas cargadas — mostrando referencia NEXOBRA</span>
+            <span>Sin proveedores cercanos cargados para este material</span>
           </div>
         `;
       } else {
-        mainPrice = mainTrace.currentPrice;
-        mainUnit = mainTrace.unit;
         const secPrice = secondaryTrace.currentPrice;
         const secUnit = secondaryTrace.unit;
         const secLabel = isVentaMode ? 'Cómputo métrico' : 'Venta x bulto';
@@ -337,6 +330,10 @@ import * as ST from './state.js';
                 <span class="price-unit-tag">/ ${mainUnit}</span>
               </div>
               ${priceBoxExtra}
+              ${mainTrace.isMarketSourced
+                ? '<div class="price-source-tag market">📊 Precio de mercado real</div>'
+                : '<div class="price-source-tag ipc">📈 Proyectado por IPC</div>'
+              }
             </div>
 
             ${''}
@@ -345,7 +342,7 @@ import * as ST from './state.js';
               ${tagsHtml}
             </div>
 
-            ${usaOfertas && oferta ? `
+            ${oferta ? `
               <div style="display:flex; gap:6px; align-items:stretch;">
                 <button class="btn-choose-provider" style="margin-top:0; flex:1;" onclick="window.nexoBraApp.openOfferPicker('${item.id}')">
                   🏪 Ver ${oferta.offers_count} oferta${oferta.offers_count === 1 ? '' : 's'} y elegir proveedor
