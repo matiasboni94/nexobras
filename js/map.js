@@ -292,7 +292,22 @@ import * as ST from './state.js';
     if (!offer || !material) return;
 
     const qtyInput = document.getElementById(`qty-${materialId}`);
-    const qty = qtyInput ? Math.max(1, parseFloat(qtyInput.value) || 1) : 1;
+    const typedQty = qtyInput ? Math.max(1, parseFloat(qtyInput.value) || 1) : 1;
+
+    // Si venías mirando en "Cómputo Métrico" (ej: 10 metros de hierro) y el
+    // proveedor vende por unidad de compra discreta (ej: barras de 12m), no
+    // le podés pedir "10 metros" -- hay que redondear hacia arriba a cuántas
+    // unidades de compra hacen falta. Si ya estabas en modo Venta, o el
+    // proveedor vende justo por la unidad de cómputo (ej: por kg), no hace
+    // falta convertir nada.
+    let qty = typedQty;
+    let roundedFrom = null;
+    const proveedorVendePorUnidadDeCompra = offer.unit === material.unidadVenta;
+    const envase = Number(material.envase) || 1;
+    if (ST.state.pricingMode === 'computo' && proveedorVendePorUnidadDeCompra && envase > 0 && offer.unit !== material.unidadComputo) {
+      qty = Math.ceil(typedQty / envase);
+      roundedFrom = { qty: typedQty, unit: material.unidadComputo };
+    }
 
     const existingIndex = ST.state.computoCart.findIndex(i => i.id === materialId && i.type === 'material' && i.providerOfferId === offer.offer_id);
     if (existingIndex > -1) {
@@ -311,8 +326,13 @@ import * as ST from './state.js';
         providerBusinessName: offer.business_name,
         providerBranchName: offer.branch_name,
         providerWhatsapp: offer.whatsapp_phone,
-        providerPrice: offer.amount
+        providerPrice: offer.amount,
+        roundedFrom: roundedFrom
       });
+    }
+
+    if (roundedFrom) {
+      ST.showToast(`Necesitás ${roundedFrom.qty} ${roundedFrom.unit} → se redondeó a ${qty} ${offer.unit}${qty === 1 ? '' : 's'} para poder comprarlo.`);
     }
 
     Computo.saveCart();
