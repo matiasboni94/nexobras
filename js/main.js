@@ -10,6 +10,49 @@ import * as Pricing from './pricing.js';
 import * as Provider from './provider.js';
 import * as ST from './state.js';
 
+  /**
+   * Modo claro/oscuro. Por defecto sigue la preferencia del sistema (ver el
+   * @media prefers-color-scheme en style.css); este botón la anula guardando
+   * la elección en localStorage. El script inline en el <head> ya aplicó el
+   * atributo data-theme antes de que cargara el CSS, así que acá solo hace
+   * falta reflejar el ícono correcto y manejar el click.
+   */
+  function getEffectiveTheme() {
+    const saved = document.documentElement.getAttribute('data-theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  function updateThemeIcon() {
+    const sunIcon = document.getElementById('theme-icon-sun');
+    const moonIcon = document.getElementById('theme-icon-moon');
+    if (!sunIcon || !moonIcon) return;
+    const isDark = getEffectiveTheme() === 'dark';
+    sunIcon.style.display = isDark ? 'none' : 'block';
+    moonIcon.style.display = isDark ? 'block' : 'none';
+  }
+
+  function setupThemeToggle() {
+    const btn = document.getElementById('btn-theme-toggle');
+    updateThemeIcon();
+    if (btn) {
+      btn.addEventListener('click', () => {
+        const next = getEffectiveTheme() === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('nexobra-theme', next);
+        updateThemeIcon();
+      });
+    }
+    // Si el usuario nunca eligió manualmente, seguir reflejando el cambio en
+    // vivo si el sistema operativo cambia de tema mientras navega (algunos
+    // SO pasan a oscuro solo de noche, por ejemplo).
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (!localStorage.getItem('nexobra-theme')) updateThemeIcon();
+      });
+    }
+  }
+
   export function switchView(viewName, rubroFilter = null, searchString = null) {
     ST.state.currentView = viewName;
 
@@ -168,6 +211,9 @@ import * as ST from './state.js';
       if (ST.mapState.map) ST.mapState.map.invalidateSize();
       MapModule.loadNearbyBranchesOnMap();
     }, 300);
+
+    // Botón de tema claro/oscuro
+    setupThemeToggle();
 
     // Nav buttons
     ST.navBrandLogo.addEventListener('click', (e) => {
