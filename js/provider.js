@@ -168,8 +168,13 @@ import * as ST from './state.js';
       return;
     }
     const results = searchMaterialsSimple(query);
+    const proponerBtn = `
+      <button class="btn-choose-provider" style="margin-top: 10px;" onclick="window.nexoBraApp.openNewMaterialForm(${ST.escAttr(query)})">
+        ➕ ¿No lo encontrás? Proponer "${query}" como material nuevo
+      </button>
+    `;
     if (results.length === 0) {
-      ST.providerAddResults.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Sin resultados.</p>';
+      ST.providerAddResults.innerHTML = `<p style="font-size:0.85rem; color:var(--text-muted);">Sin resultados.</p>${proponerBtn}`;
       return;
     }
     ST.providerAddResults.innerHTML = results.map(item => `
@@ -193,7 +198,103 @@ import * as ST from './state.js';
           <button class="btn-computo" style="padding: 6px 12px; font-size: 0.78rem;" onclick="window.nexoBraApp.addOfferFromSearch('${item.id}')">Agregar</button>
         </div>
       </div>
-    `).join('');
+    `).join('') + proponerBtn;
+  }
+
+  /**
+   * FASE G3: crear un material que no está en el catálogo de NEXOBRA (sin
+   * referencia de precio propia todavía). Lo usan tanto proveedores (vía
+   * "proponer material nuevo") como el admin (vía el editor de materiales).
+   * La creación en sí no necesita aprobación — lo que sí pasa por la cola de
+   * revisión de siempre es el PRECIO que se cargue después para ese material.
+   */
+  export async function createNewMaterial({ denominacion, rubro, categoria, subcategoria, unidadVenta, unidadComputo, envase }) {
+    const id = 'NUEVO-' + Date.now().toString(36).toUpperCase();
+    const payload = {
+      id,
+      denomination: denominacion,
+      rubro: rubro || 'Otros',
+      category: categoria || null,
+      subcategory: subcategoria || null,
+      sale_unit: unidadVenta || 'un',
+      measurement_unit: unidadComputo || unidadVenta || 'un',
+      package_quantity: envase || 1,
+      active: true
+    };
+    const { error } = await ST.supabaseClient.from('materials').insert(payload);
+    if (error) return { error };
+
+    // Se agrega también al catálogo en memoria del navegador, SIN precio base
+    // a propósito: así el catálogo lo muestra como "sin referencia NEXOBRA"
+    // hasta que alguien le cargue un precio real (una oferta de proveedor
+    // aprobada, o el admin desde el editor de materiales).
+    NEXOBRA_DATA.push({
+      id,
+      rubro: payload.rubro,
+      categoria: payload.category || '',
+      subcategoria: payload.subcategory || '',
+      denominacion,
+      tags: [],
+      unidadVenta: payload.sale_unit,
+      precioVenta: undefined,
+      unidadComputo: payload.measurement_unit,
+      precioComputo: undefined,
+      envase: payload.package_quantity,
+      precioBase: undefined,
+      mesBase: undefined
+    });
+
+    return { id };
+  }
+
+  export function openNewMaterialForm(prefillName) {
+    document.getElementById('new-material-nombre').value = prefillName || '';
+    document.getElementById('new-material-rubro').value = '';
+    document.getElementById('new-material-unidad-venta').value = '';
+    document.getElementById('new-material-unidad-computo').value = '';
+    document.getElementById('new-material-envase').value = 1;
+    document.getElementById('new-material-modal').classList.add('open');
+    document.getElementById('new-material-modal-backdrop').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  export function closeNewMaterialForm() {
+    document.getElementById('new-material-modal').classList.remove('open');
+    document.getElementById('new-material-modal-backdrop').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  export async function submitNewMaterial() {
+    const denominacion = document.getElementById('new-material-nombre').value.trim();
+    const rubro = document.getElementById('new-material-rubro').value.trim();
+    const unidadVenta = document.getElementById('new-material-unidad-venta').value.trim();
+    const unidadComputo = document.getElementById('new-material-unidad-computo').value.trim();
+    const envase = parseFloat(document.getElementById('new-material-envase').value) || 1;
+
+    if (!denominacion || !rubro || !unidadVenta) {
+      ST.showToast('Completá al menos nombre, rubro y unidad de compra.');
+      return;
+    }
+
+    const { id, error } = await createNewMaterial({ denominacion, rubro, unidadVenta, unidadComputo: unidadComputo || unidadVenta, envase });
+    if (error) {
+      ST.showToast('No se pudo crear el material: ' + error.message);
+      return;
+    }
+
+    closeNewMaterialForm();
+
+    if (ST.authState.profile?.role === 'admin') {
+      // El admin va directo al editor completo para poder ponerle precio base ya mismo.
+      ST.showToast(`"${denominacion}" creado. Completá el precio base en el editor.`);
+      window.nexoBraApp.openMaterialEditor(id);
+    } else {
+      // El proveedor vuelve a la búsqueda, ahora sí encuentra el material recién creado
+      // y puede cargarle su propia oferta (que va a quedar pendiente de aprobación).
+      ST.showToast(`"${denominacion}" creado. Ahora podés cargarle tu precio.`);
+      ST.providerAddSearch.value = denominacion;
+      renderProviderAddResults();
+    }
   }
 
   export async function addOfferFromSearch(materialId) {
@@ -482,6 +583,14 @@ import * as ST from './state.js';
     ST.btnApplyBulkPercent.addEventListener('click', applyBulkPercent);
     const btnDownloadProviderTemplate = document.getElementById('btn-download-provider-template');
     if (btnDownloadProviderTemplate) btnDownloadProviderTemplate.addEventListener('click', generateProviderTemplate);
+  }
+
+  export function setupNewMaterialListeners() {
+    if (!ST.supabaseClient) return;
+    if (ST.newMaterialModalCloseBtn) ST.newMaterialModalCloseBtn.addEventListener('click', closeNewMaterialForm);
+    if (ST.newMaterialModalBackdrop) ST.newMaterialModalBackdrop.addEventListener('click', closeNewMaterialForm);
+    if (ST.btnSubmitNewMaterial) ST.btnSubmitNewMaterial.addEventListener('click', submitNewMaterial);
+    if (ST.btnOpenNewMaterialAdmin) ST.btnOpenNewMaterialAdmin.addEventListener('click', () => openNewMaterialForm(''));
   }
 
   // --- MAPA DE PROVEEDORES (Fase D) ---
