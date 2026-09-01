@@ -4,6 +4,7 @@ import * as Auth from './auth.js';
 import * as Catalog from './catalog.js';
 import * as Computo from './computo.js';
 import * as Main from './main.js';
+import * as Provider from './provider.js';
 import * as ST from './state.js';
 
   export function initProviderMap() {
@@ -19,6 +20,83 @@ import * as ST from './state.js';
   export function clearMapMarkers() {
     ST.mapState.markers.forEach(m => ST.mapState.map.removeLayer(m));
     ST.mapState.markers = [];
+  }
+
+  // ============================================================
+  // FASE G5 — Buscar un material y ver sus ofertas georeferenciadas
+  // en el mapa (como Booking: buscás y el mapa se filtra a eso).
+  // ============================================================
+  export function searchMaterialOnMap() {
+    const input = document.getElementById('home-map-material-search');
+    const query = input.value.trim();
+    const container = document.getElementById('home-map-material-results');
+    if (query.length < 2) {
+      container.innerHTML = '';
+      return;
+    }
+    const results = Provider.searchMaterialsSimple(query, 8);
+    if (results.length === 0) {
+      container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted); padding: 8px 0;">Sin resultados.</p>';
+      return;
+    }
+    container.innerHTML = results.map(item => `
+      <div class="provider-search-row">
+        <div class="provider-search-row-info">
+          <strong>${item.denominacion}</strong><br>
+          <span style="color:var(--text-muted); font-size:0.75rem;">${item.id} · ${item.rubro}</span>
+        </div>
+        <button class="btn-computo" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.selectMaterialOnMap(${ST.escAttr(item.id)}, ${ST.escAttr(item.denominacion)})">Ver en mapa</button>
+      </div>
+    `).join('');
+  }
+
+  export async function selectMaterialOnMap(materialId, materialName) {
+    if (!ST.supabaseClient || !ST.mapState.map) return;
+    ST.mapState.filterMaterialId = materialId;
+    ST.mapState.filterMaterialName = materialName;
+    document.getElementById('home-map-material-results').innerHTML = '';
+    document.getElementById('home-map-material-search').value = materialName;
+    document.getElementById('btn-clear-map-material-search').style.display = 'inline-flex';
+    ST.mapStatusMsg.textContent = `Buscando ofertas de "${materialName}" cerca tuyo...`;
+
+    const { data, error } = await ST.supabaseClient.rpc('nearby_offers_for_material', {
+      p_material_id: materialId,
+      center_lat: ST.mapState.center.lat,
+      center_lng: ST.mapState.center.lng,
+      radius_km: ST.mapState.radiusKm
+    });
+
+    if (error) {
+      ST.mapStatusMsg.textContent = 'No se pudo buscar: ' + error.message;
+      return;
+    }
+
+    clearMapMarkers();
+    const centerMarker = L.circleMarker([ST.mapState.center.lat, ST.mapState.center.lng], {
+      radius: 7, color: '#d97757', fillColor: '#d97757', fillOpacity: 0.9
+    }).addTo(ST.mapState.map).bindPopup('Tu ubicación');
+    ST.mapState.markers.push(centerMarker);
+
+    const conCoordenadas = (data || []).filter(o => o.latitude && o.longitude);
+    conCoordenadas.forEach(offer => {
+      const marker = L.marker([offer.latitude, offer.longitude]).addTo(ST.mapState.map);
+      const stockTxt = offer.stock_status === 'agotado' ? ' · <strong style="color:#b91c1c;">Agotado</strong>' : offer.stock_status === 'a_pedido' ? ' · A pedido' : ' · En stock';
+      marker.bindPopup(`<strong>${offer.business_name}</strong><br>${offer.branch_name} · ${offer.distance_km.toFixed(1)} km<br>${materialName}: <strong>${ST.formatMoney(offer.amount)}</strong> / ${offer.unit}${stockTxt}`);
+      ST.mapState.markers.push(marker);
+    });
+
+    ST.mapStatusMsg.textContent = conCoordenadas.length > 0
+      ? `${conCoordenadas.length} oferta${conCoordenadas.length === 1 ? '' : 's'} de "${materialName}" en ${ST.mapState.radiusKm} km a la redonda.`
+      : `Ningún proveedor cargó "${materialName}" en ${ST.mapState.radiusKm} km a la redonda todavía.`;
+  }
+
+  export function clearMaterialSearchOnMap() {
+    ST.mapState.filterMaterialId = null;
+    ST.mapState.filterMaterialName = null;
+    document.getElementById('home-map-material-search').value = '';
+    document.getElementById('home-map-material-results').innerHTML = '';
+    document.getElementById('btn-clear-map-material-search').style.display = 'none';
+    loadNearbyBranchesOnMap();
   }
 
   export async function loadNearbyBranchesOnMap() {
@@ -112,15 +190,18 @@ import * as ST from './state.js';
       return;
     }
     ST.mapStatusMsg.textContent = 'Buscando tu ubicación...';
+    const refresh = () => ST.mapState.filterMaterialId
+      ? selectMaterialOnMap(ST.mapState.filterMaterialId, ST.mapState.filterMaterialName)
+      : loadNearbyBranchesOnMap();
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         ST.mapState.center = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         ST.mapState.map.setView([ST.mapState.center.lat, ST.mapState.center.lng], 13);
-        loadNearbyBranchesOnMap();
+        refresh();
       },
       () => {
         ST.showToast('No se pudo acceder a tu ubicación. Mostrando la zona por defecto.');
-        loadNearbyBranchesOnMap();
+        refresh();
       },
       { timeout: 8000 }
     );
@@ -128,22 +209,19 @@ import * as ST from './state.js';
 
   export function setupMapListeners() {
     if (!ST.supabaseClient) return;
-    const navBtnMapa = document.getElementById('nav-btn-mapa');
-    const mobileNavBtnMapa = document.getElementById('mobile-nav-btn-mapa');
-    if (navBtnMapa) navBtnMapa.addEventListener('click', () => Main.switchView('map'));
-    if (mobileNavBtnMapa) mobileNavBtnMapa.addEventListener('click', () => {
-      Main.switchView('map');
-      const panel = document.getElementById('mobile-menu-panel');
-      const backdrop = document.getElementById('mobile-menu-backdrop');
-      if (panel) panel.classList.remove('open');
-      if (backdrop) backdrop.classList.remove('open');
-      document.body.style.overflow = '';
-    });
     ST.btnGeolocate.addEventListener('click', requestUserLocation);
     ST.mapRadiusSelect.addEventListener('change', () => {
       ST.mapState.radiusKm = parseFloat(ST.mapRadiusSelect.value);
-      loadNearbyBranchesOnMap();
+      if (ST.mapState.filterMaterialId) {
+        selectMaterialOnMap(ST.mapState.filterMaterialId, ST.mapState.filterMaterialName);
+      } else {
+        loadNearbyBranchesOnMap();
+      }
     });
+    const materialSearchInput = document.getElementById('home-map-material-search');
+    const btnClearMaterialSearch = document.getElementById('btn-clear-map-material-search');
+    if (materialSearchInput) materialSearchInput.addEventListener('input', searchMaterialOnMap);
+    if (btnClearMaterialSearch) btnClearMaterialSearch.addEventListener('click', clearMaterialSearchOnMap);
   }
 
   // --- OFERTAS DE CORRALONES EN EL CATÁLOGO (toggle "ORIGEN DEL VALOR") ---
