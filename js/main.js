@@ -183,14 +183,6 @@ import * as ST from './state.js';
     const navBtnContacto = document.getElementById('nav-btn-contacto');
     if (navBtnContacto) navBtnContacto.addEventListener('click', goToContact);
 
-    // Cotizar con Excel: abre el modal directo, desde cualquier vista.
-    const navBtnCotizarExcel = document.getElementById('nav-btn-cotizar-excel');
-    if (navBtnCotizarExcel) navBtnCotizarExcel.addEventListener('click', () => Excel.openExcelModal());
-
-    // Mi Cómputo: abre el drawer directo, desde cualquier vista.
-    const navBtnMiComputo = document.getElementById('nav-btn-mi-computo');
-    if (navBtnMiComputo) navBtnMiComputo.addEventListener('click', () => Computo.openDrawer());
-
     // --- Menú mobile (hamburguesa) ---
     const btnMobileMenu = document.getElementById('btn-mobile-menu');
     const mobileMenuPanel = document.getElementById('mobile-menu-panel');
@@ -222,16 +214,12 @@ import * as ST from './state.js';
     const mobileNavBtnManoObra = document.getElementById('mobile-nav-btn-manoobra');
     const mobileNavBtnQuienesSomos = document.getElementById('mobile-nav-btn-quienes-somos');
     const mobileNavBtnContacto = document.getElementById('mobile-nav-btn-contacto');
-    const mobileNavBtnCotizarExcel = document.getElementById('mobile-nav-btn-cotizar-excel');
-    const mobileNavBtnMiComputo = document.getElementById('mobile-nav-btn-mi-computo');
 
     if (mobileNavBtnHome) mobileNavBtnHome.addEventListener('click', () => mobileNavAction(() => switchView('home')));
     if (mobileNavBtnCatalogo) mobileNavBtnCatalogo.addEventListener('click', () => mobileNavAction(() => switchView('catalog', 'Todos', '')));
     if (mobileNavBtnManoObra) mobileNavBtnManoObra.addEventListener('click', () => mobileNavAction(() => switchView('labor')));
     if (mobileNavBtnQuienesSomos) mobileNavBtnQuienesSomos.addEventListener('click', () => mobileNavAction(() => switchView('about')));
     if (mobileNavBtnContacto) mobileNavBtnContacto.addEventListener('click', () => mobileNavAction(goToContact));
-    if (mobileNavBtnCotizarExcel) mobileNavBtnCotizarExcel.addEventListener('click', () => mobileNavAction(() => Excel.openExcelModal()));
-    if (mobileNavBtnMiComputo) mobileNavBtnMiComputo.addEventListener('click', () => mobileNavAction(() => Computo.openDrawer()));
 
     // Quick tag pills en el Home: ahora buscan directo en el mapa de proveedores.
     document.querySelectorAll('.quick-tags-wrapper .tag-pill').forEach(pill => {
