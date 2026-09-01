@@ -734,7 +734,7 @@ import * as ST from './state.js';
       <head>
         <title>NEXOBRA - Cómputo y Presupuesto de Obra</title>
         <style>
-          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; color: #111; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; color: #111; max-width: 1000px; margin: 0 auto; }
           .header-print { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #F5B000; padding-bottom: 15px; margin-bottom: 20px; }
           .logo { font-size: 24px; font-weight: 900; }
           .logo span { color: #F5B000; }
