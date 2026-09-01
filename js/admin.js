@@ -465,6 +465,100 @@ export async function rejectOffer(id) {
 }
 
 // ============================================================
+// Índices (IPC y Mano de Obra): cargar valores nuevos sin depender
+// de que yo te arme una migración SQL cada vez. Las dos series viven
+// en la misma tabla (index_values, ligada a index_series), así que
+// una sola sección de admin sirve para ambas.
+// ============================================================
+
+export async function loadIndexSeriesOptions() {
+  const select = document.getElementById('admin-index-series-select');
+  if (!select) return;
+  const { data, error } = await ST.supabaseClient
+    .from('index_series')
+    .select('id, code, name, applies_to')
+    .order('applies_to')
+    .order('name');
+  if (error) {
+    select.innerHTML = `<option value="">Error: ${error.message}</option>`;
+    return;
+  }
+  select.innerHTML = (data || []).map(s =>
+    `<option value="${s.id}">${s.applies_to === 'labor' ? '👷 UOCRA' : '📈 IPC'} — ${s.name}</option>`
+  ).join('');
+  if ((data || []).length > 0) loadRecentIndexValues();
+}
+
+export async function saveIndexValue() {
+  const seriesId = document.getElementById('admin-index-series-select').value;
+  const month = document.getElementById('admin-index-month').value; // "YYYY-MM" del <input type="month">
+  const valueInput = document.getElementById('admin-index-value').value;
+
+  if (!seriesId || !month || valueInput === '') {
+    ST.showToast('Completá serie, mes y valor.');
+    return;
+  }
+
+  const referenceMonth = `${month}-01`;
+  const value = parseFloat(valueInput);
+
+  const { error } = await ST.supabaseClient
+    .from('index_values')
+    .upsert(
+      { index_series_id: seriesId, reference_month: referenceMonth, value, is_published: true },
+      { onConflict: 'index_series_id,reference_month' }
+    );
+
+  if (error) {
+    ST.showToast('No se pudo guardar: ' + error.message);
+    return;
+  }
+  ST.showToast(`Valor guardado para ${ST.monthLabel(referenceMonth)}.`);
+  document.getElementById('admin-index-value').value = '';
+  loadRecentIndexValues();
+}
+
+export async function loadRecentIndexValues() {
+  const seriesId = document.getElementById('admin-index-series-select').value;
+  const container = document.getElementById('admin-index-recent-values');
+  if (!seriesId || !container) return;
+  container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando...</p>';
+
+  const { data, error } = await ST.supabaseClient
+    .from('index_values')
+    .select('id, reference_month, value')
+    .eq('index_series_id', seriesId)
+    .order('reference_month', { ascending: false })
+    .limit(12);
+
+  if (error) {
+    container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Todavía no hay valores cargados para esta serie.</p>';
+    return;
+  }
+  container.innerHTML = data.map(row => `
+    <div class="provider-search-row">
+      <div class="provider-search-row-info">
+        <strong>${ST.monthLabel(row.reference_month)}</strong>
+        <span style="color:var(--text-muted); font-size:0.85rem; margin-left:10px;">${row.value}</span>
+      </div>
+      <button class="btn-remove-item" title="Eliminar" onclick="window.nexoBraApp.deleteIndexValue(${ST.escAttr(row.id)})">&times;</button>
+    </div>
+  `).join('');
+}
+
+export async function deleteIndexValue(id) {
+  if (!confirm('¿Eliminar este valor? Si algún presupuesto ya se calculó con este dato, sus números no cambian retroactivamente, pero el mes va a quedar sin valor hacia adelante.')) return;
+  const { error } = await ST.supabaseClient.from('index_values').delete().eq('id', id);
+  if (error) { ST.showToast('No se pudo eliminar: ' + error.message); return; }
+  ST.showToast('Valor eliminado.');
+  loadRecentIndexValues();
+}
+
+// ============================================================
 // Setup
 // ============================================================
 
@@ -490,10 +584,16 @@ export function setupAdminListeners() {
   if (dateFilter) dateFilter.addEventListener('change', () => loadMaterialsBrowse(true));
   if (sortSelect) sortSelect.addEventListener('change', () => loadMaterialsBrowse(true));
   if (btnLoadMore) btnLoadMore.addEventListener('click', () => loadMaterialsBrowse(false));
+
+  const indexSeriesSelect = document.getElementById('admin-index-series-select');
+  const btnSaveIndexValue = document.getElementById('btn-save-index-value');
+  if (indexSeriesSelect) indexSeriesSelect.addEventListener('change', () => loadRecentIndexValues());
+  if (btnSaveIndexValue) btnSaveIndexValue.addEventListener('click', (e) => { e.preventDefault(); saveIndexValue(); });
 }
 
 export function loadAdminPanel() {
   loadMaterialsBrowse(true);
   loadPendingProviders();
   loadPendingOffers();
+  loadIndexSeriesOptions();
 }
