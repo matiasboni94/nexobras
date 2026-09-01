@@ -325,15 +325,24 @@ import * as ST from './state.js';
 
           <div>
             <div class="card-price-box">
-              <div class="price-main-row">
-                <span class="price-main-val">${ST.formatMoney(mainPrice)}</span>
-                <span class="price-unit-tag">/ ${mainUnit}</span>
-              </div>
-              ${priceBoxExtra}
-              ${mainTrace.isMarketSourced
-                ? '<div class="price-source-tag market">📊 Precio de mercado real</div>'
-                : '<div class="price-source-tag ipc">📈 Proyectado por IPC</div>'
-              }
+              ${isNaN(mainPrice) ? `
+                <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-muted); padding: 4px 0;">
+                  Sin referencia NEXOBRA todavía
+                </div>
+                <div class="price-secondary-row" style="color: var(--text-subtle);">
+                  <span>Material nuevo, sin precio base cargado — mirá si algún proveedor lo tiene</span>
+                </div>
+              ` : `
+                <div class="price-main-row">
+                  <span class="price-main-val">${ST.formatMoney(mainPrice)}</span>
+                  <span class="price-unit-tag">/ ${mainUnit}</span>
+                </div>
+                ${priceBoxExtra}
+                ${mainTrace.isMarketSourced
+                  ? '<div class="price-source-tag market">📊 Precio de mercado real</div>'
+                  : '<div class="price-source-tag ipc">📈 Proyectado por IPC</div>'
+                }
+              `}
             </div>
 
             ${''}
