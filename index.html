@@ -398,6 +398,19 @@
         </table>
       </div>
 
+      <!-- PAGINACIÓN DEL CATÁLOGO -->
+      <div class="catalog-pagination-row">
+        <span id="catalog-pagination-status" style="font-size: 0.82rem; color: var(--text-muted);"></span>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label for="catalog-page-size-select" style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">Mostrar de a:</label>
+          <select id="catalog-page-size-select" class="sort-select">
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+          </select>
+          <button class="btn-computo" id="btn-load-more-catalog" style="display:none;">Cargar más</button>
+        </div>
+      </div>
+
       <!-- RUBROS DE OBRA, debajo del listado de materiales -->
       <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border-light, #eee);">
         <div class="section-heading-center" style="margin-bottom: 1.5rem;">
