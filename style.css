@@ -241,7 +241,7 @@ body {
 }
 
 .hero-home-content {
-  max-width: 920px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 
@@ -2567,17 +2567,19 @@ body {
 
 /* --- Logo HIDEAR en el hero del home --- */
 .hidear-badge {
-  display: flex;
+  display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
   margin-top: 18px;
 }
 .hidear-badge span {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   color: var(--text-subtle);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  text-align: center;
+  margin-bottom: 6px;
 }
 .hidear-logo-img {
   height: 32px;
