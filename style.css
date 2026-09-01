@@ -2564,3 +2564,34 @@ body {
     text-align: center;
   }
 }
+
+/* --- Logo HIDEAR en el hero del home --- */
+.hidear-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+.hidear-badge span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.hidear-logo-img {
+  height: 32px;
+  width: auto;
+  display: block;
+}
+
+/* --- Fix: Leaflet usa z-index internos de hasta 1000 (controles, popups),
+   que competían con los overlays/drawers del sitio (máximo 300). Al ponerle
+   position+z-index explícitos al contenedor, se crea un contexto de
+   apilamiento propio: todo lo de adentro del mapa queda "encerrado" ahí
+   y nunca puede taparse por encima de un modal o drawer de la página. --- */
+.provider-map-container {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+}
