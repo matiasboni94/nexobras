@@ -193,20 +193,15 @@
   export const homeView = document.getElementById('home-view');
   export const catalogView = document.getElementById('catalog-view');
   export const laborView = document.getElementById('labor-view');
-  export const methodologyView = document.getElementById('methodology-view');
   export const myComputationsView = document.getElementById('my-computations-view');
 
   // Nav elements
   export const navBrandLogo = document.getElementById('nav-brand-logo');
-  export const navBtnHome = document.getElementById('nav-btn-home');
-  export const navBtnRubros = document.getElementById('nav-btn-rubros');
   export const navBtnCatalogo = document.getElementById('nav-btn-catalogo');
   export const navBtnManoObra = document.getElementById('nav-btn-manoobra');
   export const btnBackHome = document.getElementById('btn-back-home');
 
   // Search & Hub elements
-  export const homeSearchInput = document.getElementById('home-search-input');
-  export const homeSearchSubmit = document.getElementById('home-search-submit');
   export const rubrosHubGrid = document.getElementById('rubros-hub-grid');
   export const catalogSearchInput = document.getElementById('catalog-search-input');
   export const catalogCurrentRubro = document.getElementById('catalog-current-rubro');
