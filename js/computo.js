@@ -422,6 +422,24 @@ import * as ST from './state.js';
     return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
   }
 
+  /** Saca el proveedor asignado a un ítem y lo vuelve a dejar con el precio de referencia. */
+  export function unassignProvider(idx) {
+    const item = ST.state.computoCart[idx];
+    if (!item) return;
+    const material = NEXOBRA_DATA.find(m => m.id === item.id);
+    item.providerOfferId = null;
+    item.providerBranchId = null;
+    item.providerBusinessName = null;
+    item.providerBranchName = null;
+    item.providerWhatsapp = null;
+    item.providerPrice = null;
+    item.roundedFrom = null;
+    if (material) item.unit = item.mode === 'venta' ? material.unidadVenta : material.unidadComputo;
+    saveCart();
+    updateCartUI();
+    ST.showToast('Volvió al precio de referencia.');
+  }
+
   export function renderCartItemRow(item, idx) {
     const pricing = Pricing.resolveItemPricing(item, ST.state.computoMonth);
     const subtotal = item.qty * pricing.unitPrice;
@@ -460,6 +478,15 @@ import * as ST from './state.js';
               }
           </div>
         </div>
+
+        ${!esManoDeObra ? `
+          <div class="computo-item-provider-row">
+            <button class="btn-choose-provider-small" onclick="window.nexoBraApp.openOfferPicker(${ST.escAttr(item.id)}, ${idx})">
+              🏪 ${pricing.isProviderSourced ? 'Cambiar proveedor' : 'Elegir proveedor'}
+            </button>
+            ${pricing.isProviderSourced ? `<button class="btn-unassign-provider-small" onclick="window.nexoBraApp.unassignProvider(${idx})">Volver a referencia</button>` : ''}
+          </div>
+        ` : ''}
       </div>
     `;
   }
