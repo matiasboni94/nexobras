@@ -35,13 +35,12 @@
 
       <!-- MAIN NAV LINKS -->
       <nav class="nav-links-desktop">
-        <button class="nav-link active" id="nav-btn-home">Inicio</button>
         <button class="nav-link" id="nav-btn-quienes-somos">Quiénes Somos</button>
-        <button class="nav-link" id="nav-btn-rubros">Rubros de Obra</button>
         <button class="nav-link" id="nav-btn-catalogo">Catálogo Completo</button>
         <button class="nav-link" id="nav-btn-manoobra">Mano de Obra</button>
-        <button class="nav-link" id="nav-btn-como-calcula">Cómo se calcula el valor</button>
-        <a class="nav-link" href="mailto:nexobra.info@gmail.com?subject=Sugerencia%20NEXOBRA" id="nav-btn-contacto">Contacto</a>
+        <button class="nav-link" id="nav-btn-contacto">Contacto</button>
+        <button class="nav-link" id="nav-btn-cotizar-excel">Cotizar con Excel</button>
+        <button class="nav-link" id="nav-btn-mi-computo">Mi Cómputo</button>
       </nav>
 
       <!-- BOTÓN HAMBURGUESA (solo mobile) -->
@@ -104,11 +103,11 @@
     <button class="mobile-menu-close" id="mobile-menu-close" aria-label="Cerrar menú">&times;</button>
     <button class="mobile-menu-link active" id="mobile-nav-btn-home">Inicio</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-quienes-somos">Quiénes Somos</button>
-    <button class="mobile-menu-link" id="mobile-nav-btn-rubros">Rubros de Obra</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-catalogo">Catálogo Completo</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-manoobra">Mano de Obra</button>
-    <button class="mobile-menu-link" id="mobile-nav-btn-como-calcula">Cómo se calcula el valor</button>
-    <a class="mobile-menu-link" href="mailto:nexobra.info@gmail.com?subject=Sugerencia%20NEXOBRA">Contacto</a>
+    <button class="mobile-menu-link" id="mobile-nav-btn-contacto">Contacto</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-cotizar-excel">Cotizar con Excel</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-mi-computo">Mi Cómputo</button>
   </nav>
 
   <!-- =========================================================================
@@ -127,43 +126,28 @@
           <strong>NEXOBRA</strong> ayuda a arquitectos, ingenieros y constructores a comparar materiales y presupuestar. Consultá valores de referencia con su fecha, fuente y fórmula de actualización, y comparalos con precios informados por proveedores de tu zona.
         </p>
 
-        <!-- SEARCH BAR CENTRAL -->
-        <div class="hero-search-box">
-          <div class="search-input-wrapper">
-            <span class="search-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </span>
-            <input 
-              type="text" 
-              id="home-search-input" 
-              class="search-input" 
-              placeholder="Buscá cualquier material o marca (ej: durlock, cemento loma negra, vigueta, sika, chapa)..."
-              autocomplete="off"
-            >
-            <button class="btn-computo" id="home-search-submit" style="padding: 10px 22px; border-radius: var(--radius-md);">
-              Buscar
-            </button>
-          </div>
+        <!-- Quick tags in Hero: buscan directo en el mapa de abajo -->
+        <div class="quick-tags-wrapper" style="margin-top: 14px;">
+          <span class="quick-tags-label">Búsquedas frecuentes:</span>
+          <button class="tag-pill" data-search="cemento">Cemento</button>
+          <button class="tag-pill" data-search="durlock">Durlock</button>
+          <button class="tag-pill" data-search="hierro">Hierro ADN420</button>
+          <button class="tag-pill" data-search="vigueta">Viguetas</button>
+          <button class="tag-pill" data-search="chapa">Chapas</button>
+          <button class="tag-pill" data-search="ladrillo">Ladrillos</button>
+          <button class="tag-pill" data-search="ferrum">Sanitarios</button>
+          <button class="tag-pill" data-search="sika">Sika</button>
+        </div>
 
-          <!-- Quick tags in Hero -->
-          <div class="quick-tags-wrapper" style="margin-top: 14px;">
-            <span class="quick-tags-label">Búsquedas frecuentes:</span>
-            <button class="tag-pill" data-search="cemento">Cemento</button>
-            <button class="tag-pill" data-search="durlock">Durlock</button>
-            <button class="tag-pill" data-search="hierro">Hierro ADN420</button>
-            <button class="tag-pill" data-search="vigueta">Viguetas</button>
-            <button class="tag-pill" data-search="chapa">Chapas</button>
-            <button class="tag-pill" data-search="ladrillo">Ladrillos</button>
-            <button class="tag-pill" data-search="ferrum">Sanitarios</button>
-            <button class="tag-pill" data-search="sika">Sika</button>
-          </div>
+        <p class="quick-tags-label" style="margin-top: 12px;">
+          NEXOBRA no vende materiales ni garantiza stock: te muestra información para comparar y te conecta directamente con el proveedor.
+        </p>
 
-          <p class="quick-tags-label" style="margin-top: 12px;">
-            NEXOBRA no vende materiales ni garantiza stock: te muestra información para comparar y te conecta directamente con el proveedor.
-          </p>
+        <div class="hidear-badge">
+          <span>Parte del ecosistema</span>
+          <a href="https://www.hidearconstrucciones.com.ar/" target="_blank" rel="noopener">
+            <img src="assets/hidear-logo.png" alt="HIDEAR Construcciones" class="hidear-logo-img">
+          </a>
         </div>
 
       </div>
@@ -214,6 +198,15 @@
               <p>Buscá un material arriba, o tocá un pin para ver la ficha del proveedor.</p>
             </div>
           </div>
+        </div>
+
+        <div style="display:flex; justify-content:center; gap:10px; margin-top: 1.5rem; flex-wrap:wrap;">
+          <button class="btn-action-drawer btn-copy" id="btn-catalog-from-map" type="button">
+            Ver catálogo completo &rarr;
+          </button>
+          <button class="btn-action-drawer btn-copy" id="btn-methodology-from-map" type="button">
+            ¿Cómo se obtiene el valor? &rarr;
+          </button>
         </div>
       </div>
     </section>
@@ -421,6 +414,16 @@
             <!-- Injected via JavaScript -->
           </tbody>
         </table>
+      </div>
+
+      <!-- RUBROS DE OBRA, debajo del listado de materiales -->
+      <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border-light, #eee);">
+        <div class="section-heading-center" style="margin-bottom: 1.5rem;">
+          <div class="subheading-accent">Explorar por especialidad</div>
+          <h2 class="section-title" style="font-size: 1.5rem;">Rubros de Obra</h2>
+          <p class="section-desc">Filtrá el catálogo por rubro, o explorá abajo.</p>
+        </div>
+        <div class="rubros-hub-grid" id="rubros-hub-grid"><!-- Populated by JavaScript --></div>
       </div>
 
     </main>
@@ -894,13 +897,59 @@
   <!-- =========================================================================
        VISTA 4: CÓMO SE CALCULA EL VALOR (metodología completa de actualización)
        ========================================================================= -->
-  <div id="methodology-view" class="view-section" style="display: none;">
+  <!-- =========================================================================
+       VISTA: QUIÉNES SOMOS (incluye "Cómo se calcula el valor" y "Cómo usar NEXOBRA")
+       ========================================================================= -->
+  <div id="about-view" class="view-section" style="display: none;">
     <div class="container">
       <div class="catalog-header-banner">
         <div>
-          <h2 class="catalog-title">Cómo se calcula el valor</h2>
-          <p class="catalog-subtitle">De dónde sale cada precio actualizado y qué fórmula usamos.</p>
+          <h2 class="catalog-title">Quiénes Somos</h2>
+          <p class="catalog-subtitle">Qué es NEXOBRA, cómo calculamos cada precio, y cómo usar el sitio.</p>
         </div>
+      </div>
+
+      <div class="section-heading-center" style="margin-bottom: 1.5rem;">
+        <div class="subheading-accent">Nuestra Propuesta de Valor</div>
+        <h2 class="section-title">El núcleo de innovación de NEXOBRA</h2>
+        <p class="section-desc">Resolvemos el proceso analógico, lento y fragmentado de cotización de materiales en tres pilares fundamentales:</p>
+      </div>
+
+      <div class="pilares-grid">
+        <div class="pilar-card">
+          <div class="pilar-icon-box">🏷️</div>
+          <h3 class="pilar-title">1. Indexación Inteligente por Tags</h3>
+          <p class="pilar-text">
+            Eliminamos la disparidad entre nombres comerciales, marcas y nomenclaturas técnicas. Nuestro motor asocia términos coloquiales como <em>"durlock"</em>, <em>"ceresita"</em> o <em>"sintenax"</em> con el material técnico exacto de la base de datos.
+          </p>
+        </div>
+        <div class="pilar-card">
+          <div class="pilar-icon-box">📐</div>
+          <h3 class="pilar-title">2. Dualidad Venta vs. Cómputo</h3>
+          <p class="pilar-text">
+            Consultá tanto el precio comercial por bulto/envase (bolsa, lata, barra, rollo) como el valor por unidad de cómputo métrico (m², m³, ml, kg), agilizando el cálculo de rendimientos y presupuestos de obra.
+          </p>
+        </div>
+        <div class="pilar-card">
+          <div class="pilar-icon-box">🤝</div>
+          <h3 class="pilar-title">3. Marketplace de Proveedores</h3>
+          <p class="pilar-text">
+            No nos quedamos solo con precios de referencia: los proveedores reales de tu zona cargan sus propios precios, que podés comparar y elegir directamente para armar tu presupuesto.
+          </p>
+        </div>
+      </div>
+
+      <p style="text-align:center; margin: 1.5rem 0 0.5rem; font-size: 0.85rem; color: var(--text-muted);">
+        NEXOBRA es parte del ecosistema <a href="https://www.hidearconstrucciones.com.ar/" target="_blank" rel="noopener" style="color: var(--brand-yellow); font-weight:700;">HIDEARCONSTRUCCIONES</a>.
+      </p>
+
+      <hr style="margin: 3rem 0; border: none; border-top: 1px solid var(--border-light, #eee);">
+
+      <!-- CÓMO SE CALCULA EL VALOR -->
+      <div class="section-heading-center" style="margin-bottom: 1.5rem;">
+        <div class="subheading-accent">Transparencia de datos</div>
+        <h2 class="section-title">Cómo se calcula el valor</h2>
+        <p class="section-desc">De dónde sale cada precio actualizado y qué fórmula usamos.</p>
       </div>
 
       <div class="pilares-grid" style="margin-bottom: 2rem;">
@@ -975,69 +1024,48 @@
       <p class="pilar-text" style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted);">
         Fuente: INDEC (IPC, Zona Noreste), UOCRA (Zona A), y los precios reales cargados por proveedores verificados en NEXOBRA. Todos los valores son orientativos, no incluyen impuestos, cargas sociales ni flete. Confirmá siempre el precio final, la disponibilidad y las condiciones con el proveedor.
       </p>
-    </div>
-  </div>
 
-  <!-- =========================================================================
-       VISTA: QUIÉNES SOMOS
-       ========================================================================= -->
-  <div id="about-view" class="view-section" style="display: none;">
-    <div class="container">
-      <div class="catalog-header-banner">
-        <div>
-          <h2 class="catalog-title">Quiénes Somos</h2>
-          <p class="catalog-subtitle">Qué es NEXOBRA y por qué lo construimos así.</p>
-        </div>
-      </div>
+      <hr style="margin: 3rem 0; border: none; border-top: 1px solid var(--border-light, #eee);">
 
+      <!-- CÓMO USAR NEXOBRA -->
       <div class="section-heading-center" style="margin-bottom: 1.5rem;">
-        <div class="subheading-accent">Nuestra Propuesta de Valor</div>
-        <h2 class="section-title">El núcleo de innovación de NEXOBRA</h2>
-        <p class="section-desc">Resolvemos el proceso analógico, lento y fragmentado de cotización de materiales en tres pilares fundamentales:</p>
+        <div class="subheading-accent">Guía rápida</div>
+        <h2 class="section-title">Cómo usar NEXOBRA</h2>
+        <p class="section-desc">Lo esencial para sacarle provecho al sitio, paso a paso.</p>
       </div>
 
       <div class="pilares-grid">
-        <div class="pilar-card">
-          <div class="pilar-icon-box">🏷️</div>
-          <h3 class="pilar-title">1. Indexación Inteligente por Tags</h3>
-          <p class="pilar-text">
-            Eliminamos la disparidad entre nombres comerciales, marcas y nomenclaturas técnicas. Nuestro motor asocia términos coloquiales como <em>"durlock"</em>, <em>"ceresita"</em> o <em>"sintenax"</em> con el material técnico exacto de la base de datos.
-          </p>
-        </div>
-        <div class="pilar-card">
-          <div class="pilar-icon-box">📐</div>
-          <h3 class="pilar-title">2. Dualidad Venta vs. Cómputo</h3>
-          <p class="pilar-text">
-            Consultá tanto el precio comercial por bulto/envase (bolsa, lata, barra, rollo) como el valor por unidad de cómputo métrico (m², m³, ml, kg), agilizando el cálculo de rendimientos y presupuestos de obra.
-          </p>
-        </div>
-        <div class="pilar-card">
-          <div class="pilar-icon-box">🤝</div>
-          <h3 class="pilar-title">3. Marketplace de Proveedores</h3>
-          <p class="pilar-text">
-            No nos quedamos solo con precios de referencia: los proveedores reales de tu zona cargan sus propios precios, que podés comparar y elegir directamente para armar tu presupuesto.
-          </p>
-        </div>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🔎</div>
+          <h3 class="pilar-title">1. Buscá un material</h3>
+          <p class="pilar-text">Desde el home o el mapa, escribí lo que necesitás (aunque sea con el nombre comercial). Vas a ver el precio de referencia y, si activás la comparación, qué proveedores lo tienen cerca tuyo.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🛒</div>
+          <h3 class="pilar-title">2. Armá tu cómputo</h3>
+          <p class="pilar-text">Sumá materiales y mano de obra a "Mi Cómputo" desde el catálogo. Podés elegir un proveedor específico para cada ítem, o dejarlo con el precio de referencia.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">📤</div>
+          <h3 class="pilar-title">3. Exportá lo que necesites</h3>
+          <p class="pilar-text">Descargá un <strong>Presupuesto de Referencia</strong> (para estimar), o una <strong>Lista de Compra</strong> agrupada por proveedor, lista para mandar por WhatsApp.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">📊</div>
+          <h3 class="pilar-title">4. ¿Ya tenés tu propio Excel?</h3>
+          <p class="pilar-text">Subilo desde "Cotizar con Excel" y NEXOBRA te lo devuelve cotizado, con la opción de buscar proveedores cercanos para cada material.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🏪</div>
+          <h3 class="pilar-title">5. ¿Sos proveedor?</h3>
+          <p class="pilar-text">Registrate con cuenta de Proveedor, cargá tu ubicación y tus precios (individual o por Excel). Una vez aprobados, vas a aparecer en el mapa y en las búsquedas.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">⭐</div>
+          <h3 class="pilar-title">6. Guardá lo que te sirve</h3>
+          <p class="pilar-text">Marcá proveedores favoritos y armá alertas de precio desde tu cuenta, para no tener que buscar todo de nuevo la próxima vez.</p>
+        </article>
       </div>
-
-      <p style="text-align:center; margin-top: 2rem; font-size: 0.85rem; color: var(--text-muted);">
-        NEXOBRA es parte del ecosistema <a href="https://www.hidearconstrucciones.com.ar/" target="_blank" rel="noopener" style="color: var(--brand-yellow); font-weight:700;">HIDEARCONSTRUCCIONES</a>.
-      </p>
-    </div>
-  </div>
-
-  <!-- =========================================================================
-       VISTA: RUBROS DE OBRA
-       ========================================================================= -->
-  <div id="rubros-view" class="view-section" style="display: none;">
-    <div class="container">
-      <div class="catalog-header-banner">
-        <div>
-          <h2 class="catalog-title">Rubros de Obra</h2>
-          <p class="catalog-subtitle">Seleccioná un rubro para explorar sus materiales, especificaciones técnicas y precios actualizados.</p>
-        </div>
-      </div>
-      <div class="rubros-hub-grid" id="rubros-hub-grid"><!-- Populated by JavaScript --></div>
     </div>
   </div>
 
