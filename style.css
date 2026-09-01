@@ -298,7 +298,7 @@ body {
    ========================================================================== */
 .hero-home {
   background: var(--surface-1, #f7f5f0);
-  color: var(--brand-dark);
+  color: var(--text-main);
   padding: 4.5rem 0 3.5rem;
   text-align: center;
   border-bottom: 1px solid var(--border-light, #eee);
@@ -329,7 +329,7 @@ body {
   line-height: 1.15;
   letter-spacing: -1px;
   margin-bottom: 1.25rem;
-  color: var(--brand-dark);
+  color: var(--text-main);
 }
 
 .hero-main-title .accent-word {
@@ -492,7 +492,7 @@ body {
   font-size: 1.2rem;
   font-weight: 800;
   margin-bottom: 10px;
-  color: var(--brand-dark);
+  color: var(--text-main);
 }
 
 .pilar-text {
@@ -591,7 +591,7 @@ body {
 .rubro-card-name {
   font-size: 1.15rem;
   font-weight: 800;
-  color: var(--brand-dark);
+  color: var(--text-main);
   margin-bottom: 6px;
 }
 
@@ -608,7 +608,7 @@ body {
   justify-content: space-between;
   font-size: 0.82rem;
   font-weight: 700;
-  color: var(--brand-dark);
+  color: var(--text-main);
   border-top: 1px solid var(--border-subtle);
   padding-top: 12px;
 }
@@ -723,7 +723,7 @@ body {
 
 .btn-breadcrumb-home:hover {
   background-color: var(--border-light);
-  color: var(--brand-dark);
+  color: var(--text-main);
 }
 
 .breadcrumb-separator {
@@ -732,7 +732,7 @@ body {
 
 .breadcrumb-current {
   font-weight: 700;
-  color: var(--brand-dark);
+  color: var(--text-main);
 }
 
 .catalog-header-banner {
@@ -747,7 +747,7 @@ body {
 .catalog-title {
   font-size: 1.85rem;
   font-weight: 800;
-  color: var(--brand-dark);
+  color: var(--text-main);
   letter-spacing: -0.5px;
 }
 
@@ -872,7 +872,7 @@ body {
 }
 
 .view-toggle-btn.active, .view-toggle-btn:hover {
-  color: var(--brand-dark);
+  color: var(--text-main);
   border-color: var(--text-main);
   background-color: var(--bg-card);
 }
@@ -989,7 +989,7 @@ body {
   font-family: monospace;
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--brand-dark);
+  color: var(--text-main);
   background-color: var(--brand-yellow-light);
   border: 1px solid var(--brand-yellow-border);
   padding: 2px 6px;
@@ -1036,7 +1036,7 @@ body {
 .price-main-val {
   font-size: 1.38rem;
   font-weight: 800;
-  color: var(--brand-dark);
+  color: var(--text-main);
   letter-spacing: -0.5px;
 }
 
@@ -1069,7 +1069,7 @@ body {
 .price-trace summary {
   cursor: pointer;
   padding: 8px 10px;
-  color: var(--brand-dark);
+  color: var(--text-main);
   font-weight: 700;
 }
 
@@ -1118,7 +1118,7 @@ body {
 
 .card-tag-item:hover {
   background-color: var(--brand-yellow-light);
-  color: var(--brand-dark);
+  color: var(--text-main);
   border-color: var(--brand-yellow);
 }
 
@@ -1377,7 +1377,7 @@ body {
 
 .computo-item-subtotal {
   font-weight: 800;
-  color: var(--brand-dark);
+  color: var(--text-main);
   font-size: 0.95rem;
 }
 
@@ -1401,7 +1401,7 @@ body {
 .summary-row.total-row {
   font-size: 1.25rem;
   font-weight: 800;
-  color: var(--brand-dark);
+  color: var(--text-main);
   border-top: 1px solid var(--border-light);
   padding-top: 8px;
 }
