@@ -82,7 +82,18 @@ import * as ST from './state.js';
       return;
     }
     grid.innerHTML = ST.laborState.roles.map(role => {
-      const valor = role.values[ST.state.priceMonth];
+      let valor = role.values[ST.state.priceMonth];
+      let projectedFromEarlierMonth = null;
+      if (valor === undefined) {
+        // UOCRA todavía no publicó este mes (sale a mitad del mes siguiente) --
+        // usamos el último mes disponible en vez de directamente "sin dato".
+        const mesesDisponibles = ST.laborState.months.filter(m => m <= ST.state.priceMonth && role.values[m] !== undefined);
+        if (mesesDisponibles.length > 0) {
+          const sustituto = mesesDisponibles[mesesDisponibles.length - 1];
+          valor = role.values[sustituto];
+          projectedFromEarlierMonth = sustituto;
+        }
+      }
       const disponible = valor !== undefined;
       const texto = disponible ? `$${Math.round(valor).toLocaleString('es-AR')}` : 'Sin dato para este mes';
       const unidadLabel = role.unit === 'mes' ? 'por mes' : 'por hora';
@@ -93,6 +104,7 @@ import * as ST from './state.js';
           <div class="product-category-tree">UOCRA Zona A · sin cargas sociales</div>
           <p style="font-weight:600; font-size:22px; margin:12px 0 0;">${texto}</p>
           <p style="font-size:12px; color:var(--text-muted); margin:2px 0 12px;">${unidadLabel}</p>
+          ${projectedFromEarlierMonth ? `<p class="price-source-tag ipc" style="margin:0 0 10px;" title="UOCRA todavía no publicó este mes">📈 Valor de ${ST.monthLabel(projectedFromEarlierMonth)}</p>` : ''}
           ${disponible ? `
           <div class="card-actions">
             <div class="qty-control">
@@ -360,7 +372,9 @@ import * as ST from './state.js';
                 ${priceBoxExtra}
                 ${mainTrace.isMarketSourced
                   ? '<div class="price-source-tag market">📊 Precio de mercado real</div>'
-                  : '<div class="price-source-tag ipc">📈 Proyectado por IPC</div>'
+                  : mainTrace.projectedFromEarlierMonth
+                    ? `<div class="price-source-tag ipc" title="El IPC de ${mainTrace.targetPeriod} todavía no se publicó (sale a mitad del mes siguiente)">📈 Proyectado con IPC de ${ST.monthLabel(mainTrace.projectedFromEarlierMonth)}</div>`
+                    : '<div class="price-source-tag ipc">📈 Proyectado por IPC</div>'
                 }
               `}
             </div>
