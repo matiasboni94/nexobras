@@ -286,6 +286,10 @@
   export const roleForm = document.getElementById('role-form');
   export const roleErrorMsg = document.getElementById('role-error-msg');
   export const drawerComputationName = document.getElementById('drawer-computation-name');
+  export const drawerObraNombre = document.getElementById('drawer-obra-nombre');
+  export const drawerObraUbicacion = document.getElementById('drawer-obra-ubicacion');
+  export const drawerObraComitente = document.getElementById('drawer-obra-comitente');
+  export const drawerObraReferencia = document.getElementById('drawer-obra-referencia');
   export const btnSaveComputation = document.getElementById('btn-save-computation');
   export const btnSaveComputationLabel = document.getElementById('btn-save-computation-label');
   export const btnOpenMyComputations = document.getElementById('btn-open-my-computations');
