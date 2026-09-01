@@ -16,7 +16,6 @@ import * as ST from './state.js';
     ST.homeView.style.display = viewName === 'home' ? 'block' : 'none';
     ST.catalogView.style.display = viewName === 'catalog' ? 'block' : 'none';
     if (ST.laborView) ST.laborView.style.display = viewName === 'labor' ? 'block' : 'none';
-    if (ST.methodologyView) ST.methodologyView.style.display = viewName === 'methodology' ? 'block' : 'none';
     if (ST.myComputationsView) ST.myComputationsView.style.display = viewName === 'my-computations' ? 'block' : 'none';
     if (ST.providerView) ST.providerView.style.display = viewName === 'provider' ? 'block' : 'none';
     const favoritesViewEl = document.getElementById('favorites-view');
@@ -27,19 +26,20 @@ import * as ST from './state.js';
     if (adminViewEl) adminViewEl.style.display = viewName === 'admin' ? 'block' : 'none';
     const aboutViewEl = document.getElementById('about-view');
     if (aboutViewEl) aboutViewEl.style.display = viewName === 'about' ? 'block' : 'none';
-    const rubrosViewEl = document.getElementById('rubros-view');
-    if (rubrosViewEl) rubrosViewEl.style.display = viewName === 'rubros' ? 'block' : 'none';
 
-    ST.navBtnHome.classList.toggle('active', viewName === 'home');
     ST.navBtnCatalogo.classList.toggle('active', viewName === 'catalog');
     if (ST.navBtnManoObra) ST.navBtnManoObra.classList.toggle('active', viewName === 'labor');
+    const navBtnQuienesSomosEl = document.getElementById('nav-btn-quienes-somos');
+    if (navBtnQuienesSomosEl) navBtnQuienesSomosEl.classList.toggle('active', viewName === 'about');
 
     const mHome = document.getElementById('mobile-nav-btn-home');
     const mCatalogo = document.getElementById('mobile-nav-btn-catalogo');
     const mManoObra = document.getElementById('mobile-nav-btn-manoobra');
+    const mQuienesSomos = document.getElementById('mobile-nav-btn-quienes-somos');
     if (mHome) mHome.classList.toggle('active', viewName === 'home');
     if (mCatalogo) mCatalogo.classList.toggle('active', viewName === 'catalog');
     if (mManoObra) mManoObra.classList.toggle('active', viewName === 'labor');
+    if (mQuienesSomos) mQuienesSomos.classList.toggle('active', viewName === 'about');
 
     if (viewName === 'catalog') {
       if (rubroFilter) {
@@ -57,8 +57,8 @@ import * as ST from './state.js';
     if (viewName === 'labor' && !ST.laborState.loaded) {
       Pricing.loadLaborSeries().then(Pricing.reconcilePriceMonth);
     }
-    if (viewName === 'methodology') {
-      // El canvas estaba oculto hasta ahora; Chart.js necesita redibujar una vez visible.
+    if (viewName === 'about') {
+      // El canvas del gráfico de IPC estaba oculto hasta ahora; Chart.js necesita redibujar una vez visible.
       Pricing.renderIpcChart();
     }
     if (viewName === 'my-computations') {
@@ -163,19 +163,33 @@ import * as ST from './state.js';
       switchView('home');
     });
 
-    ST.navBtnHome.addEventListener('click', () => switchView('home'));
     ST.navBtnCatalogo.addEventListener('click', () => switchView('catalog', 'Todos', ''));
     if (ST.navBtnManoObra) ST.navBtnManoObra.addEventListener('click', () => switchView('labor'));
-
-    const btnMethodologyCatalog = document.getElementById('btn-open-methodology-catalog');
-    if (btnMethodologyCatalog) btnMethodologyCatalog.addEventListener('click', () => switchView('methodology'));
-    const navBtnComoCalcula = document.getElementById('nav-btn-como-calcula');
-    if (navBtnComoCalcula) navBtnComoCalcula.addEventListener('click', () => switchView('methodology'));
-    const navBtnQuienesSomos = document.getElementById('nav-btn-quienes-somos');
-    if (navBtnQuienesSomos) navBtnQuienesSomos.addEventListener('click', () => switchView('about'));
     ST.btnBackHome.addEventListener('click', () => switchView('home'));
 
-    ST.navBtnRubros.addEventListener('click', () => switchView('rubros'));
+    const btnMethodologyCatalog = document.getElementById('btn-open-methodology-catalog');
+    if (btnMethodologyCatalog) btnMethodologyCatalog.addEventListener('click', () => switchView('about'));
+    const navBtnQuienesSomos = document.getElementById('nav-btn-quienes-somos');
+    if (navBtnQuienesSomos) navBtnQuienesSomos.addEventListener('click', () => switchView('about'));
+
+    // Contacto: lleva al home y hace scroll a la sección de contacto (no abre mailto directo).
+    function goToContact() {
+      switchView('home');
+      setTimeout(() => {
+        const section = document.querySelector('.section-contacto-home');
+        if (section) section.scrollIntoView({ behavior: 'smooth' });
+      }, 150);
+    }
+    const navBtnContacto = document.getElementById('nav-btn-contacto');
+    if (navBtnContacto) navBtnContacto.addEventListener('click', goToContact);
+
+    // Cotizar con Excel: abre el modal directo, desde cualquier vista.
+    const navBtnCotizarExcel = document.getElementById('nav-btn-cotizar-excel');
+    if (navBtnCotizarExcel) navBtnCotizarExcel.addEventListener('click', () => Excel.openExcelModal());
+
+    // Mi Cómputo: abre el drawer directo, desde cualquier vista.
+    const navBtnMiComputo = document.getElementById('nav-btn-mi-computo');
+    if (navBtnMiComputo) navBtnMiComputo.addEventListener('click', () => Computo.openDrawer());
 
     // --- Menú mobile (hamburguesa) ---
     const btnMobileMenu = document.getElementById('btn-mobile-menu');
@@ -204,42 +218,38 @@ import * as ST from './state.js';
     if (mobileMenuBackdrop) mobileMenuBackdrop.addEventListener('click', closeMobileMenu);
 
     const mobileNavBtnHome = document.getElementById('mobile-nav-btn-home');
-    const mobileNavBtnRubros = document.getElementById('mobile-nav-btn-rubros');
     const mobileNavBtnCatalogo = document.getElementById('mobile-nav-btn-catalogo');
     const mobileNavBtnManoObra = document.getElementById('mobile-nav-btn-manoobra');
     const mobileNavBtnQuienesSomos = document.getElementById('mobile-nav-btn-quienes-somos');
-    const mobileNavBtnComoCalcula = document.getElementById('mobile-nav-btn-como-calcula');
+    const mobileNavBtnContacto = document.getElementById('mobile-nav-btn-contacto');
+    const mobileNavBtnCotizarExcel = document.getElementById('mobile-nav-btn-cotizar-excel');
+    const mobileNavBtnMiComputo = document.getElementById('mobile-nav-btn-mi-computo');
 
     if (mobileNavBtnHome) mobileNavBtnHome.addEventListener('click', () => mobileNavAction(() => switchView('home')));
     if (mobileNavBtnCatalogo) mobileNavBtnCatalogo.addEventListener('click', () => mobileNavAction(() => switchView('catalog', 'Todos', '')));
     if (mobileNavBtnManoObra) mobileNavBtnManoObra.addEventListener('click', () => mobileNavAction(() => switchView('labor')));
-    if (mobileNavBtnRubros) mobileNavBtnRubros.addEventListener('click', () => mobileNavAction(() => switchView('rubros')));
     if (mobileNavBtnQuienesSomos) mobileNavBtnQuienesSomos.addEventListener('click', () => mobileNavAction(() => switchView('about')));
-    if (mobileNavBtnComoCalcula) mobileNavBtnComoCalcula.addEventListener('click', () => mobileNavAction(() => switchView('methodology')));
+    if (mobileNavBtnContacto) mobileNavBtnContacto.addEventListener('click', () => mobileNavAction(goToContact));
+    if (mobileNavBtnCotizarExcel) mobileNavBtnCotizarExcel.addEventListener('click', () => mobileNavAction(() => Excel.openExcelModal()));
+    if (mobileNavBtnMiComputo) mobileNavBtnMiComputo.addEventListener('click', () => mobileNavAction(() => Computo.openDrawer()));
 
-    // Home Search Listeners
-    ST.homeSearchSubmit.addEventListener('click', () => {
-      const query = ST.homeSearchInput.value.trim();
-      if (query) {
-        switchView('catalog', 'Todos', query);
-      } else {
-        switchView('catalog', 'Todos', '');
-      }
-    });
-
-    ST.homeSearchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        ST.homeSearchSubmit.click();
-      }
-    });
-
-    // Quick tag pills in Home
+    // Quick tag pills en el Home: ahora buscan directo en el mapa de proveedores.
     document.querySelectorAll('.quick-tags-wrapper .tag-pill').forEach(pill => {
       pill.addEventListener('click', () => {
         const query = pill.getAttribute('data-search');
-        switchView('catalog', 'Todos', query);
+        const mapSearchInput = document.getElementById('home-map-material-search');
+        if (mapSearchInput) {
+          mapSearchInput.value = query;
+          MapModule.searchMaterialOnMap();
+          mapSearchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       });
     });
+
+    const btnCatalogFromMap = document.getElementById('btn-catalog-from-map');
+    if (btnCatalogFromMap) btnCatalogFromMap.addEventListener('click', () => switchView('catalog', 'Todos', ''));
+    const btnMethodologyFromMap = document.getElementById('btn-methodology-from-map');
+    if (btnMethodologyFromMap) btnMethodologyFromMap.addEventListener('click', () => switchView('about'));
 
     // Catalog Search listener
     ST.catalogSearchInput.addEventListener('input', (e) => {
