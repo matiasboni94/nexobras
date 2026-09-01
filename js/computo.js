@@ -415,6 +415,7 @@ import * as ST from './state.js';
             <span class="card-code" style="font-size: 0.7rem;">${esManoDeObra ? 'MANO DE OBRA' : item.id}</span>
             <h4 class="computo-item-title">${item.denominacion}</h4>
             ${pricing.isProviderSourced ? '<span class="cart-badge-provider">Precio fijo del proveedor</span>' : ''}
+            ${item.roundedFrom ? `<span class="cart-badge-provider" style="background:#dbeafe; color:#1e40af;">Redondeado desde ${item.roundedFrom.qty} ${item.roundedFrom.unit}</span>` : ''}
           </div>
           <button class="btn-remove-item" onclick="window.nexoBraApp.removeCartItem(${idx})" title="Eliminar ítem">&times;</button>
         </div>
@@ -502,69 +503,137 @@ import * as ST from './state.js';
 
   // --- PRINT / PDF EXPORT ---
   /**
-   * Exporta el cómputo activo a un .xlsx real (no PDF), separando materiales
-   * y mano de obra en tablas, con el mismo criterio de columnas que ya usa
-   * el cotizador de Excel (excel.js) para mantener el archivo consistente
-   * con el resto de las exportaciones del sitio.
+   * FASE G4 — "Presupuesto de Referencia": TODO el material se valoriza con
+   * el Precio de Referencia (Fase G1), en unidad de cómputo, sin importar si
+   * el ítem tiene un proveedor elegido o no. Sirve para planificar/estimar,
+   * no para ir a comprar (para eso está exportListaDeCompra).
    */
-  export function exportComputoToExcel() {
+  export function exportPresupuestoReferencia() {
     if (ST.state.computoCart.length === 0) {
       alert('No hay ítems en tu cómputo para exportar.');
       return;
     }
-    const { materiales, manoDeObra, subtotalMateriales, subtotalManoObra, total } = computeCartSubtotals();
     const periodo = ST.monthLabel(ST.state.computoMonth);
     const nombre = ST.drawerComputationName.value.trim() || 'Mi cómputo';
 
+    const materiales = ST.state.computoCart.filter(i => (i.type || 'material') === 'material');
+    const manoDeObra = ST.state.computoCart.filter(i => i.type === 'labor');
+
+    const filasMateriales = materiales.map(item => {
+      const material = NEXOBRA_DATA.find(m => m.id === item.id);
+      if (!material) return { item, unitPrice: 0, unit: item.unit, isMarketSourced: false, disponible: false };
+      const trace = Pricing.getReferencePrice(material, 'computo', ST.state.computoMonth);
+      return { item, unitPrice: trace.currentPrice, unit: material.unidadComputo, isMarketSourced: trace.isMarketSourced, disponible: true };
+    });
+    const subtotalMateriales = filasMateriales.reduce((sum, f) => sum + f.item.qty * f.unitPrice, 0);
+
+    const filasManoObra = manoDeObra.map(item => {
+      const pricing = Pricing.resolveItemPricing(item, ST.state.computoMonth);
+      return { item, unitPrice: pricing.unitPrice };
+    });
+    const subtotalManoObra = filasManoObra.reduce((sum, f) => sum + f.item.qty * f.unitPrice, 0);
+
     const exportData = [
-      [`NEXOBRA - ${nombre}`],
+      [`NEXOBRA - Presupuesto de Referencia - ${nombre}`],
       [`Precios calculados a: ${periodo}`, `Generado: ${new Date().toLocaleDateString('es-AR')}`],
+      ['Este presupuesto usa siempre el Precio de Referencia de NEXOBRA (unidad de cómputo), para planificar y estimar la obra. No es una lista para ir a comprar.'],
       []
     ];
 
-    if (materiales.length > 0) {
+    if (filasMateriales.length > 0) {
       exportData.push(['MATERIALES']);
-      exportData.push(['Código', 'Descripción', 'Rubro', 'Cantidad', 'Unidad', 'Precio Unitario (ARS)', 'Subtotal (ARS)', 'Origen']);
-      materiales.forEach(({ item, pricing }) => {
+      exportData.push(['Código', 'Descripción', 'Rubro', 'Cantidad', 'Unidad de cómputo', 'Precio Unitario (ARS)', 'Subtotal (ARS)', 'Origen del precio']);
+      filasMateriales.forEach(({ item, unitPrice, unit, isMarketSourced, disponible }) => {
         exportData.push([
-          item.id,
-          item.denominacion,
-          item.rubro,
-          item.qty,
-          item.unit,
-          pricing.unitPrice,
-          item.qty * pricing.unitPrice,
-          pricing.isProviderSourced ? `Proveedor: ${item.providerBusinessName}` : 'Referencia NEXOBRA'
+          item.id, item.denominacion, item.rubro, item.qty, unit,
+          disponible ? unitPrice : 's/d', disponible ? item.qty * unitPrice : 's/d',
+          disponible ? (isMarketSourced ? 'Mercado real' : 'Proyectado por IPC') : 'Material no encontrado'
         ]);
       });
       exportData.push(['', '', '', '', '', 'Subtotal Materiales:', subtotalMateriales, '']);
       exportData.push([]);
     }
 
-    if (manoDeObra.length > 0) {
+    if (filasManoObra.length > 0) {
       exportData.push(['MANO DE OBRA']);
       exportData.push(['Rol', '', '', 'Cantidad', 'Unidad', 'Precio Unitario (ARS)', 'Subtotal (ARS)', '']);
-      manoDeObra.forEach(({ item, pricing }) => {
-        exportData.push([item.denominacion, '', '', item.qty, item.unit, pricing.unitPrice, item.qty * pricing.unitPrice, '']);
+      filasManoObra.forEach(({ item, unitPrice }) => {
+        exportData.push([item.denominacion, '', '', item.qty, item.unit, unitPrice, item.qty * unitPrice, '']);
       });
       exportData.push(['', '', '', '', '', 'Subtotal Mano de Obra:', subtotalManoObra, '']);
       exportData.push([]);
     }
 
-    exportData.push(['', '', '', '', '', 'TOTAL ESTIMADO:', total, 'ARS']);
+    exportData.push(['', '', '', '', '', 'TOTAL ESTIMADO:', subtotalMateriales + subtotalManoObra, 'ARS']);
     exportData.push([]);
     exportData.push(['Valores orientativos. No incluyen impuestos, cargas sociales ni flete.']);
 
     const ws = XLSX.utils.aoa_to_sheet(exportData);
-    ws['!cols'] = [
-      { wch: 14 }, { wch: 40 }, { wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 20 }, { wch: 18 }, { wch: 28 }
+    ws['!cols'] = [{ wch: 14 }, { wch: 40 }, { wch: 20 }, { wch: 10 }, { wch: 14 }, { wch: 20 }, { wch: 18 }, { wch: 22 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Presupuesto_Referencia');
+    const safeName = nombre.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '_') || 'Presupuesto';
+    XLSX.writeFile(wb, `${safeName}_Presupuesto_Referencia.xlsx`);
+    ST.showToast('Presupuesto de Referencia descargado.');
+  }
+
+  /**
+   * FASE G4 — "Lista de Compra": solo los materiales que YA tienen un
+   * proveedor elegido, agrupados por proveedor, con la cantidad y unidad de
+   * COMPRA real (ya redondeada, ver chooseProviderOffer en map.js). Los que
+   * todavía no tienen proveedor asignado se excluyen y se avisan aparte —
+   * no se les asigna uno automático.
+   */
+  export function exportListaDeCompra() {
+    const { groups, sinProveedor } = groupCartByProvider();
+    const materialesSinProveedor = sinProveedor.filter(({ item }) => (item.type || 'material') === 'material');
+
+    if (groups.length === 0) {
+      alert('Todavía no elegiste ningún proveedor para tus materiales. Usá "Elegir proveedor" en el catálogo (con la comparación por zona activada) para armar tu lista de compra.');
+      return;
+    }
+
+    const nombre = ST.drawerComputationName.value.trim() || 'Mi cómputo';
+    const exportData = [
+      [`NEXOBRA - Lista de Compra - ${nombre}`],
+      [`Generado: ${new Date().toLocaleDateString('es-AR')}`],
+      ['Cada proveedor tiene su propia tabla, con la cantidad y unidad de compra real (ya redondeada donde hacía falta). Precio fijo al momento de elegir cada proveedor.'],
+      []
     ];
 
+    groups.forEach(group => {
+      const subtotal = group.items.reduce((sum, { item }) => sum + item.qty * item.providerPrice, 0);
+      exportData.push([`PROVEEDOR: ${group.businessName} — ${group.branchName}`]);
+      exportData.push(['Descripción', 'Cantidad a comprar', 'Unidad de compra', 'Precio Unitario (ARS)', 'Subtotal (ARS)']);
+      group.items.forEach(({ item }) => {
+        exportData.push([item.denominacion, item.qty, item.unit, item.providerPrice, item.qty * item.providerPrice]);
+      });
+      exportData.push(['', '', '', 'Subtotal este proveedor:', subtotal]);
+      exportData.push([]);
+    });
+
+    if (materialesSinProveedor.length > 0) {
+      exportData.push(['⚠ SIN PROVEEDOR ASIGNADO — no incluidos arriba, elegí un proveedor para cada uno en el catálogo:']);
+      materialesSinProveedor.forEach(({ item }) => {
+        exportData.push([item.denominacion, item.qty, item.unit || '']);
+      });
+      exportData.push([]);
+    }
+
+    exportData.push(['Valores orientativos, precio fijado por el proveedor al momento de elegirlo. No incluyen impuestos, cargas sociales ni flete. Confirmá siempre disponibilidad final con cada proveedor.']);
+
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    ws['!cols'] = [{ wch: 40 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 16 }];
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Computo_NEXOBRA');
-    const safeName = nombre.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '_') || 'Computo';
-    XLSX.writeFile(wb, `${safeName}_NEXOBRA.xlsx`);
-    ST.showToast('Excel descargado.');
+    XLSX.utils.book_append_sheet(wb, ws, 'Lista_de_Compra');
+    const safeName = nombre.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '_') || 'Lista_Compra';
+    XLSX.writeFile(wb, `${safeName}_Lista_de_Compra.xlsx`);
+
+    if (materialesSinProveedor.length > 0) {
+      ST.showToast(`Lista de Compra descargada. ${materialesSinProveedor.length} material${materialesSinProveedor.length === 1 ? '' : 'es'} sin proveedor no se incluyó — elegilo en el catálogo.`);
+    } else {
+      ST.showToast('Lista de Compra descargada.');
+    }
   }
 
   export function printComputo() {
