@@ -332,8 +332,8 @@ import * as Computo from './computo.js';
     ST.state.excelProcessedRows.forEach(row => {
       exportData.push([
         row.matchedItem ? row.matchedItem.id : "S/D",
-        row.requestedName,
-        row.matchedItem ? row.matchedItem.denominacion : "No encontrado en base",
+        ST.sanitizeForExcel(row.requestedName),
+        row.matchedItem ? ST.sanitizeForExcel(row.matchedItem.denominacion) : "No encontrado en base",
         row.matchedItem ? row.matchedItem.rubro : "-",
         row.requestedQty,
         row.unit,
