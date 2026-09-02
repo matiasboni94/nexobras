@@ -100,13 +100,39 @@ import * as ST from './state.js';
       ST.mapStatusMsg.textContent = `${conCoordenadas.length} oferta${conCoordenadas.length === 1 ? '' : 's'} de "${materialName}" en ${ST.mapState.radiusKm} km a la redonda. Tocá un pin para ver el detalle.`;
       showMaterialOfferDetail(conCoordenadas[0], materialId, materialName); // muestra la primera de una, no hace falta esperar el click
     } else {
-      ST.mapStatusMsg.textContent = `Ningún proveedor cargó "${materialName}" en ${ST.mapState.radiusKm} km a la redonda todavía.`;
-      ST.mapBranchPanel.innerHTML = `
-        <div class="map-branch-panel-empty">
-          <div style="font-size: 2rem;">😕</div>
-          <p>Nadie cerca tuyo cargó "${materialName}" todavía. Probá ampliar el radio de búsqueda.</p>
-        </div>
-      `;
+      // Nadie cerca cargó este material: en vez de dejarte con un cartel
+      // vacío, mostramos el Precio de Referencia (mercado real si hay 3+
+      // proveedores en TODO el país para este mes, si no, proyectado por
+      // IPC desde el último dato real) -- así siempre te llevás algo útil.
+      ST.mapStatusMsg.textContent = `Ningún proveedor cargó "${materialName}" en ${ST.mapState.radiusKm} km a la redonda todavía. Te mostramos el precio de referencia.`;
+      const material = NEXOBRA_DATA.find(m => m.id === materialId);
+      const trace = material ? Pricing.getReferencePrice(material, 'venta') : null;
+
+      if (trace && !isNaN(trace.currentPrice)) {
+        ST.mapBranchPanel.innerHTML = `
+          <div class="map-branch-panel-empty" style="text-align:left;">
+            <p style="font-weight:700; margin-bottom:10px;">😕 Nadie cerca tuyo cargó "${materialName}" todavía.</p>
+            <div class="card-price-box">
+              <div class="price-main-row">
+                <span class="price-main-val">${ST.formatMoney(trace.currentPrice)}</span>
+                <span class="price-unit-tag">/ ${material.unidadVenta}</span>
+              </div>
+              ${trace.isMarketSourced
+                ? '<div class="price-source-tag market">📊 Precio de mercado real</div>'
+                : `<div class="price-source-tag ipc">📈 Proyectado por IPC${trace.projectedFromEarlierMonth ? ' de ' + ST.monthLabel(trace.projectedFromEarlierMonth) : ''}</div>`
+              }
+            </div>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px;">Este es el precio de referencia general, no de un proveedor puntual cerca tuyo. Probá ampliar el radio de búsqueda para ver ofertas reales de la zona.</p>
+          </div>
+        `;
+      } else {
+        ST.mapBranchPanel.innerHTML = `
+          <div class="map-branch-panel-empty">
+            <div style="font-size: 2rem;">😕</div>
+            <p>Nadie cerca tuyo cargó "${materialName}" todavía. Probá ampliar el radio de búsqueda.</p>
+          </div>
+        `;
+      }
     }
   }
 
