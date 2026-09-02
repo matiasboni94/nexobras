@@ -132,6 +132,22 @@
       .replace(/'/g, '&#39;');
   }
 
+  /**
+   * Neutraliza "inyección de fórmulas" en exportaciones a Excel: si un texto
+   * escrito por un usuario (nombre de material, razón social, etc.) empieza
+   * con =, +, -, @ o un tabulador, algunos Excel lo interpretan como el
+   * inicio de una fórmula al abrir el archivo, no como texto literal -- un
+   * vector de ataque conocido ("CSV/Excel injection"). Anteponerle un
+   * apóstrofe fuerza a que se lea como texto plano, sin cambiar lo que se ve
+   * en la celda. Usar SOLO en campos de texto (nombres, descripciones), no
+   * en números.
+   */
+  export function sanitizeForExcel(value) {
+    if (value === null || value === undefined) return value;
+    const str = String(value);
+    return /^[=+\-@\t\r]/.test(str) ? `'${str}` : value;
+  }
+
   export function formatMoney(amount) {
     if (isNaN(amount)) return '$ 0,00';
     return new Intl.NumberFormat('es-AR', {
