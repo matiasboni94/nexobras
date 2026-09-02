@@ -307,7 +307,7 @@ p {
    HOME VIEW STYLES
    ========================================================================== */
 .hero-home {
-  background: var(--surface-1, #f7f5f0);
+  background: var(--bg-app);
   color: var(--text-main);
   padding: 4.5rem 0 3.5rem;
   text-align: center;
@@ -641,7 +641,7 @@ p {
    ========================================================================== */
 .section-excel-cta {
   padding: 1rem 0 4.5rem;
-  background-color: var(--surface-1, #f7f5f0);
+  background-color: var(--bg-app);
 }
 
 .excel-banner-card {
@@ -2592,7 +2592,7 @@ p {
 /* --- Fase G5 + reorganización de home --- */
 .section-map-home {
   padding: 3rem 0;
-  background-color: var(--surface-1, #f7f5f0);
+  background-color: var(--bg-app);
 }
 .home-map-search-row {
   display: flex;
