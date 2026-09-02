@@ -491,7 +491,13 @@ import * as ST from './state.js';
   }
 
   // --- Carga masiva por Excel ---
-  export function handleProviderExcelFile(file) {
+  export async function handleProviderExcelFile(file) {
+    try {
+      await ST.ensureXlsxLoaded();
+    } catch (err) {
+      ST.showToast(err.message);
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       const data = new Uint8Array(e.target.result);
@@ -617,7 +623,13 @@ import * as ST from './state.js';
     loadProviderCatalog();
   }
 
-  export function generateProviderTemplate() {
+  export async function generateProviderTemplate() {
+    try {
+      await ST.ensureXlsxLoaded();
+    } catch (err) {
+      ST.showToast(err.message);
+      return;
+    }
     const ws_data = [
       ["SKU (Opcional)", "Nombre", "Precio", "Unidad", "Stock"],
       ["MICOD-001", "Cemento Portland Loma Negra 50kg", 8500, "Bolsa", "En stock"],
