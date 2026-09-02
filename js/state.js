@@ -264,12 +264,10 @@
   export const navBrandLogo = document.getElementById('nav-brand-logo');
   export const navBtnCatalogo = document.getElementById('nav-btn-catalogo');
   export const navBtnManoObra = document.getElementById('nav-btn-manoobra');
-  export const btnBackHome = document.getElementById('btn-back-home');
 
   // Search & Hub elements
   export const rubrosHubGrid = document.getElementById('rubros-hub-grid');
   export const catalogSearchInput = document.getElementById('catalog-search-input');
-  export const catalogCurrentRubro = document.getElementById('catalog-current-rubro');
   export const catalogHeaderTitle = document.getElementById('catalog-header-title');
   export const catalogHeaderSubtitle = document.getElementById('catalog-header-subtitle');
 
