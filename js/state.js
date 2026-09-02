@@ -111,6 +111,27 @@
     return JSON.stringify(value).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
   }
 
+  /**
+   * Escapa texto para insertarlo como CONTENIDO visible dentro de un innerHTML
+   * (a diferencia de escAttr, que es para adentro de un atributo onclick).
+   * Hace falta en TODO texto que haya escrito un usuario -- nombre de
+   * proveedor, descripción, nombre de un material propuesto, nombre de un
+   * presupuesto, datos de obra, motivo de rechazo, etc. -- para que alguien
+   * no pueda cargar algo como '<img src=x onerror="...">' como su razón
+   * social y que ese código se ejecute en la pantalla de otro usuario que
+   * vea esa ficha (XSS). NO hace falta usarla con los datos de NUESTRO
+   * catálogo curado (NEXOBRA_DATA), esos son confiables.
+   */
+  export function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   export function formatMoney(amount) {
     if (isNaN(amount)) return '$ 0,00';
     return new Intl.NumberFormat('es-AR', {
@@ -164,8 +185,12 @@
         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
         <polyline points="22 4 12 14.01 9 11.01"></polyline>
       </svg>
-      <span>${message}</span>
+      <span></span>
     `;
+    // El mensaje se pone con textContent (no innerHTML): así, si en algún
+    // lugar del código un toast llega a mostrar un dato que escribió un
+    // usuario (nombre de proveedor, etc.), nunca se interpreta como HTML.
+    toast.querySelector('span').textContent = message;
     toastContainer.appendChild(toast);
     setTimeout(() => {
       toast.style.opacity = '0';
