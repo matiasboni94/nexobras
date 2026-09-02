@@ -591,7 +591,7 @@ import * as ST from './state.js';
       exportData.push(['Código', 'Descripción', 'Rubro', 'Cantidad', 'Unidad de cómputo', 'Precio Unitario (ARS)', 'Subtotal (ARS)', 'Origen del precio']);
       filasMateriales.forEach(({ item, unitPrice, unit, isMarketSourced, disponible }) => {
         exportData.push([
-          item.id, item.denominacion, item.rubro, item.qty, unit,
+          item.id, ST.sanitizeForExcel(item.denominacion), item.rubro, item.qty, unit,
           disponible ? unitPrice : 's/d', disponible ? item.qty * unitPrice : 's/d',
           disponible ? (isMarketSourced ? 'Mercado real' : 'Proyectado por IPC') : 'Material no encontrado'
         ]);
@@ -604,7 +604,7 @@ import * as ST from './state.js';
       exportData.push(['MANO DE OBRA']);
       exportData.push(['Rol', '', '', 'Cantidad', 'Unidad', 'Precio Unitario (ARS)', 'Subtotal (ARS)', '']);
       filasManoObra.forEach(({ item, unitPrice }) => {
-        exportData.push([item.denominacion, '', '', item.qty, item.unit, unitPrice, item.qty * unitPrice, '']);
+        exportData.push([ST.sanitizeForExcel(item.denominacion), '', '', item.qty, item.unit, unitPrice, item.qty * unitPrice, '']);
       });
       exportData.push(['', '', '', '', '', 'Subtotal Mano de Obra:', subtotalManoObra, '']);
       exportData.push([]);
@@ -652,7 +652,7 @@ import * as ST from './state.js';
       exportData.push([`PROVEEDOR: ${group.businessName} — ${group.branchName}`]);
       exportData.push(['Descripción', 'Cantidad a comprar', 'Unidad de compra', 'Precio Unitario (ARS)', 'Subtotal (ARS)']);
       group.items.forEach(({ item }) => {
-        exportData.push([item.denominacion, item.qty, item.unit, item.providerPrice, item.qty * item.providerPrice]);
+        exportData.push([ST.sanitizeForExcel(item.denominacion), item.qty, item.unit, item.providerPrice, item.qty * item.providerPrice]);
       });
       exportData.push(['', '', '', 'Subtotal este proveedor:', subtotal]);
       exportData.push([]);
@@ -661,7 +661,7 @@ import * as ST from './state.js';
     if (materialesSinProveedor.length > 0) {
       exportData.push(['⚠ SIN PROVEEDOR ASIGNADO — no incluidos arriba, elegí un proveedor para cada uno en el catálogo:']);
       materialesSinProveedor.forEach(({ item }) => {
-        exportData.push([item.denominacion, item.qty, item.unit || '']);
+        exportData.push([ST.sanitizeForExcel(item.denominacion), item.qty, item.unit || '']);
       });
       exportData.push([]);
     }
