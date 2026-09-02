@@ -270,6 +270,32 @@ import * as ST from './state.js';
       lastCatalogFilterSignature = filterSignature;
     }
 
+    const btnLoadMoreCatalog = document.getElementById('btn-load-more-catalog');
+    const catalogPaginationStatus = document.getElementById('catalog-pagination-status');
+
+    // Sin búsqueda y sin rubro elegido: no mostramos los 943 materiales de
+    // entrada, mostramos los rubros (más abajo en la página) e invitamos a
+    // buscar. Los materiales aparecen recién cuando hay una intención clara
+    // (buscaste algo, o elegiste un rubro puntual).
+    const sinFiltroActivo = !ST.state.searchQuery.trim() && ST.state.activeRubro === 'Todos';
+    if (sinFiltroActivo) {
+      ST.visibleCount.textContent = '943';
+      ST.activeFilterLabel.textContent = '';
+      ST.productsGrid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 3rem 1rem;">
+          <div style="font-size: 2.5rem; margin-bottom: 1rem;">🔎</div>
+          <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Buscá un material arriba, o elegí un rubro debajo</h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 480px; margin: 0 auto;">
+            Tenemos 943 materiales cargados — para no mostrarlos todos de una, buscá por nombre (aunque sea coloquial, como "durlock" o "sika") o explorá por rubro.
+          </p>
+        </div>
+      `;
+      ST.productsTableBody.innerHTML = '';
+      if (btnLoadMoreCatalog) btnLoadMoreCatalog.style.display = 'none';
+      if (catalogPaginationStatus) catalogPaginationStatus.textContent = '';
+      return;
+    }
+
     const filtered = getFilteredItems();
     const pageSize = ST.state.catalogPageSize || 25;
     const visibleCount = ST.state.catalogPage * pageSize;
@@ -277,9 +303,6 @@ import * as ST from './state.js';
 
     ST.visibleCount.textContent = filtered.length;
     ST.activeFilterLabel.textContent = ST.state.activeRubro !== 'Todos' ? ` en ${ST.state.activeRubro}` : '';
-
-    const btnLoadMoreCatalog = document.getElementById('btn-load-more-catalog');
-    const catalogPaginationStatus = document.getElementById('catalog-pagination-status');
 
     if (filtered.length === 0) {
       ST.productsGrid.innerHTML = `
