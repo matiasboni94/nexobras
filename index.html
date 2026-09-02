@@ -265,24 +265,25 @@
        ========================================================================= -->
   <div id="catalog-view" class="view-section" style="display: none;">
     <main class="container" id="main-catalog-content" style="padding-top: 1.5rem;">
-      
-      <!-- BREADCRUMB / BACK TO HOME -->
-      <div class="catalog-breadcrumb">
-        <button class="btn-breadcrumb-home" id="btn-back-home">&larr; Volver al Inicio</button>
-        <span class="breadcrumb-separator">/</span>
-        <span class="breadcrumb-current" id="catalog-current-rubro">Catálogo General</span>
-      </div>
 
       <!-- CATALOG HEADER -->
       <div class="catalog-header-banner">
         <div>
-          <h2 class="catalog-title" id="catalog-header-title">Todos los Materiales</h2>
+          <h2 class="catalog-title" id="catalog-header-title">Catálogo Completo</h2>
           <p class="catalog-subtitle" id="catalog-header-subtitle">Consultor técnico de precios y rendimientos de obra</p>
         </div>
-        
-        <!-- Quick Search Inside Catalog -->
-        <div class="catalog-search-inline">
-          <input type="text" id="catalog-search-input" class="search-input" placeholder="Buscar en esta categoría...">
+      </div>
+
+      <!-- Buscador del catálogo: la acción principal de esta página -->
+      <div class="catalog-search-hero">
+        <div class="search-input-wrapper" style="max-width: 100%;">
+          <span class="search-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </span>
+          <input type="text" id="catalog-search-input" class="search-input" placeholder="Buscá un material (aunque sea coloquial, como &quot;durlock&quot; o &quot;sika&quot;)...">
         </div>
       </div>
 
