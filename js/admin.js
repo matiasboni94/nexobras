@@ -46,7 +46,7 @@ function renderMaterialSearchResults() {
   container.innerHTML = adminState.materialResults.map(item => `
     <div class="provider-search-row">
       <div class="provider-search-row-info">
-        <strong>${item.denominacion}</strong><br>
+        <strong>${ST.escapeHtml(item.denominacion)}</strong><br>
         <span style="color:var(--text-muted); font-size:0.75rem;">${item.id} · ${item.rubro}</span>
       </div>
       <button class="btn-computo" style="padding: 6px 12px; font-size: 0.78rem;" onclick="window.nexoBraApp.openMaterialEditor(${ST.escAttr(item.id)})">Editar</button>
@@ -128,7 +128,7 @@ function renderMaterialBrowseList() {
   container.innerHTML = materialBrowseState.items.map(item => `
     <div class="provider-search-row">
       <div class="provider-search-row-info">
-        <strong>${item.denomination}</strong>${item.active === false ? ' <span style="color:#b91c1c; font-size:0.72rem; font-weight:700;">(inactivo)</span>' : ''}<br>
+        <strong>${ST.escapeHtml(item.denomination)}</strong>${item.active === false ? ' <span style="color:#b91c1c; font-size:0.72rem; font-weight:700;">(inactivo)</span>' : ''}<br>
         <span style="color:var(--text-muted); font-size:0.75rem;">${item.id} · ${item.rubro} · modificado: ${formatDateTime(item.updated_at)}</span>
       </div>
       <button class="btn-computo" style="padding: 6px 12px; font-size: 0.78rem;" onclick="window.nexoBraApp.openMaterialEditor(${ST.escAttr(item.id)})">Editar</button>
@@ -300,8 +300,8 @@ function renderPendingProviders() {
     return `
       <div class="computation-row">
         <div class="computation-row-info">
-          <h4>${p.business_name}</h4>
-          <span>${branch ? `${branch.name}, ${branch.locality}` : 'Sin sucursal cargada'} · Cargado el ${formatDateTime(p.created_at)}</span>
+          <h4>${ST.escapeHtml(p.business_name)}</h4>
+          <span>${branch ? `${ST.escapeHtml(branch.name)}, ${ST.escapeHtml(branch.locality)}` : 'Sin sucursal cargada'} · Cargado el ${formatDateTime(p.created_at)}</span>
         </div>
         <div class="computation-row-actions">
           <button onclick="window.nexoBraApp.openProviderReview(${ST.escAttr(p.id)})">Ver perfil completo</button>
@@ -333,23 +333,23 @@ export async function openProviderReview(providerId) {
 
   panel.innerHTML = `
     <h4 style="margin-bottom:10px; display:flex; align-items:center; gap:10px;">
-      ${provider.logo_url ? `<img src="${provider.logo_url}" class="provider-logo-mini" alt="">` : '🏪'}
-      ${provider.business_name}
+      ${provider.logo_url ? `<img src="${ST.escapeHtml(provider.logo_url)}" class="provider-logo-mini" alt="">` : '🏪'}
+      ${ST.escapeHtml(provider.business_name)}
     </h4>
     <div class="excel-config-grid" style="margin-bottom:14px;">
-      <div><strong>CUIT:</strong> ${provider.tax_id || 's/d'}</div>
-      <div><strong>Sitio web:</strong> ${provider.website_url ? `<a href="${provider.website_url}" target="_blank">${provider.website_url}</a>` : 's/d'}</div>
-      <div><strong>Teléfono:</strong> ${provider.contact_phone || 's/d'}</div>
-      <div><strong>Email:</strong> ${provider.contact_email || 's/d'}</div>
-      <div style="grid-column: 1 / -1;"><strong>Descripción:</strong> ${provider.description || 's/d'}</div>
+      <div><strong>CUIT:</strong> ${ST.escapeHtml(provider.tax_id) || 's/d'}</div>
+      <div><strong>Sitio web:</strong> ${provider.website_url ? `<a href="${ST.escapeHtml(provider.website_url)}" target="_blank">${ST.escapeHtml(provider.website_url)}</a>` : 's/d'}</div>
+      <div><strong>Teléfono:</strong> ${ST.escapeHtml(provider.contact_phone) || 's/d'}</div>
+      <div><strong>Email:</strong> ${ST.escapeHtml(provider.contact_email) || 's/d'}</div>
+      <div style="grid-column: 1 / -1;"><strong>Descripción:</strong> ${ST.escapeHtml(provider.description) || 's/d'}</div>
     </div>
     ${branch ? `
       <h5 style="margin-bottom:8px;">Sucursal</h5>
       <div class="excel-config-grid" style="margin-bottom:14px;">
-        <div><strong>Nombre:</strong> ${branch.name}</div>
-        <div><strong>Localidad:</strong> ${branch.locality}, ${branch.province || ''}</div>
-        <div><strong>Dirección:</strong> ${branch.address || 's/d'}</div>
-        <div><strong>WhatsApp:</strong> ${branch.whatsapp_phone || 's/d'}</div>
+        <div><strong>Nombre:</strong> ${ST.escapeHtml(branch.name)}</div>
+        <div><strong>Localidad:</strong> ${ST.escapeHtml(branch.locality)}, ${ST.escapeHtml(branch.province) || ''}</div>
+        <div><strong>Dirección:</strong> ${ST.escapeHtml(branch.address) || 's/d'}</div>
+        <div><strong>WhatsApp:</strong> ${ST.escapeHtml(branch.whatsapp_phone) || 's/d'}</div>
         <div><strong>Coordenadas:</strong> ${branch.latitude && branch.longitude ? `${branch.latitude}, ${branch.longitude}` : 'sin cargar'}</div>
         <div><strong>Radio de entrega:</strong> ${branch.delivery_radius_km ? branch.delivery_radius_km + ' km' : 's/d'}</div>
       </div>
@@ -429,15 +429,15 @@ function renderPendingOffers() {
     return `
       <div class="provider-group">
         <div class="provider-group-header">
-          <h4>🏪 ${g.businessName} — ${g.branchName || ''} (${g.locality || ''})</h4>
+          <h4>🏪 ${ST.escapeHtml(g.businessName)} — ${ST.escapeHtml(g.branchName) || ''} (${ST.escapeHtml(g.locality) || ''})</h4>
           <span style="font-size:0.75rem; color:var(--text-muted);">${g.offers.length} pendiente${g.offers.length === 1 ? '' : 's'}</span>
         </div>
         <div class="provider-group-body">
           ${g.offers.map(offer => `
             <div class="provider-catalog-row">
               <div class="provider-catalog-row-info">
-                <h5>${offer.materials?.denomination || '(material eliminado)'}</h5>
-                <span>${offer.provider_sku ? `SKU: ${offer.provider_sku} · ` : ''}${ST.formatMoney(offer.amount)} / ${offer.unit} · ${offer.stock_status} · cargado ${formatDateTime(offer.reported_at)}</span>
+                <h5>${ST.escapeHtml(offer.materials?.denomination) || '(material eliminado)'}</h5>
+                <span>${offer.provider_sku ? `SKU: ${ST.escapeHtml(offer.provider_sku)} · ` : ''}${ST.formatMoney(offer.amount)} / ${offer.unit} · ${offer.stock_status} · cargado ${formatDateTime(offer.reported_at)}</span>
               </div>
               <div class="provider-catalog-row-controls">
                 <button class="btn-computo" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.approveOffer(${ST.escAttr(offer.id)})">✓ Aprobar</button>
