@@ -136,12 +136,10 @@ import * as ST from './state.js';
 
   export function updateCatalogHeader() {
     if (ST.state.activeRubro === 'Todos') {
-      ST.catalogCurrentRubro.textContent = 'Catálogo General';
-      ST.catalogHeaderTitle.textContent = 'Todos los Materiales de Obra';
-      ST.catalogHeaderSubtitle.textContent = '';
+      ST.catalogHeaderTitle.textContent = 'Catálogo Completo';
+      ST.catalogHeaderSubtitle.textContent = 'Consultor técnico de precios y rendimientos de obra';
     } else {
       const meta = RUBROS_METADATA[ST.state.activeRubro] || { icon: "📦", desc: "" };
-      ST.catalogCurrentRubro.textContent = ST.state.activeRubro;
       ST.catalogHeaderTitle.textContent = `${meta.icon} ${ST.state.activeRubro}`;
       ST.catalogHeaderSubtitle.textContent = meta.desc || `Materiales y precios de referencia para ${ST.state.activeRubro}`;
     }
@@ -185,14 +183,42 @@ import * as ST from './state.js';
   }
 
   // --- RUBRO PILLS RENDER (INSIDE CATALOG) ---
+  /** Compara un material contra los tokens de búsqueda (compartido entre el
+   *  filtro de productos y el conteo de rubros, para que ambos coincidan). */
+  function itemMatchesSearchTokens(item, tokens) {
+    if (tokens.length === 0) return true;
+    const haystack = ST.normalizeText([
+      item.denominacion,
+      item.id,
+      item.categoria,
+      item.subcategoria,
+      ...(item.tags || [])
+    ].filter(Boolean).join(' '));
+    return tokens.every(tok => haystack.includes(tok) || haystack.includes(ST.singularize(tok)));
+  }
+
   export function renderRubroPills() {
-    const rubros = ['Todos', ...new Set(NEXOBRA_DATA.map(i => i.rubro))];
+    const tokens = ST.normalizeText(ST.state.searchQuery).split(' ').filter(Boolean);
+    const buscando = tokens.length > 0;
+
+    // Con una búsqueda activa, contamos SOLO lo que matchea esa búsqueda en
+    // cada rubro (y ocultamos los rubros sin ningún resultado) -- así, si
+    // buscás "aluminio", ves "Aberturas 12" y "Cubiertas y Aislaciones 5",
+    // no el total completo de materiales que tiene cada rubro.
+    const materialesRelevantes = buscando ? NEXOBRA_DATA.filter(i => itemMatchesSearchTokens(i, tokens)) : NEXOBRA_DATA;
+
+    const rubrosConteo = {};
+    materialesRelevantes.forEach(i => { rubrosConteo[i.rubro] = (rubrosConteo[i.rubro] || 0) + 1; });
+
+    const rubros = buscando
+      ? ['Todos', ...Object.keys(rubrosConteo)]
+      : ['Todos', ...new Set(NEXOBRA_DATA.map(i => i.rubro))];
+
     ST.rubrosFilterContainer.innerHTML = '';
 
     rubros.forEach(rubro => {
-      const count = rubro === 'Todos' 
-        ? NEXOBRA_DATA.length 
-        : NEXOBRA_DATA.filter(i => i.rubro === rubro).length;
+      const count = rubro === 'Todos' ? materialesRelevantes.length : (rubrosConteo[rubro] || 0);
+      if (buscando && rubro !== 'Todos' && count === 0) return; // sin resultados en este rubro para esta búsqueda: no se muestra
 
       const btn = document.createElement('button');
       btn.className = `cat-btn ${ST.state.activeRubro === rubro ? 'active' : ''}`;
@@ -221,20 +247,7 @@ import * as ST from './state.js';
       if (ST.state.activeRubro !== 'Todos' && item.rubro !== ST.state.activeRubro) {
         return false;
       }
-
-      if (tokens.length > 0) {
-        const haystack = ST.normalizeText([
-          item.denominacion,
-          item.id,
-          item.categoria,
-          item.subcategoria,
-          ...(item.tags || [])
-        ].filter(Boolean).join(' '));
-
-        return tokens.every(tok => haystack.includes(tok) || haystack.includes(ST.singularize(tok)));
-      }
-
-      return true;
+      return itemMatchesSearchTokens(item, tokens);
     });
 
     if (ST.state.sortBy === 'price-asc') {
@@ -284,9 +297,9 @@ import * as ST from './state.js';
       ST.productsGrid.innerHTML = `
         <div style="grid-column: 1 / -1; text-align: center; padding: 3rem 1rem;">
           <div style="font-size: 2.5rem; margin-bottom: 1rem;">🔎</div>
-          <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">Buscá un material arriba, o elegí un rubro debajo</h3>
+          <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">943 materiales, listos para buscar</h3>
           <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 480px; margin: 0 auto;">
-            Tenemos 943 materiales cargados — para no mostrarlos todos de una, buscá por nombre (aunque sea coloquial, como "durlock" o "sika") o explorá por rubro.
+            Escribí lo que necesitás (aunque sea coloquial, como "durlock" o "sika"), o elegí un rubro debajo.
           </p>
         </div>
       `;
