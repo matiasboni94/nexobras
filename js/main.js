@@ -223,7 +223,6 @@ import * as ST from './state.js';
 
     ST.navBtnCatalogo.addEventListener('click', () => switchView('catalog', 'Todos', ''));
     if (ST.navBtnManoObra) ST.navBtnManoObra.addEventListener('click', () => switchView('labor'));
-    ST.btnBackHome.addEventListener('click', () => switchView('home'));
 
     const btnMethodologyCatalog = document.getElementById('btn-open-methodology-catalog');
     if (btnMethodologyCatalog) btnMethodologyCatalog.addEventListener('click', () => switchView('about'));
@@ -302,6 +301,7 @@ import * as ST from './state.js';
     // Catalog Search listener
     ST.catalogSearchInput.addEventListener('input', (e) => {
       ST.state.searchQuery = e.target.value;
+      Catalog.renderRubroPills();
       Catalog.renderProducts();
     });
 
