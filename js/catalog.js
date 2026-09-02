@@ -100,7 +100,7 @@ import * as ST from './state.js';
       const inputId = `labor-qty-${role.code}`;
       return `
         <article class="product-card">
-          <h3 class="product-title">${role.name}</h3>
+          <h3 class="product-title">${ST.escapeHtml(role.name)}</h3>
           <div class="product-category-tree">UOCRA Zona A · sin cargas sociales</div>
           <p style="font-weight:600; font-size:22px; margin:12px 0 0;">${texto}</p>
           <p style="font-size:12px; color:var(--text-muted); margin:2px 0 12px;">${unidadLabel}</p>
@@ -341,7 +341,7 @@ import * as ST from './state.js';
       }
 
       const tagsHtml = item.tags.slice(0, 4).map(t => 
-        `<span class="card-tag-item" data-tag="${t}">#${t}</span>`
+        `<span class="card-tag-item" data-tag="${ST.escapeHtml(t)}">#${ST.escapeHtml(t)}</span>`
       ).join('');
 
       return `
@@ -349,10 +349,10 @@ import * as ST from './state.js';
           <div>
             <div class="card-top">
               <span class="card-code">${item.id}</span>
-              <span class="card-rubro-badge">${item.rubro}</span>
+              <span class="card-rubro-badge">${ST.escapeHtml(item.rubro)}</span>
             </div>
-            <h3 class="product-title">${item.denominacion}</h3>
-            <div class="product-category-tree">${item.categoria} &rsaquo; ${item.subcategoria}</div>
+            <h3 class="product-title">${ST.escapeHtml(item.denominacion)}</h3>
+            <div class="product-category-tree">${ST.escapeHtml(item.categoria)} &rsaquo; ${ST.escapeHtml(item.subcategoria)}</div>
           </div>
 
           <div>
@@ -423,11 +423,11 @@ import * as ST from './state.js';
         <tr>
           <td><span class="card-code">${item.id}</span></td>
           <td>
-            <strong>${item.denominacion}</strong>
-            <div style="font-size: 0.76rem; color: var(--text-subtle);">${item.subcategoria}</div>
+            <strong>${ST.escapeHtml(item.denominacion)}</strong>
+            <div style="font-size: 0.76rem; color: var(--text-subtle);">${ST.escapeHtml(item.subcategoria)}</div>
           </td>
           <td>
-            <span class="card-rubro-badge">${item.rubro}</span>
+            <span class="card-rubro-badge">${ST.escapeHtml(item.rubro)}</span>
           </td>
           <td>
             <strong>${ST.formatMoney(ventaTrace.currentPrice)}</strong>
