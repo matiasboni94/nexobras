@@ -163,7 +163,7 @@ import * as ST from './state.js';
       return `
         <div class="computation-row">
           <div class="computation-row-info">
-            <h4>${comp.name}</h4>
+            <h4>${ST.escapeHtml(comp.name)}</h4>
             <span>${count} ítem${count === 1 ? '' : 's'} · actualizado el ${fecha}${comp.locality ? ' · ' + comp.locality : ''}</span>
           </div>
           <div class="computation-row-actions">
@@ -449,7 +449,7 @@ import * as ST from './state.js';
         <div class="computo-item-head">
           <div>
             <span class="card-code" style="font-size: 0.7rem;">${esManoDeObra ? 'MANO DE OBRA' : item.id}</span>
-            <h4 class="computo-item-title">${item.denominacion}</h4>
+            <h4 class="computo-item-title">${ST.escapeHtml(item.denominacion)}</h4>
             ${pricing.isProviderSourced ? '<span class="cart-badge-provider">Precio fijo del proveedor</span>' : ''}
             ${pricing.projectedFromEarlierMonth ? `<span class="cart-badge-provider" style="background:#fef3c7; color:#92400e;">📈 Con dato de ${ST.monthLabel(pricing.projectedFromEarlierMonth)}</span>` : ''}
             ${item.roundedFrom ? `<span class="cart-badge-provider" style="background:#dbeafe; color:#1e40af;">Redondeado desde ${item.roundedFrom.qty} ${item.roundedFrom.unit}</span>` : ''}
@@ -528,7 +528,7 @@ import * as ST from './state.js';
     const gruposHtml = groups.map(group => `
       <div class="provider-group">
         <div class="provider-group-header">
-          <h4>🏪 ${group.businessName} — ${group.branchName}</h4>
+          <h4>🏪 ${ST.escapeHtml(group.businessName)} — ${ST.escapeHtml(group.branchName)}</h4>
           ${group.whatsapp ? `<a class="whatsapp-mini-btn" target="_blank" href="${buildProviderWhatsappUrl(group)}">💬 Mandar pedido a este proveedor</a>` : '<span style="font-size:0.72rem; color:var(--text-muted);">Sin WhatsApp cargado</span>'}
         </div>
         <div class="provider-group-body">
@@ -702,14 +702,14 @@ import * as ST from './state.js';
     ].filter(c => c.value);
     const obraDataBlock = obraCampos.length === 0 ? '' : `
       <div class="obra-data-box">
-        ${obraCampos.map(c => `<div><strong>${c.label}:</strong> ${c.value}</div>`).join('')}
+        ${obraCampos.map(c => `<div><strong>${c.label}:</strong> ${ST.escapeHtml(c.value)}</div>`).join('')}
       </div>
     `;
 
     const filaMaterial = ({ item, pricing }) => `
       <tr>
         <td><strong>${item.id}</strong></td>
-        <td>${item.denominacion}</td>
+        <td>${ST.escapeHtml(item.denominacion)}</td>
         <td>${item.rubro}</td>
         <td>${item.qty}</td>
         <td>${item.unit}</td>
@@ -744,7 +744,7 @@ import * as ST from './state.js';
         <tbody>
           ${manoDeObra.map(({ item, pricing }) => `
             <tr>
-              <td><strong>${item.denominacion}</strong></td>
+              <td><strong>${ST.escapeHtml(item.denominacion)}</strong></td>
               <td>${item.qty}</td>
               <td>${item.unit}</td>
               <td>${ST.formatMoney(pricing.unitPrice)}</td>
