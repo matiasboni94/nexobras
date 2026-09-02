@@ -36,7 +36,7 @@ import * as ST from './state.js';
       } else if (provider.verification_status === 'rejected') {
         statusBanner.style.display = 'block';
         statusBanner.className = 'provider-status-banner rejected';
-        statusBanner.innerHTML = `✕ Tu perfil fue rechazado${provider.rejection_reason ? ': ' + provider.rejection_reason : ''}. Corregí lo que haga falta y guardá de nuevo para volver a quedar pendiente de revisión.`;
+        statusBanner.innerHTML = `✕ Tu perfil fue rechazado${provider.rejection_reason ? ': ' + ST.escapeHtml(provider.rejection_reason) : ''}. Corregí lo que haga falta y guardá de nuevo para volver a quedar pendiente de revisión.`;
       }
     }
 
@@ -245,7 +245,7 @@ import * as ST from './state.js';
     ST.providerAddResults.innerHTML = results.map(item => `
       <div class="provider-search-row">
         <div class="provider-search-row-info">
-          <strong>${item.denominacion}</strong><br>
+          <strong>${ST.escapeHtml(item.denominacion)}</strong><br>
           <span style="color:var(--text-muted); font-size:0.75rem;">${item.id} · ${item.rubro}</span>
         </div>
         <div class="provider-search-row-controls">
@@ -427,10 +427,10 @@ import * as ST from './state.js';
     ST.providerCatalogList.innerHTML = ST.providerState.offers.map(offer => `
       <div class="provider-catalog-row">
         <div class="provider-catalog-row-info">
-          <h5>${offer.materials?.denomination || '(material eliminado)'}</h5>
-          <span>${offer.provider_sku ? `SKU propio: ${offer.provider_sku} · ` : ''}${offer.unit}</span>
+          <h5>${ST.escapeHtml(offer.materials?.denomination) || '(material eliminado)'}</h5>
+          <span>${offer.provider_sku ? `SKU propio: ${ST.escapeHtml(offer.provider_sku)} · ` : ''}${offer.unit}</span>
           ${offer.status === 'pending' ? '<br><span style="font-size:0.7rem; font-weight:700; color:#b45309;">⏳ Pendiente de aprobación</span>' : ''}
-          ${offer.status === 'rejected' ? `<br><span style="font-size:0.7rem; font-weight:700; color:#b91c1c;">✕ Rechazado${offer.rejection_reason ? ': ' + offer.rejection_reason : ' — revisá el precio y volvé a intentar'}</span>` : ''}
+          ${offer.status === 'rejected' ? `<br><span style="font-size:0.7rem; font-weight:700; color:#b91c1c;">✕ Rechazado${offer.rejection_reason ? ': ' + ST.escapeHtml(offer.rejection_reason) : ' — revisá el precio y volvé a intentar'}</span>` : ''}
         </div>
         <div class="provider-catalog-row-controls">
           <span class="stock-badge ${offer.stock_status}">${offer.stock_status === 'en_stock' ? 'En stock' : offer.stock_status === 'a_pedido' ? 'A pedido' : 'Agotado'}</span>
@@ -562,13 +562,13 @@ import * as ST from './state.js';
         ? (row.mode === 'venta' ? row.matchedItem.unidadVenta : row.matchedItem.unidadComputo)
         : '-';
       const warn = row.unitAmbiguous
-        ? ` <span title="Escribiste &quot;${row.requestedUnit}&quot; pero no coincide con ninguna unidad válida de este material. Se cargó por unidad de compra (venta) por defecto." style="color:#b45309; font-weight:700; cursor:help;">⚠</span>`
+        ? ` <span title="Escribiste &quot;${ST.escapeHtml(row.requestedUnit)}&quot; pero no coincide con ninguna unidad válida de este material. Se cargó por unidad de compra (venta) por defecto." style="color:#b45309; font-weight:700; cursor:help;">⚠</span>`
         : '';
       return `
       <div class="excel-preview-row status-${row.status}">
         <div>
-          <strong>${row.name || row.sku}</strong>
-          ${row.matchedItem ? `→ ${row.matchedItem.denominacion} (${row.matchedItem.id})` : ' → sin coincidencia, no se va a cargar'}
+          <strong>${ST.escapeHtml(row.name || row.sku)}</strong>
+          ${row.matchedItem ? `→ ${ST.escapeHtml(row.matchedItem.denominacion)} (${row.matchedItem.id})` : ' → sin coincidencia, no se va a cargar'}
         </div>
         <div>$${row.price || 0} / ${unidadResuelta}${warn} · ${row.stock}</div>
       </div>
@@ -702,7 +702,7 @@ import * as ST from './state.js';
       const texto = row.variation_pct === null ? 's/d' : `${row.variation_pct > 0 ? '+' : ''}${row.variation_pct}%`;
       return `
         <div class="variation-row">
-          <span class="variation-name">${row.denomination}${row.stock_status === 'agotado' ? ' <em>(agotado)</em>' : ''}</span>
+          <span class="variation-name">${ST.escapeHtml(row.denomination)}${row.stock_status === 'agotado' ? ' <em>(agotado)</em>' : ''}</span>
           <span style="text-align:right;">
             <strong style="display:block; font-size:0.85rem;">${ST.formatMoney(row.branch_amount)}</strong>
             <span class="variation-badge ${cls}">${texto}</span>
