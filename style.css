@@ -15,7 +15,7 @@
   --brand-dark-border: #383F4C;
   
   /* Neutrals & Slate */
-  --bg-app: #F8F9FB;
+  --bg-app: #F7F5F0;
   --bg-card: #FFFFFF;
   --bg-card-hover: #FCFDFF;
   --bg-subtle: #F1F3F7;
@@ -28,8 +28,10 @@
   --border-light: #E2E6EC;
   --border-subtle: #ECEFF4;
 
-  /* Superficies (antes solo existían como fallback, ahora son variables reales) */
-  --surface-1: #F7F5F0;
+  /* Superficies (antes solo existían como fallback, ahora son variables reales).
+     surface-1 pasó a blanco: ahora --bg-app es el "amarillito" de fondo general,
+     y surface-1 es la superficie que se destaca (tarjetas, secciones) por encima. */
+  --surface-1: #FFFFFF;
   --surface-2: #FFFFFF;
   
   /* Status */
@@ -131,6 +133,14 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* Textos de párrafo justificados por defecto en todo el sitio -- los
+   títulos (h1-h6) no se tocan acá, se pueden seguir centrando donde ya
+   estaban. Justificar un texto de una sola línea no tiene ningún efecto
+   visible, así que esta regla es segura como base general. */
+p {
+  text-align: justify;
 }
 
 /* Container */
@@ -342,6 +352,7 @@ body {
   line-height: 1.6;
   max-width: 1300px;
   margin: 0 auto 2.5rem;
+  text-align: justify;
 }
 
 .hero-search-box {
@@ -461,6 +472,7 @@ body {
   font-size: 1rem;
   color: var(--text-muted);
   line-height: 1.55;
+  text-align: justify;
 }
 
 .pilares-grid {
@@ -499,6 +511,7 @@ body {
   font-size: 0.92rem;
   color: var(--text-muted);
   line-height: 1.6;
+  text-align: justify;
 }
 
 /* ==========================================================================
@@ -754,6 +767,7 @@ body {
 .catalog-subtitle {
   font-size: 0.92rem;
   color: var(--text-muted);
+  text-align: justify;
 }
 
 .catalog-search-inline {
@@ -1625,7 +1639,7 @@ body {
   background-color: var(--brand-dark);
   color: var(--text-subtle);
   padding: 2.5rem 0 1.5rem;
-  border-top: 1px solid var(--brand-dark-border);
+  border-top: 3px solid var(--brand-yellow);
   font-size: 0.85rem;
 }
 
@@ -2396,7 +2410,7 @@ body {
   border-radius: 8px;
   border: 1.5px dashed var(--brand-yellow, #F5B000);
   background: rgba(245,176,0,0.08);
-  color: var(--brand-dark, #22262B);
+  color: var(--text-main);
   font-family: inherit;
   font-size: 0.78rem;
   font-weight: 700;
@@ -2770,7 +2784,7 @@ body {
 .btn-choose-provider-small {
   border: 1.5px dashed var(--brand-yellow, #F5B000);
   background: rgba(245,176,0,0.08);
-  color: var(--brand-dark, #22262B);
+  color: var(--text-main);
 }
 .btn-choose-provider-small:hover {
   background: rgba(245,176,0,0.18);
@@ -2838,4 +2852,35 @@ body {
 .btn-theme-toggle:hover {
   background: var(--surface-1);
   color: var(--text-main);
+}
+
+/* --- CTA "Armar mi cómputo" en el home, debajo del mapa --- */
+.home-computo-cta {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--brand-yellow);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+.home-computo-cta > div:nth-child(2) {
+  flex: 1;
+  min-width: 200px;
+}
+.home-computo-cta-icon {
+  font-size: 2.2rem;
+  flex-shrink: 0;
+}
+@media (max-width: 640px) {
+  .home-computo-cta {
+    flex-direction: column;
+    text-align: center;
+  }
+  .home-computo-cta button {
+    width: 100%;
+    justify-content: center;
+  }
 }
