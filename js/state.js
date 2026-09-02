@@ -148,6 +148,28 @@
     return /^[=+\-@\t\r]/.test(str) ? `'${str}` : value;
   }
 
+  /**
+   * Carga la librería de Excel (SheetJS/XLSX) recién la primera vez que
+   * hace falta -- no en cada visita al sitio. Antes se cargaba siempre en
+   * el <head>, aunque el visitante nunca tocara el cotizador de Excel; es
+   * una librería bastante pesada, así que ahora se pide sola bajo demanda.
+   * Todo lo que use el objeto global XLSX debe hacer
+   * "await ST.ensureXlsxLoaded();" antes.
+   */
+  let xlsxLoadPromise = null;
+  export function ensureXlsxLoaded() {
+    if (window.XLSX) return Promise.resolve();
+    if (xlsxLoadPromise) return xlsxLoadPromise;
+    xlsxLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('No se pudo cargar la librería de Excel. Revisá tu conexión e intentá de nuevo.'));
+      document.head.appendChild(script);
+    });
+    return xlsxLoadPromise;
+  }
+
   export function formatMoney(amount) {
     if (isNaN(amount)) return '$ 0,00';
     return new Intl.NumberFormat('es-AR', {
