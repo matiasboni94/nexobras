@@ -229,11 +229,17 @@ import * as ST from './state.js';
 
   export async function loadMarketAnchors(targetMonth) {
     if (!ST.supabaseClient || !targetMonth) return;
+    // Antes esto llamaba a una función que recalculaba los 943 materiales EN
+    // VIVO en cada visita. Ahora simplemente lee de una tabla-caché que se
+    // mantiene actualizada sola (un trigger la refresca al instante cuando
+    // se aprueba una oferta, y un job nocturno la refresca completa como
+    // red de seguridad) -- una consulta simple, no un cálculo pesado.
     await Promise.all(['sale', 'measurement'].map(async (kind) => {
-      const { data, error } = await ST.supabaseClient.rpc('get_reference_anchors_bulk', {
-        p_target_month: targetMonth,
-        p_price_kind: kind
-      });
+      const { data, error } = await ST.supabaseClient
+        .from('material_reference_anchors_cache')
+        .select('material_id, anchor_month, anchor_price, is_market_sourced')
+        .eq('price_kind', kind)
+        .eq('target_month', targetMonth);
       if (error) {
         console.warn(`No se pudieron cargar las anclas de mercado (${kind}): ${error.message}`);
         return;
