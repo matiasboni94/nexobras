@@ -296,6 +296,8 @@ import * as ST from './state.js';
     if (btnCatalogFromMap) btnCatalogFromMap.addEventListener('click', () => switchView('catalog', 'Todos', ''));
     const btnMethodologyFromMap = document.getElementById('btn-methodology-from-map');
     if (btnMethodologyFromMap) btnMethodologyFromMap.addEventListener('click', () => switchView('about'));
+    const btnStartComputoHome = document.getElementById('btn-start-computo-home');
+    if (btnStartComputoHome) btnStartComputoHome.addEventListener('click', () => Computo.openDrawer());
 
     // Catalog Search listener
     ST.catalogSearchInput.addEventListener('input', (e) => {
