@@ -236,13 +236,13 @@ import * as Computo from './computo.js';
       return `
         <tr>
           <td>${statusHtml}</td>
-          <td><strong>${row.requestedName}</strong></td>
+          <td><strong>${ST.escapeHtml(row.requestedName)}</strong></td>
           <td>
             ${row.matchedItem 
-              ? `<span style="font-size: 0.82rem; color: var(--brand-dark); font-weight: 600;">[${row.matchedItem.id}] ${row.matchedItem.denominacion}</span>` 
+              ? `<span style="font-size: 0.82rem; color: var(--brand-dark); font-weight: 600;">[${row.matchedItem.id}] ${ST.escapeHtml(row.matchedItem.denominacion)}</span>` 
               : `<span style="color: var(--text-subtle); font-style: italic;">Sin precio de referencia</span>`}
           </td>
-          <td>${row.requestedQty} ${row.unit}${row.unitAmbiguous ? ` <span title="Escribiste &quot;${row.requestedUnit}&quot; pero no coincide con ninguna unidad válida de este material. Se usó el modo general (${ST.excelPricingMode.value === 'venta' ? 'Venta' : 'Cómputo'}) por las dudas." style="color:#b45309; font-weight:700; cursor:help;">⚠</span>` : ''}</td>
+          <td>${row.requestedQty} ${row.unit}${row.unitAmbiguous ? ` <span title="Escribiste &quot;${ST.escapeHtml(row.requestedUnit)}&quot; pero no coincide con ninguna unidad válida de este material. Se usó el modo general (${ST.excelPricingMode.value === 'venta' ? 'Venta' : 'Cómputo'}) por las dudas." style="color:#b45309; font-weight:700; cursor:help;">⚠</span>` : ''}</td>
           <td>${row.matchedItem ? ST.formatMoney(row.unitPrice) : '-'}</td>
           <td style="text-align: right;"><strong>${row.matchedItem ? ST.formatMoney(row.subtotal) : '-'}</strong></td>
         </tr>
