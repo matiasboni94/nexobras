@@ -57,8 +57,15 @@ import * as Computo from './computo.js';
     }
   }
 
-  export function handleExcelFile(file) {
+  export async function handleExcelFile(file) {
     if (!file) return;
+
+    try {
+      await ST.ensureXlsxLoaded();
+    } catch (err) {
+      alert(err.message);
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = function(e) {
@@ -250,7 +257,14 @@ import * as Computo from './computo.js';
     }).join('');
   }
 
-  export function generateTemplateExcel() {
+  export async function generateTemplateExcel() {
+    try {
+      await ST.ensureXlsxLoaded();
+    } catch (err) {
+      ST.showToast(err.message);
+      return;
+    }
+
     const ws_data = [
       ["Código (Opcional)", "Material o Descripción", "Cantidad Requerida", "Unidad"],
       ["BL-003", "Cemento Portland Loma Negra 50kg", 20, "Bolsa"],
@@ -312,9 +326,15 @@ import * as Computo from './computo.js';
     ST.showToast(`${matched.length} material${matched.length === 1 ? '' : 'es'} agregado${matched.length === 1 ? '' : 's'} a Mi Cómputo. Elegí proveedor en cada ítem para armar tu lista de compra.`);
   }
 
-  export function exportProcessedExcel() {
+  export async function exportProcessedExcel() {
     if (ST.state.excelProcessedRows.length === 0) {
       alert('No hay datos procesados para exportar.');
+      return;
+    }
+    try {
+      await ST.ensureXlsxLoaded();
+    } catch (err) {
+      alert(err.message);
       return;
     }
 
