@@ -43,7 +43,7 @@ import * as ST from './state.js';
     container.innerHTML = results.map(item => `
       <div class="provider-search-row">
         <div class="provider-search-row-info">
-          <strong>${item.denominacion}</strong><br>
+          <strong>${ST.escapeHtml(item.denominacion)}</strong><br>
           <span style="color:var(--text-muted); font-size:0.75rem;">${item.id} · ${item.rubro}</span>
         </div>
         <button class="btn-computo" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.selectMaterialOnMap(${ST.escAttr(item.id)}, ${ST.escAttr(item.denominacion)})">Ver en mapa</button>
@@ -125,18 +125,18 @@ import * as ST from './state.js';
     const esFavorito = ST.favoritesState.ids.has(offer.branch_id);
     const stockLabel = offer.stock_status === 'agotado' ? 'Agotado' : offer.stock_status === 'a_pedido' ? 'A pedido' : 'En stock';
     const whatsappLink = offer.whatsapp_phone
-      ? `<a class="btn-computo" style="text-decoration:none;" href="https://wa.me/${offer.whatsapp_phone}?text=${encodeURIComponent(`Hola! Vi en NEXOBRA que tenés ${materialName} a ${ST.formatMoney(offer.amount)}/${offer.unit}. ¿Seguís teniendo disponible?`)}" target="_blank" rel="noopener">💬 Contactar por WhatsApp</a>`
+      ? `<a class="btn-computo" style="text-decoration:none;" href="https://wa.me/${offer.whatsapp_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola! Vi en NEXOBRA que tenés ${materialName} a ${ST.formatMoney(offer.amount)}/${offer.unit}. ¿Seguís teniendo disponible?`)}" target="_blank" rel="noopener">💬 Contactar por WhatsApp</a>`
       : '';
 
     ST.mapBranchPanel.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
         <div style="display:flex; align-items:center; gap:10px;">
-          ${offer.logo_url ? `<img src="${offer.logo_url}" class="provider-logo-mini" alt="">` : ''}
-          <h3 style="margin-bottom:2px;">${offer.business_name}</h3>
+          ${offer.logo_url ? `<img src="${ST.escapeHtml(offer.logo_url)}" class="provider-logo-mini" alt="">` : ''}
+          <h3 style="margin-bottom:2px;">${ST.escapeHtml(offer.business_name)}</h3>
         </div>
         <button class="btn-favorite-toggle ${esFavorito ? 'active' : ''}" onclick='window.nexoBraApp.toggleFavorite(${ST.escAttr(offer.branch_id)}, ${ST.escAttr(offer.business_name)})'>★</button>
       </div>
-      <div class="branch-meta">${offer.branch_name} · ${offer.locality || ''} · ${offer.distance_km.toFixed(1)} km de tu ubicación</div>
+      <div class="branch-meta">${ST.escapeHtml(offer.branch_name)} · ${ST.escapeHtml(offer.locality || '')} · ${offer.distance_km.toFixed(1)} km de tu ubicación</div>
 
       <div class="card-price-box" style="margin: 14px 0;">
         <div class="price-main-row">
@@ -191,7 +191,7 @@ import * as ST from './state.js';
     (data || []).forEach(branch => {
       if (!branch.latitude || !branch.longitude) return;
       const marker = L.marker([branch.latitude, branch.longitude]).addTo(ST.mapState.map);
-      marker.bindPopup(`<strong>${branch.business_name}</strong><br>${branch.branch_name} · ${branch.distance_km.toFixed(1)} km<br>${branch.offers_count} material${branch.offers_count === 1 ? '' : 'es'} cargado${branch.offers_count === 1 ? '' : 's'}`);
+      marker.bindPopup(`<strong>${ST.escapeHtml(branch.business_name)}</strong><br>${ST.escapeHtml(branch.branch_name)} · ${branch.distance_km.toFixed(1)} km<br>${branch.offers_count} material${branch.offers_count === 1 ? '' : 'es'} cargado${branch.offers_count === 1 ? '' : 's'}`);
       marker.on('click', () => showBranchDetail(branch.branch_id, branch));
       ST.mapState.markers.push(marker);
     });
@@ -233,7 +233,7 @@ import * as ST from './state.js';
       const texto = row.variation_pct === null ? 's/d' : `${row.variation_pct > 0 ? '+' : ''}${row.variation_pct}%`;
       return `
         <div class="variation-row">
-          <span class="variation-name">${row.denomination}${row.stock_status === 'agotado' ? ' <em>(agotado)</em>' : ''}</span>
+          <span class="variation-name">${ST.escapeHtml(row.denomination)}${row.stock_status === 'agotado' ? ' <em>(agotado)</em>' : ''}</span>
           <span style="text-align:right;">
             <strong style="display:block; font-size:0.85rem;">${ST.formatMoney(row.branch_amount)}</strong>
             <span class="variation-badge ${cls}">${texto}</span>
@@ -244,10 +244,10 @@ import * as ST from './state.js';
 
     ST.mapBranchPanel.innerHTML = `
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:2px;">
-        ${branchInfo.logo_url ? `<img src="${branchInfo.logo_url}" class="provider-logo-mini" alt="">` : ''}
-        <h3 style="margin-bottom:0;">${branchInfo.business_name}</h3>
+        ${branchInfo.logo_url ? `<img src="${ST.escapeHtml(branchInfo.logo_url)}" class="provider-logo-mini" alt="">` : ''}
+        <h3 style="margin-bottom:0;">${ST.escapeHtml(branchInfo.business_name)}</h3>
       </div>
-      <div class="branch-meta">${branchInfo.branch_name} · ${branchInfo.locality} · ${branchInfo.distance_km.toFixed(1)} km de tu ubicación</div>
+      <div class="branch-meta">${ST.escapeHtml(branchInfo.branch_name)} · ${ST.escapeHtml(branchInfo.locality)} · ${branchInfo.distance_km.toFixed(1)} km de tu ubicación</div>
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;">${whatsappLink}${favBtn}</div>
       <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">Variación de precio vs. la mediana de proveedores en ${ST.mapState.radiusKm} km a la redonda:</p>
       ${filas || '<p style="font-size:0.8rem; color:var(--text-muted);">Sin materiales cargados todavía.</p>'}
@@ -415,8 +415,8 @@ import * as ST from './state.js';
     ST.offerPickerResults.innerHTML = data.map((offer, idx) => `
       <div class="offer-picker-row">
         <div class="offer-picker-row-info">
-          <h5>${offer.business_name}</h5>
-          <span>${offer.branch_name} · ${offer.locality} · ${offer.distance_km.toFixed(1)} km${offer.stock_status === 'agotado' ? ' · <strong style="color:#b91c1c;">Agotado</strong>' : offer.stock_status === 'a_pedido' ? ' · A pedido' : ' · En stock'}</span>
+          <h5>${ST.escapeHtml(offer.business_name)}</h5>
+          <span>${ST.escapeHtml(offer.branch_name)} · ${ST.escapeHtml(offer.locality)} · ${offer.distance_km.toFixed(1)} km${offer.stock_status === 'agotado' ? ' · <strong style="color:#b91c1c;">Agotado</strong>' : offer.stock_status === 'a_pedido' ? ' · A pedido' : ' · En stock'}</span>
         </div>
         <div class="offer-picker-row-price">
           <strong>${ST.formatMoney(offer.amount)}</strong>
@@ -605,8 +605,8 @@ import * as ST from './state.js';
       return `
         <div class="computation-row">
           <div class="computation-row-info">
-            <h4>${branch.providers?.business_name || '(proveedor eliminado)'}</h4>
-            <span>${branch.name} · ${branch.locality}</span>
+            <h4>${ST.escapeHtml(branch.providers?.business_name) || '(proveedor eliminado)'}</h4>
+            <span>${ST.escapeHtml(branch.name)} · ${ST.escapeHtml(branch.locality)}</span>
           </div>
           <div class="computation-row-actions">
             ${whatsappUrl ? `<a href="${whatsappUrl}" target="_blank" class="btn-computo" style="padding:7px 12px; font-size:0.78rem; text-decoration:none;">💬 WhatsApp</a>` : ''}
