@@ -170,6 +170,25 @@
     return xlsxLoadPromise;
   }
 
+  /**
+   * Igual que ensureXlsxLoaded, pero para Chart.js -- solo hace falta en el
+   * gráfico de evolución del IPC dentro de "Quiénes Somos", así que no tiene
+   * sentido cargarlo en cada visita al sitio.
+   */
+  let chartJsLoadPromise = null;
+  export function ensureChartJsLoaded() {
+    if (window.Chart) return Promise.resolve();
+    if (chartJsLoadPromise) return chartJsLoadPromise;
+    chartJsLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('No se pudo cargar el gráfico. Revisá tu conexión e intentá de nuevo.'));
+      document.head.appendChild(script);
+    });
+    return chartJsLoadPromise;
+  }
+
   export function formatMoney(amount) {
     if (isNaN(amount)) return '$ 0,00';
     return new Intl.NumberFormat('es-AR', {
@@ -264,10 +283,12 @@
   export const navBrandLogo = document.getElementById('nav-brand-logo');
   export const navBtnCatalogo = document.getElementById('nav-btn-catalogo');
   export const navBtnManoObra = document.getElementById('nav-btn-manoobra');
+  export const btnBackHome = document.getElementById('btn-back-home');
 
   // Search & Hub elements
   export const rubrosHubGrid = document.getElementById('rubros-hub-grid');
   export const catalogSearchInput = document.getElementById('catalog-search-input');
+  export const catalogCurrentRubro = document.getElementById('catalog-current-rubro');
   export const catalogHeaderTitle = document.getElementById('catalog-header-title');
   export const catalogHeaderSubtitle = document.getElementById('catalog-header-subtitle');
 
@@ -384,3 +405,9 @@
   export const btnOpenNewMaterialAdmin = document.getElementById('btn-open-new-material-admin');
   export const offerPickerSubtitle = document.getElementById('offer-picker-subtitle');
   export const offerPickerResults = document.getElementById('offer-picker-results');
+
+  export const materialHistoryModal = document.getElementById('material-history-modal');
+  export const materialHistoryModalBackdrop = document.getElementById('material-history-modal-backdrop');
+  export const materialHistorySubtitle = document.getElementById('material-history-subtitle');
+  export const materialHistoryStatus = document.getElementById('material-history-status');
+  export const materialHistoryChart = document.getElementById('material-history-chart');
