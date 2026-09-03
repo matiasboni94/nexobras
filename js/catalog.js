@@ -315,6 +315,7 @@ import * as ST from './state.js';
     const visible = filtered.slice(0, visibleCount);
 
     ST.visibleCount.textContent = filtered.length;
+    if (ST.state.searchQuery.trim()) ST.logSearch(ST.state.searchQuery, filtered.length);
     ST.activeFilterLabel.textContent = ST.state.activeRubro !== 'Todos' ? ` en ${ST.state.activeRubro}` : '';
 
     if (filtered.length === 0) {
