@@ -412,6 +412,7 @@ import * as ST from './state.js';
                     ? `<div class="price-source-tag ipc" title="El IPC de ${mainTrace.targetPeriod} todavía no se publicó (sale a mitad del mes siguiente)">📈 Proyectado con IPC de ${ST.monthLabel(mainTrace.projectedFromEarlierMonth)}</div>`
                     : '<div class="price-source-tag ipc">📈 Proyectado por IPC</div>'
                 }
+                <button class="btn-material-history" onclick='window.nexoBraApp.openMaterialHistoryChart(${ST.escAttr(item.id)}, ${ST.escAttr(item.denominacion)})'>📊 Ver evolución histórica</button>
               `}
             </div>
 
