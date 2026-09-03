@@ -472,6 +472,9 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
     submitReview: MapModule.submitReview,
     showToast: ST.showToast,
     unshareComputation: Computo.unshareComputation,
+    approveTechSuggestion: Admin.approveTechSuggestion,
+    rejectTechSuggestion: Admin.rejectTechSuggestion,
+    suggestTechnicalData: Provider.suggestTechnicalData,
     deleteIndexValue: Admin.deleteIndexValue,
     unassignProvider: Computo.unassignProvider
   };
