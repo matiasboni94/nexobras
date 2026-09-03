@@ -510,14 +510,14 @@ import * as ST from './state.js';
 
     const body = document.getElementById('shared-computation-body');
 
-    const { data: comp, error: compError } = await ST.supabaseClient
-      .from('computations')
-      .select('id, name, obra_nombre, obra_ubicacion, obra_comitente, obra_referencia, created_at')
-      .eq('share_token', token)
-      .eq('is_public', true)
-      .single();
+    // Se lee a través de una función (get_shared_computation), no de las
+    // tablas directo -- así el ÚNICO camino para ver este presupuesto es
+    // conocer el token exacto, no alcanza con que exista algún presupuesto
+    // público en la base.
+    const { data, error } = await ST.supabaseClient.rpc('get_shared_computation', { p_token: token });
+    const comp = data?.[0];
 
-    if (compError || !comp) {
+    if (error || !comp) {
       body.innerHTML = `
         <div style="text-align:center; padding: 3rem 0;">
           <div style="font-size:2.5rem; margin-bottom:1rem;">🔒</div>
@@ -529,10 +529,7 @@ import * as ST from './state.js';
       return;
     }
 
-    const { data: items } = await ST.supabaseClient
-      .from('computation_items')
-      .select('*')
-      .eq('computation_id', comp.id);
+    const items = comp.items || [];
 
     const obraCampos = [
       { label: 'Obra', value: comp.obra_nombre },
