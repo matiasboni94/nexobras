@@ -423,6 +423,169 @@ import * as ST from './state.js';
   }
 
   /** Saca el proveedor asignado a un ítem y lo vuelve a dejar con el precio de referencia. */
+  /**
+   * Genera (o reutiliza) un link público para ver este presupuesto sin
+   * necesidad de cuenta ni de abrir ningún archivo -- útil para mandárselo
+   * a un cliente. El presupuesto tiene que estar guardado primero (si no,
+   * no hay ninguna fila en la base todavía a la cual apuntar el link).
+   */
+  export async function shareComputation() {
+    if (!ST.computationState.currentId) {
+      ST.showToast('Guardá el presupuesto primero (arriba, con el botón "Guardar") para poder compartirlo.');
+      return;
+    }
+    if (!ST.authState.user) {
+      ST.showToast('Iniciá sesión para compartir un presupuesto.');
+      return;
+    }
+
+    const { data: existing } = await ST.supabaseClient
+      .from('computations')
+      .select('share_token, is_public')
+      .eq('id', ST.computationState.currentId)
+      .single();
+
+    let token = existing?.share_token;
+    if (!token) {
+      token = crypto.randomUUID();
+    }
+
+    const { error } = await ST.supabaseClient
+      .from('computations')
+      .update({ share_token: token, is_public: true })
+      .eq('id', ST.computationState.currentId);
+
+    if (error) {
+      ST.showToast('No se pudo generar el link: ' + error.message);
+      return;
+    }
+
+    const url = `${window.location.origin}/?share=${token}`;
+    showShareLinkBox(url);
+  }
+
+  export async function unshareComputation() {
+    if (!ST.computationState.currentId) return;
+    const { error } = await ST.supabaseClient
+      .from('computations')
+      .update({ is_public: false })
+      .eq('id', ST.computationState.currentId);
+    if (error) {
+      ST.showToast('No se pudo desactivar el link: ' + error.message);
+      return;
+    }
+    ST.showToast('El link ya no muestra este presupuesto.');
+    document.getElementById('share-link-box')?.remove();
+  }
+
+  function showShareLinkBox(url) {
+    document.getElementById('share-link-box')?.remove();
+    const box = document.createElement('div');
+    box.id = 'share-link-box';
+    box.className = 'share-link-box';
+    box.innerHTML = `
+      <p style="font-size:0.78rem; font-weight:700; margin-bottom:6px;">🔗 Link para compartir (sin login, cualquiera puede verlo):</p>
+      <div style="display:flex; gap:6px;">
+        <input type="text" value="${ST.escapeHtml(url)}" readonly class="form-select" style="flex:1; font-size:0.78rem;" onclick="this.select()">
+        <button class="btn-computo" style="flex-shrink:0;" onclick="navigator.clipboard.writeText('${url}'); window.nexoBraApp.showToast('Copiado.')">Copiar</button>
+      </div>
+      <button style="background:none; border:none; color:var(--text-subtle); font-size:0.72rem; text-decoration:underline; cursor:pointer; margin-top:6px;" onclick="window.nexoBraApp.unshareComputation()">Dejar de compartir</button>
+    `;
+    const actions = document.querySelector('.drawer-actions');
+    actions.insertAdjacentElement('afterend', box);
+  }
+
+  /**
+   * Vista pública de solo lectura para un presupuesto compartido por link
+   * (?share=TOKEN). No requiere login -- la RLS permite leer estas dos
+   * tablas cuando is_public=true. Usa los valores "congelados" al momento
+   * de guardar (price_snapshot, etc.), no un recálculo en vivo -- así el
+   * link siempre muestra exactamente lo que se compartió.
+   */
+  export async function renderSharedComputation(token) {
+    document.getElementById('shared-computation-view').style.display = 'block';
+    document.querySelectorAll('body > *:not(#shared-computation-view)').forEach(el => {
+      if (el.tagName !== 'SCRIPT') el.style.display = 'none';
+    });
+
+    const body = document.getElementById('shared-computation-body');
+
+    const { data: comp, error: compError } = await ST.supabaseClient
+      .from('computations')
+      .select('id, name, obra_nombre, obra_ubicacion, obra_comitente, obra_referencia, created_at')
+      .eq('share_token', token)
+      .eq('is_public', true)
+      .single();
+
+    if (compError || !comp) {
+      body.innerHTML = `
+        <div style="text-align:center; padding: 3rem 0;">
+          <div style="font-size:2.5rem; margin-bottom:1rem;">🔒</div>
+          <h2 style="margin-bottom:8px;">Este link ya no está disponible</h2>
+          <p style="color:var(--text-muted);">Puede que quien lo compartió haya dejado de compartirlo, o el link esté mal copiado.</p>
+          <a href="/" class="btn-computo" style="display:inline-flex; margin-top:1.5rem; text-decoration:none;">Ir a NEXOBRA</a>
+        </div>
+      `;
+      return;
+    }
+
+    const { data: items } = await ST.supabaseClient
+      .from('computation_items')
+      .select('*')
+      .eq('computation_id', comp.id);
+
+    const obraCampos = [
+      { label: 'Obra', value: comp.obra_nombre },
+      { label: 'Ubicación', value: comp.obra_ubicacion },
+      { label: 'Comitente', value: comp.obra_comitente },
+      { label: 'Referencia', value: comp.obra_referencia }
+    ].filter(c => c.value);
+
+    const total = (items || []).reduce((sum, it) => sum + (Number(it.price_snapshot) * Number(it.quantity)), 0);
+
+    body.innerHTML = `
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">${ST.escapeHtml(comp.name)}</h2>
+          <p class="catalog-subtitle">Presupuesto compartido desde NEXOBRA · ${new Date(comp.created_at).toLocaleDateString('es-AR')}</p>
+        </div>
+      </div>
+      ${obraCampos.length > 0 ? `
+        <div class="about-origen-card" style="display:block;">
+          ${obraCampos.map(c => `<p class="pilar-text" style="margin-bottom:6px;"><strong>${c.label}:</strong> ${ST.escapeHtml(c.value)}</p>`).join('')}
+        </div>
+      ` : ''}
+      <div class="table-view-container">
+        <table class="materials-table">
+          <thead>
+            <tr><th>Material / Ítem</th><th>Cant.</th><th>Precio unit.</th><th style="text-align:right;">Subtotal</th></tr>
+          </thead>
+          <tbody>
+            ${(items || []).map(it => `
+              <tr>
+                <td>${ST.escapeHtml(it.denomination_snapshot)}</td>
+                <td>${it.quantity} ${it.unit}</td>
+                <td>${ST.formatMoney(it.price_snapshot)}</td>
+                <td style="text-align:right;">${ST.formatMoney(it.price_snapshot * it.quantity)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="summary-row total-row" style="margin-top: 1.5rem;">
+        <span>Total Estimado</span>
+        <span>${ST.formatMoney(total)}</span>
+      </div>
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-top:8px;">
+        Valores orientativos, calculados con precios de NEXOBRA al momento de compartir este presupuesto. No incluyen impuestos, cargas sociales ni fletes.
+      </p>
+      <div style="text-align:center; margin-top: 2.5rem; padding-top: 2rem; border-top: 1px solid var(--border-light);">
+        <p style="margin-bottom:12px;">¿Necesitás armar tu propio presupuesto?</p>
+        <a href="/" class="btn-computo" style="display:inline-flex; text-decoration:none;">Armalo gratis en NEXOBRA →</a>
+      </div>
+    `;
+  }
+
   export function unassignProvider(idx) {
     const item = ST.state.computoCart[idx];
     if (!item) return;
