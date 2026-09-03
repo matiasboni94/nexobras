@@ -142,7 +142,7 @@ import * as ST from './state.js';
       .order('updated_at', { ascending: false });
 
     if (error) {
-      ST.myComputationsList.innerHTML = `<p style="color:#b91c1c;">No se pudieron cargar tus presupuestos: ${error.message}</p>`;
+      ST.myComputationsList.innerHTML = `<p style="color:#b91c1c;">${ST.friendlyError(error, 'cargar Mis Presupuestos')}</p>`;
       return;
     }
 
@@ -486,7 +486,7 @@ import * as ST from './state.js';
     box.innerHTML = `
       <p style="font-size:0.78rem; font-weight:700; margin-bottom:6px;">🔗 Link para compartir (sin login, cualquiera puede verlo):</p>
       <div style="display:flex; gap:6px;">
-        <input type="text" value="${ST.escapeHtml(url)}" readonly class="form-select" style="flex:1; font-size:0.78rem;" onclick="this.select()">
+        <input type="text" value="${ST.escapeHtml(url)}" readonly class="form-select" style="flex:1; min-width:0; font-size:0.78rem;" onclick="this.select()">
         <button class="btn-computo" style="flex-shrink:0;" onclick="navigator.clipboard.writeText('${url}'); window.nexoBraApp.showToast('Copiado.')">Copiar</button>
       </div>
       <button style="background:none; border:none; color:var(--text-subtle); font-size:0.72rem; text-decoration:underline; cursor:pointer; margin-top:6px;" onclick="window.nexoBraApp.unshareComputation()">Dejar de compartir</button>
