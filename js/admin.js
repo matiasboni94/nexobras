@@ -204,6 +204,10 @@ export async function openMaterialEditor(materialId) {
   document.getElementById('admin-edit-mes-base').value = (saleBase && saleBase.base_month) || (measurementBase && measurementBase.base_month) || '';
   document.getElementById('admin-edit-tags').value = (aliases || []).map(a => a.alias).join(', ');
   document.getElementById('admin-edit-active').checked = material.active !== false;
+  document.getElementById('admin-edit-brand').value = material.brand || '';
+  document.getElementById('admin-edit-technical-description').value = material.technical_description || '';
+  document.getElementById('admin-edit-yield-value').value = material.yield_value ?? '';
+  document.getElementById('admin-edit-yield-unit').value = material.yield_unit || '';
 
   document.getElementById('admin-material-editor').style.display = 'block';
   document.getElementById('admin-material-editor').scrollIntoView({ behavior: 'smooth' });
@@ -236,7 +240,11 @@ export async function saveMaterialEdit() {
       sale_unit: document.getElementById('admin-edit-unidad-venta').value.trim() || null,
       measurement_unit: document.getElementById('admin-edit-unidad-computo').value.trim() || null,
       package_quantity: parseFloat(document.getElementById('admin-edit-envase').value) || 1,
-      active: document.getElementById('admin-edit-active').checked
+      active: document.getElementById('admin-edit-active').checked,
+      brand: document.getElementById('admin-edit-brand').value.trim() || null,
+      technical_description: document.getElementById('admin-edit-technical-description').value.trim() || null,
+      yield_value: parseFloat(document.getElementById('admin-edit-yield-value').value) || null,
+      yield_unit: document.getElementById('admin-edit-yield-unit').value.trim() || null
     };
     const { error: matErr } = await ST.supabaseClient.from('materials').update(materialPayload).eq('id', materialId);
     if (matErr) throw matErr;
@@ -506,6 +514,165 @@ export async function rejectOffer(id) {
 // Analítica de búsquedas: qué se busca y no se encuentra
 // ============================================================
 
+// ============================================================
+// Carga masiva de precios base desde Excel (revista nueva)
+// ============================================================
+
+let bulkPriceRows = [];
+
+export async function handleBulkPriceFile(file) {
+  if (!file) return;
+  document.getElementById('admin-bulk-price-filename').textContent = file.name;
+
+  try {
+    await ST.ensureXlsxLoaded();
+  } catch (err) {
+    ST.showToast(err.message);
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, { type: 'array' });
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    processBulkPriceRows(rows);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function processBulkPriceRows(rawRows) {
+  const preview = document.getElementById('admin-bulk-price-preview');
+  const dataRows = rawRows.slice(1); // primera fila = encabezados
+
+  bulkPriceRows = dataRows
+    .filter(r => r[0]) // tiene que traer al menos el código
+    .map(r => ({
+      material_id: String(r[0]).trim(),
+      sale_amount: r[1] !== undefined && r[1] !== '' ? Number(r[1]) : null,
+      measurement_amount: r[2] !== undefined && r[2] !== '' ? Number(r[2]) : null
+    }))
+    .filter(r => r.sale_amount !== null || r.measurement_amount !== null);
+
+  const matchedIds = new Set(NEXOBRA_DATA.map(m => m.id));
+  const matched = bulkPriceRows.filter(r => matchedIds.has(r.material_id)).length;
+  const noMatch = bulkPriceRows.length - matched;
+
+  preview.innerHTML = `
+    <p style="font-size:0.85rem; margin-bottom:10px;">
+      <strong>${bulkPriceRows.length}</strong> filas con precio en el archivo · <strong style="color:#15803d;">${matched}</strong> coinciden con un código de NEXOBRA
+      ${noMatch > 0 ? ` · <strong style="color:#b91c1c;">${noMatch}</strong> códigos no encontrados (se van a saltear)` : ''}
+    </p>
+    <button class="btn-computo" id="btn-confirm-bulk-price">Aplicar los ${matched} precios</button>
+  `;
+  document.getElementById('btn-confirm-bulk-price').addEventListener('click', confirmBulkPriceUpload);
+}
+
+async function confirmBulkPriceUpload() {
+  const monthInput = document.getElementById('admin-bulk-base-month').value; // "YYYY-MM"
+  if (!monthInput) {
+    ST.showToast('Elegí el mes base de estos precios.');
+    return;
+  }
+  const sourceName = document.getElementById('admin-bulk-source-name').value.trim() || null;
+  const baseMonth = `${monthInput}-01`;
+
+  if (!confirm(`¿Confirmás actualizar los precios base de ${bulkPriceRows.length} materiales? Los precios anteriores quedan guardados como historial, no se pierden.`)) return;
+
+  ST.showToast('Aplicando... puede tardar un momento con muchos materiales.');
+
+  const { data, error } = await ST.supabaseClient.rpc('admin_bulk_update_price_bases', {
+    p_rows: bulkPriceRows,
+    p_base_month: baseMonth
+  });
+
+  if (error) {
+    ST.showToast('No se pudo aplicar la carga: ' + error.message);
+    return;
+  }
+
+  const result = data?.[0];
+  ST.showToast(`Listo: ${result?.updated_count ?? 0} materiales actualizados, ${result?.skipped_count ?? 0} sin coincidencia.`);
+  document.getElementById('admin-bulk-price-preview').innerHTML = '';
+  bulkPriceRows = [];
+}
+
+// ============================================================
+// Sugerencias técnicas de proveedores (marca, descripción, rendimiento)
+// ============================================================
+
+export async function loadTechSuggestions() {
+  const container = document.getElementById('admin-tech-suggestions-list');
+  if (!container) return;
+  container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando...</p>';
+
+  const { data, error } = await ST.supabaseClient
+    .from('material_technical_suggestions')
+    .select('id, material_id, brand, technical_description, yield_value, yield_unit, created_at, providers(business_name)')
+    .eq('status', 'pending')
+    .order('created_at');
+
+  if (error) {
+    container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">No hay sugerencias pendientes.</p>';
+    return;
+  }
+
+  container.innerHTML = data.map(s => {
+    const material = NEXOBRA_DATA.find(m => m.id === s.material_id);
+    return `
+      <div class="provider-catalog-row">
+        <div class="provider-catalog-row-info">
+          <h5>${ST.escapeHtml(material?.denominacion) || s.material_id}</h5>
+          <span style="display:block;">
+            ${s.brand ? `<strong>Marca:</strong> ${ST.escapeHtml(s.brand)}<br>` : ''}
+            ${s.technical_description ? `<strong>Descripción:</strong> ${ST.escapeHtml(s.technical_description)}<br>` : ''}
+            ${s.yield_value ? `<strong>Rendimiento:</strong> ${s.yield_value} ${ST.escapeHtml(s.yield_unit)}<br>` : ''}
+            <span style="color:var(--text-muted); font-size:0.75rem;">Sugerido por ${ST.escapeHtml(s.providers?.business_name) || '(proveedor eliminado)'} · ${formatDateTime(s.created_at)}</span>
+          </span>
+        </div>
+        <div class="provider-catalog-row-controls">
+          <button class="btn-computo" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.approveTechSuggestion(${ST.escAttr(s.id)}, ${ST.escAttr(s.material_id)})">✓ Aprobar</button>
+          <button class="btn-remove-item" title="Rechazar" onclick="window.nexoBraApp.rejectTechSuggestion(${ST.escAttr(s.id)})">&times;</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+export async function approveTechSuggestion(id, materialId) {
+  const { data: suggestion, error: fetchError } = await ST.supabaseClient
+    .from('material_technical_suggestions')
+    .select('brand, technical_description, yield_value, yield_unit')
+    .eq('id', id)
+    .single();
+  if (fetchError) { ST.showToast('No se pudo leer la sugerencia: ' + fetchError.message); return; }
+
+  const updates = {};
+  if (suggestion.brand) updates.brand = suggestion.brand;
+  if (suggestion.technical_description) updates.technical_description = suggestion.technical_description;
+  if (suggestion.yield_value) { updates.yield_value = suggestion.yield_value; updates.yield_unit = suggestion.yield_unit; }
+
+  const { error: updateError } = await ST.supabaseClient.from('materials').update(updates).eq('id', materialId);
+  if (updateError) { ST.showToast('No se pudo aplicar al material: ' + updateError.message); return; }
+
+  await ST.supabaseClient.from('material_technical_suggestions').update({ status: 'approved' }).eq('id', id);
+  ST.showToast('Aplicado al material.');
+  loadTechSuggestions();
+}
+
+export async function rejectTechSuggestion(id) {
+  const motivo = prompt('¿Por qué la rechazás? (opcional, se lo muestra al proveedor)');
+  const { error } = await ST.supabaseClient.from('material_technical_suggestions').update({ status: 'rejected', rejection_reason: motivo || null }).eq('id', id);
+  if (error) { ST.showToast('No se pudo rechazar: ' + error.message); return; }
+  ST.showToast('Sugerencia rechazada.');
+  loadTechSuggestions();
+}
+
 export async function loadSearchAnalytics(zeroResultsOnly) {
   const container = document.getElementById('admin-analytics-results');
   if (!container) return;
@@ -658,6 +825,11 @@ export function setupAdminListeners() {
   const btnAnalyticsTopSearches = document.getElementById('btn-analytics-top-searches');
   if (btnAnalyticsZeroResults) btnAnalyticsZeroResults.addEventListener('click', () => loadSearchAnalytics(true));
   if (btnAnalyticsTopSearches) btnAnalyticsTopSearches.addEventListener('click', () => loadSearchAnalytics(false));
+
+  const bulkPriceFileInput = document.getElementById('admin-bulk-price-file');
+  if (bulkPriceFileInput) bulkPriceFileInput.addEventListener('change', (e) => {
+    if (e.target.files[0]) handleBulkPriceFile(e.target.files[0]);
+  });
 }
 
 export function loadAdminPanel() {
@@ -665,4 +837,5 @@ export function loadAdminPanel() {
   loadPendingProviders();
   loadPendingOffers();
   loadIndexSeriesOptions();
+  loadTechSuggestions();
 }
