@@ -526,8 +526,14 @@ import * as ST from './state.js';
   export function mapRemoteMaterial(row) {
     const baseSale = newestPrice(row.material_price_bases, 'sale', 'base_month');
     const baseMeasurement = newestPrice(row.material_price_bases, 'measurement', 'base_month');
-    const referenceSale = newestPrice(row.material_reference_prices, 'sale', 'reference_date');
-    const referenceMeasurement = newestPrice(row.material_reference_prices, 'measurement', 'reference_date');
+    const envase = Number(row.package_quantity) || 1;
+    // Respaldo: si un material nunca tuvo un precio de "cómputo" cargado a
+    // mano en la base (price_kind='measurement'), lo derivamos de venta ÷
+    // envase -- la misma fórmula que ya usa el botón "Calcular" del editor
+    // de materiales -- en vez de dejarlo en $0.
+    const precioComputoCalculado = baseMeasurement?.amount
+      ? Number(baseMeasurement.amount)
+      : (baseSale?.amount ? Number(baseSale.amount) / envase : 0);
 
     return {
       id: row.id,
@@ -538,14 +544,31 @@ import * as ST from './state.js';
       tags: (row.material_aliases || []).map(alias => alias.alias),
       unidadVenta: row.sale_unit || '',
       unidadComputo: row.measurement_unit || '',
-      envase: Number(row.package_quantity) || 1,
-      precioBase: Number(baseSale?.amount || referenceSale?.amount || 0),
-      precioVenta: Number(referenceSale?.amount || baseSale?.amount || 0),
-      precioComputo: Number(referenceMeasurement?.amount || baseMeasurement?.amount || 0),
-      mesBase: toBaseMonthLabel(baseSale?.base_month)
+      envase,
+      precioBase: Number(baseSale?.amount || 0),
+      precioVenta: Number(baseSale?.amount || 0),
+      precioComputo: precioComputoCalculado,
+      mesBase: toBaseMonthLabel(baseSale?.base_month),
+      // Repositorio técnico (marca, descripción, rendimiento): antes se
+      // buscaban aparte, por tarjeta, en cada render del catálogo. Ahora
+      // vienen ya incluidos acá, sincronizados junto con todo lo demás.
+      brand: row.brand || null,
+      technical_description: row.technical_description || null,
+      yield_value: row.yield_value || null,
+      yield_unit: row.yield_unit || null
     };
   }
 
+  /**
+   * Sincroniza el catálogo en memoria (NEXOBRA_DATA) con la base de datos,
+   * en segundo plano, apenas termina de cargar la página. NEXOBRA_DATA sigue
+   * siendo lo que todos los módulos leen (nada de eso cambia) -- lo que
+   * cambia es que, unos segundos después de abrir el sitio, ese contenido
+   * se actualiza solo con lo último de la base: materiales nuevos que se
+   * hayan aprobado, precios actualizados (a mano o por carga masiva), y
+   * ficha técnica. Así "el archivo estático" deja de ser una foto vieja que
+   * hay que acordarse de regenerar a mano.
+   */
   export async function loadCatalogFromSupabase() {
     if (!ST.supabaseClient) return;
 
@@ -553,39 +576,31 @@ import * as ST from './state.js';
       .from('materials')
       .select(`
         id, rubro, category, subcategory, denomination, sale_unit, measurement_unit, package_quantity,
+        brand, technical_description, yield_value, yield_unit,
         material_aliases(alias),
-        material_price_bases(amount, price_kind, base_month),
-        material_reference_prices(amount, price_kind, reference_date)
+        material_price_bases(amount, price_kind, base_month, is_active)
       `)
       .eq('active', true)
       .order('id');
 
     if (error) {
-      console.warn('No se pudo cargar el catálogo remoto. Se conserva la copia local.', error.message);
+      console.warn('No se pudo sincronizar el catálogo con la base. Se conserva la copia local.', error.message);
       return;
     }
     if (!data || data.length === 0) return;
 
-    const latestReferenceDate = data
-      .flatMap(item => item.material_reference_prices || [])
-      .map(item => item.reference_date)
-      .filter(Boolean)
-      .sort()
-      .at(-1);
-
-    // Hasta que existan valores de referencia publicados, conservamos el catálogo local.
-    if (!latestReferenceDate) return;
+    // Antes de mapear: nos quedamos solo con los precios base ACTIVOS de
+    // cada material (is_active=true) -- si alguna vez llegan varias filas
+    // por material_id/price_kind (historial de precios viejos), no
+    // queremos mezclar un precio ya reemplazado con el vigente.
+    data.forEach(row => {
+      row.material_price_bases = (row.material_price_bases || []).filter(p => p.is_active);
+    });
 
     const remoteMaterials = data.map(mapRemoteMaterial).filter(item => item.precioVenta > 0);
     if (remoteMaterials.length === 0) return;
 
     NEXOBRA_DATA.splice(0, NEXOBRA_DATA.length, ...remoteMaterials);
-
-    if (latestReferenceDate) {
-      const latest = new Date(`${latestReferenceDate}T00:00:00`);
-      ST.REFERENCE_PRICE_INFO.period = latest.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-      ST.REFERENCE_PRICE_INFO.updatedAt = latest.toLocaleDateString('es-AR');
-    }
     ST.REFERENCE_PRICE_INFO.source = 'Base de datos NEXOBRA';
 
     Catalog.renderHomeSubareas();
@@ -593,5 +608,4 @@ import * as ST from './state.js';
     Catalog.renderProducts();
     Catalog.updateCatalogHeader();
     updateReferenceStatus();
-    ST.showToast(`✓ Catálogo actualizado desde NEXOBRA (${remoteMaterials.length} materiales)`);
   }
