@@ -48,6 +48,7 @@ import * as ST from './state.js';
       document.getElementById('prov-contact-email').value = provider.contact_email || '';
       document.getElementById('prov-description').value = provider.description || '';
       updateLogoPreview(provider.logo_url);
+      loadOwnRating(provider.id);
 
       const { data: branch } = await ST.supabaseClient
         .from('provider_branches')
@@ -88,6 +89,57 @@ import * as ST from './state.js';
       img.style.display = 'none';
       placeholder.style.display = 'block';
     }
+  }
+
+  async function loadOwnRating(providerId) {
+    const el = document.getElementById('provider-own-rating');
+    if (!el) return;
+    const { data } = await ST.supabaseClient
+      .from('provider_ratings_summary')
+      .select('avg_rating, review_count')
+      .eq('provider_id', providerId)
+      .maybeSingle();
+
+    if (!data || !data.review_count) {
+      el.innerHTML = '<span class="star-rating-empty">Todavía no tenés reseñas de clientes.</span>';
+      return;
+    }
+    const rounded = Math.round(data.avg_rating);
+    const stars = '★'.repeat(rounded) + '☆'.repeat(5 - rounded);
+    el.innerHTML = `<span class="star-rating"><span class="star-rating-stars">${stars}</span> ${data.avg_rating} <span class="star-rating-count">(${data.review_count} reseña${data.review_count === 1 ? '' : 's'})</span></span>`;
+  }
+
+  export async function suggestTechnicalData(materialId) {
+    if (!ST.providerState.provider) {
+      ST.showToast('No se encontró tu perfil de proveedor.');
+      return;
+    }
+    const material = NEXOBRA_DATA.find(m => m.id === materialId);
+    const brand = prompt(`Marca de "${material?.denominacion || materialId}" (dejá vacío para saltear):`);
+    if (brand === null) return; // canceló todo
+    const description = prompt('Descripción técnica breve (opcional):');
+    const yieldValue = prompt('Rendimiento -- solo el número (ej: 5). Dejá vacío si no aplica:');
+    const yieldUnit = yieldValue ? prompt('Unidad del rendimiento (ej: m²/bolsa):') : null;
+
+    if (!brand && !description && !yieldValue) {
+      ST.showToast('No cargaste ningún dato.');
+      return;
+    }
+
+    const { error } = await ST.supabaseClient.from('material_technical_suggestions').insert({
+      material_id: materialId,
+      provider_id: ST.providerState.provider.id,
+      brand: brand || null,
+      technical_description: description || null,
+      yield_value: yieldValue ? parseFloat(yieldValue) : null,
+      yield_unit: yieldUnit || null
+    });
+
+    if (error) {
+      ST.showToast('No se pudo enviar la sugerencia: ' + error.message);
+      return;
+    }
+    ST.showToast('¡Gracias! Queda pendiente de aprobación.');
   }
 
   export async function uploadProviderLogo(file) {
@@ -433,6 +485,7 @@ import * as ST from './state.js';
           ${offer.status === 'rejected' ? `<br><span style="font-size:0.7rem; font-weight:700; color:#b91c1c;">✕ Rechazado${offer.rejection_reason ? ': ' + ST.escapeHtml(offer.rejection_reason) : ' — revisá el precio y volvé a intentar'}</span>` : ''}
         </div>
         <div class="provider-catalog-row-controls">
+          <button class="btn-remove-item" title="Sugerir marca, descripción o rendimiento para este material" onclick="window.nexoBraApp.suggestTechnicalData('${offer.materials?.id}')" style="font-size:0.85rem;">🔧</button>
           <span class="stock-badge ${offer.stock_status}">${offer.stock_status === 'en_stock' ? 'En stock' : offer.stock_status === 'a_pedido' ? 'A pedido' : 'Agotado'}</span>
           <select onchange="window.nexoBraApp.updateOfferStock('${offer.id}', this.value)">
             <option value="en_stock" ${offer.stock_status === 'en_stock' ? 'selected' : ''}>En stock</option>
@@ -491,13 +544,7 @@ import * as ST from './state.js';
   }
 
   // --- Carga masiva por Excel ---
-  export async function handleProviderExcelFile(file) {
-    try {
-      await ST.ensureXlsxLoaded();
-    } catch (err) {
-      ST.showToast(err.message);
-      return;
-    }
+  export function handleProviderExcelFile(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
       const data = new Uint8Array(e.target.result);
@@ -623,13 +670,7 @@ import * as ST from './state.js';
     loadProviderCatalog();
   }
 
-  export async function generateProviderTemplate() {
-    try {
-      await ST.ensureXlsxLoaded();
-    } catch (err) {
-      ST.showToast(err.message);
-      return;
-    }
+  export function generateProviderTemplate() {
     const ws_data = [
       ["SKU (Opcional)", "Nombre", "Precio", "Unidad", "Stock"],
       ["MICOD-001", "Cemento Portland Loma Negra 50kg", 8500, "Bolsa", "En stock"],
