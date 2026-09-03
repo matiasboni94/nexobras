@@ -154,10 +154,106 @@ import * as ST from './state.js';
   }
 
   export let ipcChartInstance = null;
+  let materialHistoryChartInstance = null;
 
-  export function renderIpcChart() {
+  /**
+   * Evolución histórica de precio para UN material puntual (a diferencia del
+   * gráfico de IPC, que es el índice general). Lee directo de la tabla-caché
+   * material_reference_anchors_cache -- ya tiene el precio mes a mes
+   * calculado, no hace falta recalcular nada acá.
+   */
+  export async function openMaterialHistoryChart(materialId, materialName) {
+    ST.materialHistorySubtitle.textContent = materialName;
+    ST.materialHistoryStatus.textContent = 'Cargando...';
+    ST.materialHistoryStatus.style.display = 'block';
+    ST.materialHistoryChart.style.display = 'none';
+    ST.materialHistoryModal.classList.add('open');
+    ST.materialHistoryModalBackdrop.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    const { data, error } = await ST.supabaseClient
+      .from('material_reference_anchors_cache')
+      .select('target_month, anchor_price, is_market_sourced')
+      .eq('material_id', materialId)
+      .eq('price_kind', 'sale')
+      .not('anchor_price', 'is', null)
+      .order('target_month');
+
+    if (error) {
+      ST.materialHistoryStatus.textContent = 'No se pudo cargar el historial: ' + error.message;
+      return;
+    }
+    if (!data || data.length < 2) {
+      ST.materialHistoryStatus.textContent = 'Todavía no hay suficiente historial de precios para este material.';
+      return;
+    }
+
+    try {
+      await ST.ensureChartJsLoaded();
+    } catch (err) {
+      ST.materialHistoryStatus.textContent = err.message;
+      return;
+    }
+
+    ST.materialHistoryStatus.style.display = 'none';
+    ST.materialHistoryChart.style.display = 'block';
+
+    const labels = data.map(row => ST.monthLabel(row.target_month));
+    const values = data.map(row => row.anchor_price);
+    const colors = data.map(row => row.is_market_sourced ? '#22c55e' : '#F5B000');
+
+    if (materialHistoryChartInstance) {
+      materialHistoryChartInstance.destroy();
+    }
+    materialHistoryChartInstance = new Chart(ST.materialHistoryChart.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Precio de referencia',
+          data: values,
+          borderColor: '#F5B000',
+          backgroundColor: 'rgba(245,176,0,0.1)',
+          pointBackgroundColor: colors,
+          pointRadius: 4,
+          tension: 0.2,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              afterLabel: (ctx) => data[ctx.dataIndex].is_market_sourced ? '📊 Precio de mercado real' : '📈 Proyectado por IPC'
+            }
+          }
+        },
+        scales: {
+          y: { ticks: { callback: (v) => ST.formatMoney(v) } }
+        }
+      }
+    });
+  }
+
+  export function closeMaterialHistoryModal() {
+    ST.materialHistoryModal.classList.remove('open');
+    ST.materialHistoryModalBackdrop.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+
+  export async function renderIpcChart() {
     const canvas = document.getElementById('ipc-evolution-chart');
-    if (!canvas || typeof Chart === 'undefined' || ST.indexState.months.length === 0) return;
+    if (!canvas || ST.indexState.months.length === 0) return;
+
+    try {
+      await ST.ensureChartJsLoaded();
+    } catch (err) {
+      console.warn(err.message);
+      return;
+    }
 
     const labels = ST.indexState.months.map(ST.monthLabel);
     const data = ST.indexState.months.map(m => ST.indexState.values[m]);
