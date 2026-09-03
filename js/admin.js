@@ -30,6 +30,30 @@ export function isAdmin() {
 export function updateAdminNavVisibility() {
   const btn = document.getElementById('btn-open-admin');
   if (btn) btn.style.display = isAdmin() ? 'block' : 'none';
+  if (isAdmin()) loadPendingCount();
+}
+
+/**
+ * Insignia roja en "Panel de Admin" con la cantidad de proveedores y ofertas
+ * pendientes de revisión -- se ve apenas entrás al sitio logueado como
+ * admin, sin tener que abrir el panel para saber si hay algo nuevo.
+ */
+export async function loadPendingCount() {
+  const badge = document.getElementById('admin-pending-badge');
+  if (!badge || !ST.supabaseClient) return;
+
+  const [{ count: providersCount }, { count: offersCount }] = await Promise.all([
+    ST.supabaseClient.from('providers').select('id', { count: 'exact', head: true }).eq('verification_status', 'pending'),
+    ST.supabaseClient.from('provider_offers').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+  ]);
+
+  const total = (providersCount || 0) + (offersCount || 0);
+  if (total > 0) {
+    badge.textContent = total;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
 }
 
 // ============================================================
@@ -373,6 +397,7 @@ export async function approveProvider(id) {
   ST.showToast('Proveedor aprobado. Ya aparece en el mapa.');
   closeProviderReview();
   loadPendingProviders();
+  loadPendingCount();
 }
 
 export async function rejectProvider(id) {
@@ -383,6 +408,7 @@ export async function rejectProvider(id) {
   ST.showToast('Proveedor rechazado.');
   closeProviderReview();
   loadPendingProviders();
+  loadPendingCount();
 }
 
 // ============================================================
@@ -456,6 +482,7 @@ export async function approveOffer(id) {
   if (error) { ST.showToast('No se pudo aprobar: ' + error.message); return; }
   ST.showToast('Precio aprobado.');
   loadPendingOffers();
+  loadPendingCount();
 }
 
 export async function rejectOffer(id) {
@@ -465,6 +492,7 @@ export async function rejectOffer(id) {
   if (error) { ST.showToast('No se pudo rechazar: ' + error.message); return; }
   ST.showToast('Precio rechazado.');
   loadPendingOffers();
+  loadPendingCount();
 }
 
 // ============================================================
@@ -473,6 +501,39 @@ export async function rejectOffer(id) {
 // en la misma tabla (index_values, ligada a index_series), así que
 // una sola sección de admin sirve para ambas.
 // ============================================================
+
+// ============================================================
+// Analítica de búsquedas: qué se busca y no se encuentra
+// ============================================================
+
+export async function loadSearchAnalytics(zeroResultsOnly) {
+  const container = document.getElementById('admin-analytics-results');
+  if (!container) return;
+  container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando...</p>';
+
+  const { data, error } = await ST.supabaseClient.rpc('get_top_searches', {
+    p_zero_results_only: zeroResultsOnly,
+    p_limit: 25
+  });
+
+  if (error) {
+    container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Todavía no hay suficientes búsquedas registradas.</p>';
+    return;
+  }
+
+  container.innerHTML = data.map(row => `
+    <div class="provider-search-row">
+      <div class="provider-search-row-info">
+        <strong>${ST.escapeHtml(row.query)}</strong>
+        <span style="color:var(--text-muted); font-size:0.75rem;">buscado ${row.search_count} vez${row.search_count === 1 ? '' : 'es'} · promedio ${row.avg_results} resultado${row.avg_results === 1 ? '' : 's'} · última vez ${formatDateTime(row.last_searched_at)}</span>
+      </div>
+    </div>
+  `).join('');
+}
 
 export async function loadIndexSeriesOptions() {
   const select = document.getElementById('admin-index-series-select');
@@ -592,6 +653,11 @@ export function setupAdminListeners() {
   const btnSaveIndexValue = document.getElementById('btn-save-index-value');
   if (indexSeriesSelect) indexSeriesSelect.addEventListener('change', () => loadRecentIndexValues());
   if (btnSaveIndexValue) btnSaveIndexValue.addEventListener('click', (e) => { e.preventDefault(); saveIndexValue(); });
+
+  const btnAnalyticsZeroResults = document.getElementById('btn-analytics-zero-results');
+  const btnAnalyticsTopSearches = document.getElementById('btn-analytics-top-searches');
+  if (btnAnalyticsZeroResults) btnAnalyticsZeroResults.addEventListener('click', () => loadSearchAnalytics(true));
+  if (btnAnalyticsTopSearches) btnAnalyticsTopSearches.addEventListener('click', () => loadSearchAnalytics(false));
 }
 
 export function loadAdminPanel() {
