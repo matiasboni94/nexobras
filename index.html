@@ -1525,6 +1525,26 @@
               <label for="admin-edit-tags">Tags / sinónimos (separados por coma)</label>
               <input type="text" id="admin-edit-tags" class="form-select" placeholder="cemento, portland, loma negra, 50kg">
             </div>
+
+            <h5 style="margin: 16px 0 10px; font-size:0.85rem;">🔧 Ficha técnica (opcional)</h5>
+            <div class="excel-config-grid" style="margin-bottom: 12px;">
+              <div class="config-field">
+                <label for="admin-edit-brand">Marca</label>
+                <input type="text" id="admin-edit-brand" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-yield-value">Rendimiento</label>
+                <input type="number" id="admin-edit-yield-value" class="form-select" min="0" step="0.01" placeholder="Ej: 5">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-yield-unit">Unidad del rendimiento</label>
+                <input type="text" id="admin-edit-yield-unit" class="form-select" placeholder="Ej: m²/bolsa">
+              </div>
+            </div>
+            <div class="config-field" style="margin-bottom: 12px;">
+              <label for="admin-edit-technical-description">Descripción técnica</label>
+              <textarea id="admin-edit-technical-description" class="form-select" rows="2" style="width:100%; resize:vertical;"></textarea>
+            </div>
             <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; margin-bottom:14px;">
               <input type="checkbox" id="admin-edit-active" style="width:auto;"> Material activo (visible en el catálogo)
             </label>
@@ -1533,6 +1553,41 @@
               <button class="btn-action-drawer" id="btn-close-material-editor" type="button">Cancelar</button>
             </div>
           </div>
+        </div>
+      </details>
+
+      <!-- CARGA MASIVA DE PRECIOS BASE (REVISTA) -->
+      <details class="provider-section">
+        <summary>📥 Actualizar precios base desde Excel (revista)</summary>
+        <div class="provider-section-body">
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">
+            Para cuando salga una edición nueva de la revista de precios. El Excel tiene que tener las columnas <strong>Código</strong>, <strong>Precio Venta</strong> y, opcional, <strong>Precio Cómputo</strong>. Por cada material, el precio base anterior queda guardado como historial (no se borra) y este pasa a ser el activo.
+          </p>
+          <div class="excel-config-grid" style="margin-bottom:14px;">
+            <div class="config-field">
+              <label for="admin-bulk-base-month">Mes base de estos precios</label>
+              <input type="month" id="admin-bulk-base-month" class="form-select">
+            </div>
+            <div class="config-field">
+              <label for="admin-bulk-source-name">Fuente (ej: "Revista Noviembre 2026")</label>
+              <input type="text" id="admin-bulk-source-name" class="form-select" placeholder="Revista Construir, edición N°...">
+            </div>
+          </div>
+          <input type="file" id="admin-bulk-price-file" accept=".xlsx,.xls,.csv" style="display:none;">
+          <label for="admin-bulk-price-file" class="btn-action-drawer btn-copy" style="display:inline-flex; cursor:pointer;">Elegir archivo Excel</label>
+          <span id="admin-bulk-price-filename" style="font-size:0.8rem; color:var(--text-muted); margin-left:8px;"></span>
+          <div id="admin-bulk-price-preview" style="margin-top:14px;"></div>
+        </div>
+      </details>
+
+      <!-- SUGERENCIAS TÉCNICAS DE PROVEEDORES -->
+      <details class="provider-section">
+        <summary>🔧 Sugerencias técnicas pendientes</summary>
+        <div class="provider-section-body">
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">
+            Marca, descripción técnica y rendimiento que sugirieron proveedores para materiales de su catálogo. Se aplican al material recién cuando las aprobás.
+          </p>
+          <div id="admin-tech-suggestions-list"></div>
         </div>
       </details>
 
