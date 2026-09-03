@@ -87,7 +87,6 @@ import * as ST from './state.js';
     ST.mapState.markers.push(centerMarker);
 
     const conCoordenadas = (data || []).filter(o => o.latitude && o.longitude);
-    ST.logSearch(materialName, conCoordenadas.length);
     conCoordenadas.forEach(offer => {
       const marker = L.marker([offer.latitude, offer.longitude]).addTo(ST.mapState.map);
       // Sin popup propio de Leaflet: el detalle se muestra siempre en el panel
@@ -823,7 +822,7 @@ import * as ST from './state.js';
     }
     if (!data || data.length === 0) {
       list.innerHTML = `
-        <div class="computo-empty-ST.state">
+        <div class="computo-empty-state">
           <div class="empty-icon">🔔</div>
           <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no armaste ninguna alerta</h4>
           <p style="font-size: 0.85rem; color: var(--text-muted);">En el catálogo, activá "Ofertas de proveedores cercanos" y usá el botón de campana en cualquier material.</p>
@@ -849,8 +848,9 @@ import * as ST from './state.js';
     list.innerHTML = rows.map(({ alert, material, currentPrice, bajó, pct }) => `
       <div class="computation-row">
         <div class="computation-row-info">
-          <h4>${material ? material.denominacion : alert.material_id}</h4>
+          <h4>${ST.escapeHtml(material ? material.denominacion : alert.material_id)}</h4>
           <span>Precio de referencia: ${ST.formatMoney(alert.reference_price)} ${currentPrice !== null ? `· Ahora: ${ST.formatMoney(currentPrice)}` : '· Sin ofertas cercanas actuales'}</span>
+          ${alert.last_notified_at ? `<span style="display:block; font-size:0.72rem; color:var(--text-subtle);">📧 Último aviso por mail: ${new Date(alert.last_notified_at).toLocaleDateString('es-AR')}, a ${ST.formatMoney(alert.last_notified_price)}</span>` : '<span style="display:block; font-size:0.72rem; color:var(--text-subtle);">Todavía no bajó lo suficiente como para avisarte por mail.</span>'}
         </div>
         <div class="computation-row-actions" style="align-items:center;">
           ${currentPrice !== null
