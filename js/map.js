@@ -87,6 +87,7 @@ import * as ST from './state.js';
     ST.mapState.markers.push(centerMarker);
 
     const conCoordenadas = (data || []).filter(o => o.latitude && o.longitude);
+    ST.logSearch(materialName, conCoordenadas.length);
     conCoordenadas.forEach(offer => {
       const marker = L.marker([offer.latitude, offer.longitude]).addTo(ST.mapState.map);
       // Sin popup propio de Leaflet: el detalle se muestra siempre en el panel
@@ -163,6 +164,7 @@ import * as ST from './state.js';
         <button class="btn-favorite-toggle ${esFavorito ? 'active' : ''}" onclick='window.nexoBraApp.toggleFavorite(${ST.escAttr(offer.branch_id)}, ${ST.escAttr(offer.business_name)})'>★</button>
       </div>
       <div class="branch-meta">${ST.escapeHtml(offer.branch_name)} · ${ST.escapeHtml(offer.locality || '')} · ${offer.distance_km.toFixed(1)} km de tu ubicación</div>
+      <div style="margin: 4px 0 10px;">${renderStarRating(offer.avg_rating, offer.review_count)}</div>
 
       <div class="card-price-box" style="margin: 14px 0;">
         <div class="price-main-row">
@@ -180,6 +182,11 @@ import * as ST from './state.js';
       </div>
 
       ${whatsappLink}
+
+      <div id="branch-reviews-section" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-light);">
+        <button class="btn-action-drawer btn-copy" style="width:100%;" onclick="window.nexoBraApp.loadBranchReviews('${offer.branch_id}', ${ST.escAttr(offer.provider_id)})">Ver / dejar una reseña</button>
+        <div id="branch-reviews-body"></div>
+      </div>
     `;
   }
 
@@ -225,6 +232,16 @@ import * as ST from './state.js';
     ST.mapStatusMsg.textContent = data && data.length > 0
       ? `${data.length} proveedor${data.length === 1 ? '' : 'es'} encontrado${data.length === 1 ? '' : 's'} en ${ST.mapState.radiusKm} km a la redonda.`
       : `No hay proveedores cargados en ${ST.mapState.radiusKm} km a la redonda todavía.`;
+  }
+
+  /** Arma el HTML de las estrellas + cantidad de reseñas, para mostrar en cualquier ficha de proveedor. */
+  function renderStarRating(avgRating, reviewCount) {
+    if (!reviewCount || reviewCount === 0) {
+      return `<span class="star-rating-empty">Sin reseñas todavía</span>`;
+    }
+    const rounded = Math.round(avgRating);
+    const stars = '★'.repeat(rounded) + '☆'.repeat(5 - rounded);
+    return `<span class="star-rating"><span class="star-rating-stars">${stars}</span> ${avgRating} <span class="star-rating-count">(${reviewCount})</span></span>`;
   }
 
   export async function showBranchDetail(branchId, branchInfo) {
@@ -274,10 +291,95 @@ import * as ST from './state.js';
         <h3 style="margin-bottom:0;">${ST.escapeHtml(branchInfo.business_name)}</h3>
       </div>
       <div class="branch-meta">${ST.escapeHtml(branchInfo.branch_name)} · ${ST.escapeHtml(branchInfo.locality)} · ${branchInfo.distance_km.toFixed(1)} km de tu ubicación</div>
+      <div style="margin: 4px 0 10px;">${renderStarRating(branchInfo.avg_rating, branchInfo.review_count)}</div>
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;">${whatsappLink}${favBtn}</div>
       <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">Variación de precio vs. la mediana de proveedores en ${ST.mapState.radiusKm} km a la redonda:</p>
       ${filas || '<p style="font-size:0.8rem; color:var(--text-muted);">Sin materiales cargados todavía.</p>'}
+
+      <div id="branch-reviews-section" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-light);">
+        <button class="btn-action-drawer btn-copy" style="width:100%;" onclick="window.nexoBraApp.loadBranchReviews('${branchId}', ${ST.escAttr(branchInfo.provider_id)})">Ver / dejar una reseña</button>
+        <div id="branch-reviews-body"></div>
+      </div>
     `;
+  }
+
+  export async function loadBranchReviews(branchId, providerId) {
+    const container = document.getElementById('branch-reviews-body');
+    if (!container) return;
+    container.innerHTML = '<p style="font-size:0.8rem; color:var(--text-muted); margin-top:10px;">Cargando reseñas...</p>';
+
+    const { data: reviews, error } = await ST.supabaseClient
+      .from('provider_reviews')
+      .select('rating, comment, created_at, profiles(full_name)')
+      .eq('provider_id', providerId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      container.innerHTML = `<p style="color:#b91c1c; font-size:0.8rem; margin-top:10px;">${error.message}</p>`;
+      return;
+    }
+
+    const reviewsHtml = (reviews || []).length === 0
+      ? '<p style="font-size:0.8rem; color:var(--text-muted); margin-top:10px;">Todavía nadie dejó una reseña. ¡Sé el primero!</p>'
+      : reviews.map(r => `
+          <div class="review-row">
+            <div class="review-row-header">
+              <span class="star-rating-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
+              <span style="font-size:0.72rem; color:var(--text-subtle);">${ST.escapeHtml(r.profiles?.full_name) || 'Usuario de NEXOBRA'} · ${new Date(r.created_at).toLocaleDateString('es-AR')}</span>
+            </div>
+            ${r.comment ? `<p class="review-row-comment">${ST.escapeHtml(r.comment)}</p>` : ''}
+          </div>
+        `).join('');
+
+    const formHtml = !ST.authState.user ? `
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-top:12px;">Iniciá sesión para dejar tu reseña.</p>
+    ` : `
+      <div class="review-form" style="margin-top:14px;">
+        <label style="font-size:0.78rem; font-weight:700; display:block; margin-bottom:6px;">Tu calificación</label>
+        <div class="review-star-picker" id="review-star-picker" data-value="0">
+          ${[1,2,3,4,5].map(n => `<span class="review-star-option" data-star="${n}" onclick="window.nexoBraApp.setReviewStars(${n})">☆</span>`).join('')}
+        </div>
+        <textarea id="review-comment-input" class="form-select" placeholder="Comentario corto (opcional)" rows="2" style="width:100%; margin-top:8px; resize:vertical;"></textarea>
+        <button class="btn-computo" style="margin-top:8px; width:100%; justify-content:center;" onclick="window.nexoBraApp.submitReview(${ST.escAttr(providerId)}, ${ST.escAttr(branchId)})">Publicar reseña</button>
+      </div>
+    `;
+
+    container.innerHTML = reviewsHtml + formHtml;
+  }
+
+  export function setReviewStars(n) {
+    const picker = document.getElementById('review-star-picker');
+    if (!picker) return;
+    picker.dataset.value = n;
+    picker.querySelectorAll('.review-star-option').forEach((el, idx) => {
+      el.textContent = idx < n ? '★' : '☆';
+    });
+  }
+
+  export async function submitReview(providerId, branchId) {
+    if (!ST.authState.user) {
+      ST.showToast('Iniciá sesión para dejar una reseña.');
+      return;
+    }
+    const picker = document.getElementById('review-star-picker');
+    const rating = parseInt(picker?.dataset.value || '0', 10);
+    if (rating < 1) {
+      ST.showToast('Elegí de 1 a 5 estrellas.');
+      return;
+    }
+    const comment = document.getElementById('review-comment-input')?.value.trim() || null;
+
+    const { error } = await ST.supabaseClient
+      .from('provider_reviews')
+      .upsert({ provider_id: providerId, user_id: ST.authState.user.id, rating, comment }, { onConflict: 'provider_id,user_id' });
+
+    if (error) {
+      ST.showToast('No se pudo publicar la reseña: ' + error.message);
+      return;
+    }
+    ST.showToast('¡Gracias por tu reseña!');
+    loadBranchReviews(branchId, providerId);
   }
 
   export function requestUserLocation() {
