@@ -255,7 +255,7 @@ import * as ST from './state.js';
     });
 
     if (error) {
-      ST.mapBranchPanel.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+      ST.mapBranchPanel.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, "cargar la ficha del proveedor")}</p>`;
       return;
     }
 
@@ -315,7 +315,7 @@ import * as ST from './state.js';
       .limit(10);
 
     if (error) {
-      container.innerHTML = `<p style="color:#b91c1c; font-size:0.8rem; margin-top:10px;">${error.message}</p>`;
+      container.innerHTML = `<p style="color:#b91c1c; font-size:0.8rem; margin-top:10px;">${ST.friendlyError(error, 'cargar reseñas')}</p>`;
       return;
     }
 
@@ -531,7 +531,7 @@ import * as ST from './state.js';
     });
 
     if (error) {
-      ST.offerPickerResults.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+      ST.offerPickerResults.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, "buscar ofertas de proveedores")}</p>`;
       return;
     }
     if (!data || data.length === 0) {
@@ -710,7 +710,7 @@ import * as ST from './state.js';
       .order('created_at', { ascending: false });
 
     if (error) {
-      list.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+      list.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, "cargar favoritos")}</p>`;
       return;
     }
     if (!data || data.length === 0) {
@@ -817,7 +817,7 @@ import * as ST from './state.js';
       .order('created_at', { ascending: false });
 
     if (error) {
-      list.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+      list.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, "cargar alertas")}</p>`;
       return;
     }
     if (!data || data.length === 0) {
