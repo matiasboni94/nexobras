@@ -750,6 +750,22 @@
     </div>
   </div>
 
+  <!-- ========================= MODAL: EVOLUCIÓN HISTÓRICA DE UN MATERIAL ========================= -->
+  <div class="modal-backdrop" id="material-history-modal-backdrop"></div>
+  <div class="excel-modal" id="material-history-modal" role="dialog" aria-labelledby="modal-material-history-title" style="max-width: 640px;">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-material-history-title" style="font-size: 1.15rem; font-weight: 800; margin-bottom: 2px;">📊 Evolución histórica</h3>
+        <p id="material-history-subtitle" style="font-size: 0.8rem; color: var(--text-subtle);"></p>
+      </div>
+      <button class="modal-close-btn" id="material-history-modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="material-history-status" style="font-size: 0.85rem; color: var(--text-muted); padding: 1rem 0;"></div>
+      <canvas id="material-history-chart" height="240" style="display:none;"></canvas>
+    </div>
+  </div>
+
   <!-- ========================= MODAL: PROPONER/CREAR MATERIAL NUEVO (Fase G3) ========================= -->
   <div class="modal-backdrop" id="new-material-modal-backdrop"></div>
   <div class="excel-modal" id="new-material-modal" role="dialog" aria-labelledby="modal-new-material-title" style="max-width: 480px;">
@@ -1603,7 +1619,6 @@
 
   <!-- JAVASCRIPT LOGIC -->
   <!-- Cliente y configuración pública: sin claves secretas. -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
