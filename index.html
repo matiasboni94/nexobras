@@ -526,6 +526,16 @@
           </svg>
           Copiar Texto
         </button>
+        <button class="btn-action-drawer" id="btn-share-computo" style="background: var(--color-accent, #3b82f6); color: #fff;" title="Generá un link para que cualquiera lo vea sin necesidad de cuenta, sin abrir ningún archivo">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+          Compartir por link
+        </button>
         <button class="btn-action-drawer" id="btn-export-presupuesto-referencia" style="background: var(--color-success); color: #fff;" title="Todo valorizado con el Precio de Referencia NEXOBRA, para planificar/estimar">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -1247,6 +1257,8 @@
             </div>
           </div>
 
+          <p id="provider-own-rating" style="margin-bottom: 20px;"></p>
+
           <form id="provider-profile-form">
             <div class="excel-config-grid">
               <div class="config-field">
@@ -1624,6 +1636,28 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
   <script src="supabase-config.js" defer></script>
   <script src="data.js" defer></script>
+  <!-- ========================= VISTA: PRESUPUESTO COMPARTIDO (link público) ========================= -->
+  <div id="shared-computation-view" style="display:none;">
+    <header class="header">
+      <div class="container header-container" style="justify-content: center;">
+        <a href="/" class="brand-wrapper">
+          <div class="brand-logo-icon">
+            <img src="assets/nexobra-icon.png" alt="NEXOBRA" width="36" height="36" style="display:block; object-fit: contain;">
+          </div>
+          <div class="brand-title-group">
+            <div class="brand-name">NEX<span class="accent">OBRA</span></div>
+            <span class="brand-badge-tag">COMPARADOR TÉCNICO</span>
+          </div>
+        </a>
+      </div>
+    </header>
+    <main class="container" style="padding: 2rem 1.5rem 4rem; max-width: 800px;">
+      <div id="shared-computation-body">
+        <p style="text-align:center; color:var(--text-muted); padding: 3rem 0;">Cargando presupuesto...</p>
+      </div>
+    </main>
+  </div>
+
   <script type="module" src="js/main.js"></script>
 </body>
 </html>
