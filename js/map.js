@@ -1,885 +1,1031 @@
-// NEXOBRA - map.js
+// NEXOBRA - computo.js
 
 import * as Auth from './auth.js';
-import * as Catalog from './catalog.js';
-import * as Computo from './computo.js';
 import * as Main from './main.js';
 import * as Pricing from './pricing.js';
-import * as Provider from './provider.js';
 import * as ST from './state.js';
 
-  export function initProviderMap() {
-    if (ST.mapState.initialized || typeof L === 'undefined') return;
-    ST.mapState.map = L.map('provider-map').setView([ST.mapState.center.lat, ST.mapState.center.lng], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap',
-      maxZoom: 19
-    }).addTo(ST.mapState.map);
-    ST.mapState.initialized = true;
+  export function updateComputationNameUI() {
+    ST.btnSaveComputationLabel.textContent = ST.computationState.currentId ? 'Actualizar' : 'Guardar';
   }
 
-  export function clearMapMarkers() {
-    ST.mapState.markers.forEach(m => ST.mapState.map.removeLayer(m));
-    ST.mapState.markers = [];
+  /** Convierte un item del carrito (ST.state.computoCart) a una fila de computation_items. */
+  export function cartItemToRow(item, computationId) {
+    const pricing = Pricing.resolveItemPricing(item, ST.state.computoMonth);
+    return {
+      computation_id: computationId,
+      material_id: item.type === 'material' ? item.id : null,
+      labor_series_code: item.type === 'labor' ? item.id : null,
+      item_type: item.type || 'material',
+      denomination_snapshot: item.denominacion,
+      quantity: item.qty,
+      unit: item.unit,
+      price_snapshot: pricing.unitPrice,
+      rubro: item.rubro || null,
+      base_price_snapshot: pricing.basePrice ?? null,
+      factor_snapshot: pricing.factor ?? null,
+      reference_period: ST.state.computoMonth,
+      pricing_mode: item.mode || 'venta',
+      source_kind: item.providerOfferId ? 'provider_offer' : 'reference',
+      provider_offer_id: item.providerOfferId || null,
+      provider_branch_id: item.providerBranchId || null,
+      provider_business_name: item.providerBusinessName || null,
+      provider_branch_name: item.providerBranchName || null,
+      provider_whatsapp: item.providerWhatsapp || null
+    };
   }
 
-  // ============================================================
-  // FASE G5 — Buscar un material y ver sus ofertas georeferenciadas
-  // en el mapa (como Booking: buscás y el mapa se filtra a eso).
-  // ============================================================
-  export function searchMaterialOnMap() {
-    const input = document.getElementById('home-map-material-search');
-    const query = input.value.trim();
-    const container = document.getElementById('home-map-material-results');
-    if (query.length < 2) {
-      container.innerHTML = '';
-      return;
+  /** Convierte una fila de computation_items de vuelta a un item de carrito "vivo" (sin precio congelado, salvo que venga de un proveedor puntual). */
+  export function rowToCartItem(row) {
+    const base = {
+      id: row.material_id || row.labor_series_code,
+      denominacion: row.denomination_snapshot,
+      rubro: row.rubro,
+      unit: row.unit,
+      qty: Number(row.quantity),
+      type: row.item_type,
+      mode: row.pricing_mode || 'venta'
+    };
+    if (row.provider_offer_id) {
+      base.providerOfferId = row.provider_offer_id;
+      base.providerBranchId = row.provider_branch_id;
+      base.providerBusinessName = row.provider_business_name;
+      base.providerBranchName = row.provider_branch_name;
+      base.providerWhatsapp = row.provider_whatsapp;
+      base.providerPrice = Number(row.price_snapshot); // acá sí se respeta el precio guardado: es fijo por diseño
     }
-    const results = Provider.searchMaterialsSimple(query, 8);
-    if (results.length === 0) {
-      container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted); padding: 8px 0;">Sin resultados.</p>';
-      return;
-    }
-    container.innerHTML = results.map(item => `
-      <div class="provider-search-row">
-        <div class="provider-search-row-info">
-          <strong>${ST.escapeHtml(item.denominacion)}</strong><br>
-          <span style="color:var(--text-muted); font-size:0.75rem;">${item.id} · ${item.rubro}</span>
-        </div>
-        <button class="btn-computo" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.selectMaterialOnMap(${ST.escAttr(item.id)}, ${ST.escAttr(item.denominacion)})">Ver en mapa</button>
-      </div>
-    `).join('');
+    return base;
   }
 
-  export async function selectMaterialOnMap(materialId, materialName) {
-    if (!ST.supabaseClient || !ST.mapState.map) return;
-    ST.mapState.filterMaterialId = materialId;
-    ST.mapState.filterMaterialName = materialName;
-    document.getElementById('home-map-material-results').innerHTML = '';
-    document.getElementById('home-map-material-search').value = materialName;
-    document.getElementById('btn-clear-map-material-search').style.display = 'inline-flex';
-    ST.mapStatusMsg.textContent = `Buscando ofertas de "${materialName}" cerca tuyo...`;
-    // Limpia el panel lateral ANTES de esperar la respuesta -- así nunca queda
-    // "colgada" la ficha de un proveedor viejo mientras carga la búsqueda nueva.
-    ST.mapBranchPanel.innerHTML = `
-      <div class="map-branch-panel-empty">
-        <div style="font-size: 2rem;">🔎</div>
-        <p>Buscando ofertas de "${materialName}"...</p>
-      </div>
-    `;
-
-    const { data, error } = await ST.supabaseClient.rpc('nearby_offers_for_material', {
-      p_material_id: materialId,
-      center_lat: ST.mapState.center.lat,
-      center_lng: ST.mapState.center.lng,
-      radius_km: ST.mapState.radiusKm
-    });
-
-    if (error) {
-      ST.mapStatusMsg.textContent = 'No se pudo buscar: ' + error.message;
-      return;
-    }
-
-    clearMapMarkers();
-    const centerMarker = L.circleMarker([ST.mapState.center.lat, ST.mapState.center.lng], {
-      radius: 7, color: '#d97757', fillColor: '#d97757', fillOpacity: 0.9
-    }).addTo(ST.mapState.map).bindPopup('Tu ubicación');
-    ST.mapState.markers.push(centerMarker);
-
-    const conCoordenadas = (data || []).filter(o => o.latitude && o.longitude);
-    conCoordenadas.forEach(offer => {
-      const marker = L.marker([offer.latitude, offer.longitude]).addTo(ST.mapState.map);
-      // Sin popup propio de Leaflet: el detalle se muestra siempre en el panel
-      // lateral (#map-branch-panel), así hay un solo lugar de verdad y nunca
-      // queda desincronizado entre lo que muestra el popup y lo que muestra el panel.
-      marker.on('click', () => showMaterialOfferDetail(offer, materialId, materialName));
-      ST.mapState.markers.push(marker);
-    });
-
-    if (conCoordenadas.length > 0) {
-      ST.mapStatusMsg.textContent = `${conCoordenadas.length} oferta${conCoordenadas.length === 1 ? '' : 's'} de "${materialName}" en ${ST.mapState.radiusKm} km a la redonda. Tocá un pin para ver el detalle.`;
-      showMaterialOfferDetail(conCoordenadas[0], materialId, materialName); // muestra la primera de una, no hace falta esperar el click
-    } else {
-      // Nadie cerca cargó este material: en vez de dejarte con un cartel
-      // vacío, mostramos el Precio de Referencia (mercado real si hay 3+
-      // proveedores en TODO el país para este mes, si no, proyectado por
-      // IPC desde el último dato real) -- así siempre te llevás algo útil.
-      ST.mapStatusMsg.textContent = `Ningún proveedor cargó "${materialName}" en ${ST.mapState.radiusKm} km a la redonda todavía. Te mostramos el precio de referencia.`;
-      const material = NEXOBRA_DATA.find(m => m.id === materialId);
-      const trace = material ? Pricing.getReferencePrice(material, 'venta') : null;
-
-      if (trace && !isNaN(trace.currentPrice)) {
-        ST.mapBranchPanel.innerHTML = `
-          <div class="map-branch-panel-empty" style="text-align:left;">
-            <p style="font-weight:700; margin-bottom:10px;">😕 Nadie cerca tuyo cargó "${materialName}" todavía.</p>
-            <div class="card-price-box">
-              <div class="price-main-row">
-                <span class="price-main-val">${ST.formatMoney(trace.currentPrice)}</span>
-                <span class="price-unit-tag">/ ${material.unidadVenta}</span>
-              </div>
-              ${trace.isMarketSourced
-                ? '<div class="price-source-tag market">📊 Precio de mercado real</div>'
-                : `<div class="price-source-tag ipc">📈 Proyectado por IPC${trace.projectedFromEarlierMonth ? ' de ' + ST.monthLabel(trace.projectedFromEarlierMonth) : ''}</div>`
-              }
-            </div>
-            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:10px;">Este es el precio de referencia general, no de un proveedor puntual cerca tuyo. Probá ampliar el radio de búsqueda para ver ofertas reales de la zona.</p>
-          </div>
-        `;
-      } else {
-        ST.mapBranchPanel.innerHTML = `
-          <div class="map-branch-panel-empty">
-            <div style="font-size: 2rem;">😕</div>
-            <p>Nadie cerca tuyo cargó "${materialName}" todavía. Probá ampliar el radio de búsqueda.</p>
-          </div>
-        `;
-      }
-    }
-  }
-
-  /**
-   * Panel enfocado en UNA oferta puntual de UN material (no la lista completa
-   * de materiales del proveedor -- eso es lo que pediste explícitamente).
-   * Muestra precio, variación vs. la referencia, contacto y favorito.
-   */
-  async function showMaterialOfferDetail(offer, materialId, materialName) {
-    const material = NEXOBRA_DATA.find(m => m.id === materialId);
-    const trace = material ? Pricing.getReferencePrice(material, 'venta') : null;
-    const refPrice = trace ? trace.currentPrice : null;
-    const variacion = refPrice && !isNaN(refPrice) ? Math.round(((offer.amount - refPrice) / refPrice) * 100) : null;
-    const varClass = variacion === null ? 'equal' : variacion < -1 ? 'below' : variacion > 1 ? 'above' : 'equal';
-    const varTxt = variacion === null ? 'sin referencia para comparar' : `${variacion > 0 ? '+' : ''}${variacion}% vs. referencia`;
-    const esFavorito = ST.favoritesState.ids.has(offer.branch_id);
-    const stockLabel = offer.stock_status === 'agotado' ? 'Agotado' : offer.stock_status === 'a_pedido' ? 'A pedido' : 'En stock';
-    const whatsappLink = offer.whatsapp_phone
-      ? `<a class="btn-computo" style="text-decoration:none;" href="https://wa.me/${offer.whatsapp_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola! Vi en NEXOBRA que tenés ${materialName} a ${ST.formatMoney(offer.amount)}/${offer.unit}. ¿Seguís teniendo disponible?`)}" target="_blank" rel="noopener">💬 Contactar por WhatsApp</a>`
-      : '';
-
-    ST.mapBranchPanel.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-        <div style="display:flex; align-items:center; gap:10px;">
-          ${offer.logo_url ? `<img src="${ST.escapeHtml(offer.logo_url)}" class="provider-logo-mini" alt="">` : ''}
-          <h3 style="margin-bottom:2px;">${ST.escapeHtml(offer.business_name)}</h3>
-        </div>
-        <button class="btn-favorite-toggle ${esFavorito ? 'active' : ''}" onclick='window.nexoBraApp.toggleFavorite(${ST.escAttr(offer.branch_id)}, ${ST.escAttr(offer.business_name)})'>★</button>
-      </div>
-      <div class="branch-meta">${ST.escapeHtml(offer.branch_name)} · ${ST.escapeHtml(offer.locality || '')} · ${offer.distance_km.toFixed(1)} km de tu ubicación</div>
-      <div style="margin: 4px 0 10px;">${renderStarRating(offer.avg_rating, offer.review_count)}</div>
-
-      <div class="card-price-box" style="margin: 14px 0;">
-        <div class="price-main-row">
-          <span class="price-main-val">${ST.formatMoney(offer.amount)}</span>
-          <span class="price-unit-tag">/ ${offer.unit}</span>
-        </div>
-        <div class="price-secondary-row" style="color: ${varClass === 'below' ? '#15803d' : varClass === 'above' ? '#b91c1c' : 'var(--text-subtle)'};">
-          <span>${materialName}</span>
-          <strong>${varTxt}</strong>
-        </div>
-        <div class="price-secondary-row">
-          <span>Stock:</span>
-          <strong>${stockLabel}</strong>
-        </div>
-      </div>
-
-      ${whatsappLink}
-
-      <div id="branch-reviews-section" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-light);">
-        <button class="btn-action-drawer btn-copy" style="width:100%;" onclick="window.nexoBraApp.loadBranchReviews('${offer.branch_id}', ${ST.escAttr(offer.provider_id)})">Ver / dejar una reseña</button>
-        <div id="branch-reviews-body"></div>
-      </div>
-    `;
-  }
-
-  export function clearMaterialSearchOnMap() {
-    ST.mapState.filterMaterialId = null;
-    ST.mapState.filterMaterialName = null;
-    document.getElementById('home-map-material-search').value = '';
-    document.getElementById('home-map-material-results').innerHTML = '';
-    document.getElementById('btn-clear-map-material-search').style.display = 'none';
-    loadNearbyBranchesOnMap();
-  }
-
-  export async function loadNearbyBranchesOnMap() {
-    if (!ST.supabaseClient || !ST.mapState.map) return;
-    ST.mapStatusMsg.textContent = 'Buscando proveedores cercanos...';
-
-    const { data, error } = await ST.supabaseClient.rpc('nearby_provider_branches', {
-      center_lat: ST.mapState.center.lat,
-      center_lng: ST.mapState.center.lng,
-      radius_km: ST.mapState.radiusKm
-    });
-
-    if (error) {
-      ST.mapStatusMsg.textContent = 'No se pudo cargar el mapa: ' + error.message;
-      return;
-    }
-
-    clearMapMarkers();
-
-    const centerMarker = L.circleMarker([ST.mapState.center.lat, ST.mapState.center.lng], {
-      radius: 7, color: '#d97757', fillColor: '#d97757', fillOpacity: 0.9
-    }).addTo(ST.mapState.map).bindPopup('Tu ubicación');
-    ST.mapState.markers.push(centerMarker);
-
-    (data || []).forEach(branch => {
-      if (!branch.latitude || !branch.longitude) return;
-      const marker = L.marker([branch.latitude, branch.longitude]).addTo(ST.mapState.map);
-      marker.bindPopup(`<strong>${ST.escapeHtml(branch.business_name)}</strong><br>${ST.escapeHtml(branch.branch_name)} · ${branch.distance_km.toFixed(1)} km<br>${branch.offers_count} material${branch.offers_count === 1 ? '' : 'es'} cargado${branch.offers_count === 1 ? '' : 's'}`);
-      marker.on('click', () => showBranchDetail(branch.branch_id, branch));
-      ST.mapState.markers.push(marker);
-    });
-
-    ST.mapStatusMsg.textContent = data && data.length > 0
-      ? `${data.length} proveedor${data.length === 1 ? '' : 'es'} encontrado${data.length === 1 ? '' : 's'} en ${ST.mapState.radiusKm} km a la redonda.`
-      : `No hay proveedores cargados en ${ST.mapState.radiusKm} km a la redonda todavía.`;
-  }
-
-  /** Arma el HTML de las estrellas + cantidad de reseñas, para mostrar en cualquier ficha de proveedor. */
-  function renderStarRating(avgRating, reviewCount) {
-    if (!reviewCount || reviewCount === 0) {
-      return `<span class="star-rating-empty">Sin reseñas todavía</span>`;
-    }
-    const rounded = Math.round(avgRating);
-    const stars = '★'.repeat(rounded) + '☆'.repeat(5 - rounded);
-    return `<span class="star-rating"><span class="star-rating-stars">${stars}</span> ${avgRating} <span class="star-rating-count">(${reviewCount})</span></span>`;
-  }
-
-  export async function showBranchDetail(branchId, branchInfo) {
-    ST.mapBranchPanel.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando ficha...</p>';
-    ST.mapState.lastSelectedBranch = branchInfo;
-
-    const { data, error } = await ST.supabaseClient.rpc('branch_price_variation', {
-      p_branch_id: branchId,
-      center_lat: ST.mapState.center.lat,
-      center_lng: ST.mapState.center.lng,
-      radius_km: ST.mapState.radiusKm
-    });
-
-    if (error) {
-      ST.mapBranchPanel.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, "cargar la ficha del proveedor")}</p>`;
-      return;
-    }
-
-    const whatsappLink = branchInfo.whatsapp_phone
-      ? `<a class="branch-whatsapp-btn" target="_blank" href="https://wa.me/${branchInfo.whatsapp_phone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde NEXOBRA para consultar precios.')}">💬 Contactar por WhatsApp</a>`
-      : '';
-
-    const esFavorito = ST.favoritesState.ids.has(branchId);
-    const favBtn = `
-      <button class="btn-favorite-toggle ${esFavorito ? 'active' : ''}" onclick='window.nexoBraApp.toggleFavorite(${ST.escAttr(branchId)}, ${ST.escAttr(branchInfo.business_name)})'>
-        ${esFavorito ? '★ En favoritos' : '☆ Guardar favorito'}
-      </button>
-    `;
-
-    const filas = (data || []).map(row => {
-      const cls = row.variation_pct === null ? 'equal' : row.variation_pct < -1 ? 'below' : row.variation_pct > 1 ? 'above' : 'equal';
-      const texto = row.variation_pct === null ? 's/d' : `${row.variation_pct > 0 ? '+' : ''}${row.variation_pct}%`;
-      return `
-        <div class="variation-row">
-          <span class="variation-name">${ST.escapeHtml(row.denomination)}${row.stock_status === 'agotado' ? ' <em>(agotado)</em>' : ''}</span>
-          <span style="text-align:right;">
-            <strong style="display:block; font-size:0.85rem;">${ST.formatMoney(row.branch_amount)}</strong>
-            <span class="variation-badge ${cls}">${texto}</span>
-          </span>
-        </div>
-      `;
-    }).join('');
-
-    ST.mapBranchPanel.innerHTML = `
-      <div style="display:flex; align-items:center; gap:10px; margin-bottom:2px;">
-        ${branchInfo.logo_url ? `<img src="${ST.escapeHtml(branchInfo.logo_url)}" class="provider-logo-mini" alt="">` : ''}
-        <h3 style="margin-bottom:0;">${ST.escapeHtml(branchInfo.business_name)}</h3>
-      </div>
-      <div class="branch-meta">${ST.escapeHtml(branchInfo.branch_name)} · ${ST.escapeHtml(branchInfo.locality)} · ${branchInfo.distance_km.toFixed(1)} km de tu ubicación</div>
-      <div style="margin: 4px 0 10px;">${renderStarRating(branchInfo.avg_rating, branchInfo.review_count)}</div>
-      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;">${whatsappLink}${favBtn}</div>
-      <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">Variación de precio vs. la mediana de proveedores en ${ST.mapState.radiusKm} km a la redonda:</p>
-      ${filas || '<p style="font-size:0.8rem; color:var(--text-muted);">Sin materiales cargados todavía.</p>'}
-
-      <div id="branch-reviews-section" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-light);">
-        <button class="btn-action-drawer btn-copy" style="width:100%;" onclick="window.nexoBraApp.loadBranchReviews('${branchId}', ${ST.escAttr(branchInfo.provider_id)})">Ver / dejar una reseña</button>
-        <div id="branch-reviews-body"></div>
-      </div>
-    `;
-  }
-
-  export async function loadBranchReviews(branchId, providerId) {
-    const container = document.getElementById('branch-reviews-body');
-    if (!container) return;
-    container.innerHTML = '<p style="font-size:0.8rem; color:var(--text-muted); margin-top:10px;">Cargando reseñas...</p>';
-
-    const { data: reviews, error } = await ST.supabaseClient
-      .from('provider_reviews')
-      .select('rating, comment, created_at, profiles(full_name)')
-      .eq('provider_id', providerId)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (error) {
-      container.innerHTML = `<p style="color:#b91c1c; font-size:0.8rem; margin-top:10px;">${ST.friendlyError(error, 'cargar reseñas')}</p>`;
-      return;
-    }
-
-    const reviewsHtml = (reviews || []).length === 0
-      ? '<p style="font-size:0.8rem; color:var(--text-muted); margin-top:10px;">Todavía nadie dejó una reseña. ¡Sé el primero!</p>'
-      : reviews.map(r => `
-          <div class="review-row">
-            <div class="review-row-header">
-              <span class="star-rating-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
-              <span style="font-size:0.72rem; color:var(--text-subtle);">${ST.escapeHtml(r.profiles?.full_name) || 'Usuario de NEXOBRA'} · ${new Date(r.created_at).toLocaleDateString('es-AR')}</span>
-            </div>
-            ${r.comment ? `<p class="review-row-comment">${ST.escapeHtml(r.comment)}</p>` : ''}
-          </div>
-        `).join('');
-
-    const formHtml = !ST.authState.user ? `
-      <p style="font-size:0.78rem; color:var(--text-muted); margin-top:12px;">Iniciá sesión para dejar tu reseña.</p>
-    ` : `
-      <div class="review-form" style="margin-top:14px;">
-        <label style="font-size:0.78rem; font-weight:700; display:block; margin-bottom:6px;">Tu calificación</label>
-        <div class="review-star-picker" id="review-star-picker" data-value="0">
-          ${[1,2,3,4,5].map(n => `<span class="review-star-option" data-star="${n}" onclick="window.nexoBraApp.setReviewStars(${n})">☆</span>`).join('')}
-        </div>
-        <textarea id="review-comment-input" class="form-select" placeholder="Comentario corto (opcional)" rows="2" style="width:100%; margin-top:8px; resize:vertical;"></textarea>
-        <button class="btn-computo" style="margin-top:8px; width:100%; justify-content:center;" onclick="window.nexoBraApp.submitReview(${ST.escAttr(providerId)}, ${ST.escAttr(branchId)})">Publicar reseña</button>
-      </div>
-    `;
-
-    container.innerHTML = reviewsHtml + formHtml;
-  }
-
-  export function setReviewStars(n) {
-    const picker = document.getElementById('review-star-picker');
-    if (!picker) return;
-    picker.dataset.value = n;
-    picker.querySelectorAll('.review-star-option').forEach((el, idx) => {
-      el.textContent = idx < n ? '★' : '☆';
-    });
-  }
-
-  export async function submitReview(providerId, branchId) {
+  export async function saveComputation() {
     if (!ST.authState.user) {
-      ST.showToast('Iniciá sesión para dejar una reseña.');
-      return;
-    }
-    const picker = document.getElementById('review-star-picker');
-    const rating = parseInt(picker?.dataset.value || '0', 10);
-    if (rating < 1) {
-      ST.showToast('Elegí de 1 a 5 estrellas.');
-      return;
-    }
-    const comment = document.getElementById('review-comment-input')?.value.trim() || null;
-
-    const { error } = await ST.supabaseClient
-      .from('provider_reviews')
-      .upsert({ provider_id: providerId, user_id: ST.authState.user.id, rating, comment }, { onConflict: 'provider_id,user_id' });
-
-    if (error) {
-      ST.showToast('No se pudo publicar la reseña: ' + error.message);
-      return;
-    }
-    ST.showToast('¡Gracias por tu reseña!');
-    loadBranchReviews(branchId, providerId);
-  }
-
-  export function requestUserLocation() {
-    if (!navigator.geolocation) {
-      ST.showToast('Tu navegador no soporta geolocalización.');
-      return;
-    }
-    ST.mapStatusMsg.textContent = 'Buscando tu ubicación...';
-    const refresh = () => ST.mapState.filterMaterialId
-      ? selectMaterialOnMap(ST.mapState.filterMaterialId, ST.mapState.filterMaterialName)
-      : loadNearbyBranchesOnMap();
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        ST.mapState.center = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        ST.mapState.map.setView([ST.mapState.center.lat, ST.mapState.center.lng], 13);
-        refresh();
-      },
-      () => {
-        ST.showToast('No se pudo acceder a tu ubicación. Mostrando la zona por defecto.');
-        refresh();
-      },
-      { timeout: 8000 }
-    );
-  }
-
-  export function setupMapListeners() {
-    if (!ST.supabaseClient) return;
-    ST.btnGeolocate.addEventListener('click', requestUserLocation);
-    ST.mapRadiusSelect.addEventListener('change', () => {
-      ST.mapState.radiusKm = parseFloat(ST.mapRadiusSelect.value);
-      if (ST.mapState.filterMaterialId) {
-        selectMaterialOnMap(ST.mapState.filterMaterialId, ST.mapState.filterMaterialName);
-      } else {
-        loadNearbyBranchesOnMap();
-      }
-    });
-    const materialSearchInput = document.getElementById('home-map-material-search');
-    const btnClearMaterialSearch = document.getElementById('btn-clear-map-material-search');
-    if (materialSearchInput) materialSearchInput.addEventListener('input', searchMaterialOnMap);
-    if (btnClearMaterialSearch) btnClearMaterialSearch.addEventListener('click', clearMaterialSearchOnMap);
-  }
-
-  // --- OFERTAS DE CORRALONES EN EL CATÁLOGO (toggle "ORIGEN DEL VALOR") ---
-  // Reutiliza el mismo centro/radio que el mapa (ST.mapState) para no pedir
-  // ubicación dos veces. Si el mapa nunca se abrió en esta sesión, usa el
-  // centro por defecto (o pide geolocalización la primera vez que se activa).
-  export async function loadNearbyRepresentativePrices() {
-    if (!ST.supabaseClient) return;
-    const { data, error } = await ST.supabaseClient.rpc('nearby_representative_prices', {
-      center_lat: ST.mapState.center.lat,
-      center_lng: ST.mapState.center.lng,
-      radius_km: ST.mapState.radiusKm
-    });
-    if (error) {
-      ST.showToast('No se pudieron cargar las ofertas de proveedores: ' + error.message);
-      return;
-    }
-    ST.providerPricesState.byMaterial = {};
-    (data || []).forEach(row => { ST.providerPricesState.byMaterial[row.material_id] = row; });
-    ST.providerPricesState.loaded = true;
-    updateCatalogProvidersStatus(data ? data.length : 0);
-  }
-
-  function updateCatalogProvidersStatus(materialesConOferta) {
-    const status = document.getElementById('catalog-providers-status');
-    if (!status) return;
-    status.textContent = materialesConOferta > 0
-      ? `${materialesConOferta} material${materialesConOferta === 1 ? '' : 'es'} con oferta en ${ST.mapState.radiusKm} km a la redonda de tu ubicación.`
-      : `Ningún proveedor cargó precios dentro de ${ST.mapState.radiusKm} km de tu ubicación. Probá ampliar el radio.`;
-  }
-
-  export function setupPricingSourceListeners() {
-    const btnToggleCompare = document.getElementById('btn-toggle-compare-providers');
-    const providersControls = document.getElementById('catalog-providers-controls');
-    const catalogRadiusSelect = document.getElementById('catalog-radius-select');
-    if (!btnToggleCompare) return;
-
-    async function refreshProvidersView() {
-      const status = document.getElementById('catalog-providers-status');
-      if (status) status.textContent = 'Buscando proveedores cerca tuyo...';
-      await loadNearbyRepresentativePrices();
-      Catalog.renderProducts();
-    }
-
-    async function activateCompare() {
-      btnToggleCompare.classList.add('active');
-      ST.state.compareNearbyProviders = true;
-      if (providersControls) providersControls.style.display = 'flex';
-
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            ST.mapState.center = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            await refreshProvidersView();
-          },
-          async () => { await refreshProvidersView(); },
-          { timeout: 8000 }
-        );
-      } else {
-        await refreshProvidersView();
-      }
-    }
-
-    function deactivateCompare() {
-      btnToggleCompare.classList.remove('active');
-      ST.state.compareNearbyProviders = false;
-      if (providersControls) providersControls.style.display = 'none';
-      Catalog.renderProducts();
-    }
-
-    btnToggleCompare.addEventListener('click', () => {
-      if (ST.state.compareNearbyProviders) deactivateCompare();
-      else activateCompare();
-    });
-
-    if (catalogRadiusSelect) {
-      catalogRadiusSelect.addEventListener('change', () => {
-        ST.mapState.radiusKm = parseFloat(catalogRadiusSelect.value);
-        refreshProvidersView();
-      });
-    }
-  }
-
-  // --- ELEGIR UN PROVEEDOR ESPECÍFICO PARA UN MATERIAL ---
-  // A diferencia de los materiales "de referencia" (que siempre se recalculan
-  // en vivo contra el mes elegido en Mi Cómputo), un ítem elegido de un
-  // proveedor puntual guarda el precio de ese momento tal cual — no hay "mes"
-  // al que llevarlo, es lo que ese proveedor tiene cargado ahora. Si el
-  // proveedor cambia después su precio, hay que sacarlo y volver a elegirlo.
-  export async function openOfferPicker(materialId, cartIndex = null) {
-    const material = NEXOBRA_DATA.find(m => m.id === materialId);
-    if (!material) return;
-
-    // Si viene de "Elegir proveedor" en un ítem que YA está en Mi Cómputo (por
-    // ejemplo, uno que llegó de un Excel cotizado), guardamos el índice para
-    // actualizar ESE ítem en lugar de agregar uno nuevo al elegir.
-    ST.mapState.offerPickerCartIndex = cartIndex;
-
-    ST.offerPickerSubtitle.textContent = material.denominacion;
-    ST.offerPickerResults.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Buscando ofertas...</p>';
-    ST.offerPickerModal.classList.add('open');
-    ST.offerPickerModalBackdrop.classList.add('open');
-    document.body.style.overflow = 'hidden';
-
-    const { data, error } = await ST.supabaseClient.rpc('nearby_offers_for_material', {
-      p_material_id: materialId,
-      center_lat: ST.mapState.center.lat,
-      center_lng: ST.mapState.center.lng,
-      radius_km: ST.mapState.radiusKm
-    });
-
-    if (error) {
-      ST.offerPickerResults.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, "buscar ofertas de proveedores")}</p>`;
-      return;
-    }
-    if (!data || data.length === 0) {
-      ST.offerPickerResults.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">No hay ofertas cercanas para este material.</p>';
-      return;
-    }
-
-    ST.offerPickerResults.innerHTML = data.map((offer, idx) => `
-      <div class="offer-picker-row">
-        <div class="offer-picker-row-info">
-          <h5>${ST.escapeHtml(offer.business_name)}</h5>
-          <span>${ST.escapeHtml(offer.branch_name)} · ${ST.escapeHtml(offer.locality)} · ${offer.distance_km.toFixed(1)} km${offer.stock_status === 'agotado' ? ' · <strong style="color:#b91c1c;">Agotado</strong>' : offer.stock_status === 'a_pedido' ? ' · A pedido' : ' · En stock'}</span>
-        </div>
-        <div class="offer-picker-row-price">
-          <strong>${ST.formatMoney(offer.amount)}</strong>
-          <span style="font-size:0.72rem; color:var(--text-muted);">/ ${offer.unit}</span>
-          <button class="btn-computo" style="padding: 6px 12px; font-size: 0.75rem; margin-top: 4px; display:block;" onclick='window.nexoBraApp.chooseProviderOffer(${ST.escAttr(materialId)}, ${idx})'>
-            Elegir
-          </button>
-        </div>
-      </div>
-    `).join('');
-
-    // Se guarda temporalmente para que chooseProviderOffer no tenga que repetir la consulta.
-    ST.offerPickerResults.dataset.materialId = materialId;
-    window.__offerPickerData = data;
-  }
-
-  export function closeOfferPicker() {
-    ST.offerPickerModal.classList.remove('open');
-    ST.offerPickerModalBackdrop.classList.remove('open');
-    document.body.style.overflow = '';
-    ST.mapState.offerPickerCartIndex = null;
-  }
-
-  export function chooseProviderOffer(materialId, offerIndex) {
-    const offer = window.__offerPickerData?.[offerIndex];
-    const material = NEXOBRA_DATA.find(m => m.id === materialId);
-    if (!offer || !material) return;
-
-    const cartIndex = ST.mapState.offerPickerCartIndex;
-
-    // Caso 1: el material YA está en Mi Cómputo (llegó del catálogo en modo
-    // referencia, o de un Excel cotizado) y lo que se quiere es asignarle un
-    // proveedor sin tocar la cantidad que ya tenía cargada.
-    if (cartIndex !== null && cartIndex !== undefined && ST.state.computoCart[cartIndex]) {
-      const existingItem = ST.state.computoCart[cartIndex];
-      existingItem.unit = offer.unit;
-      existingItem.providerOfferId = offer.offer_id;
-      existingItem.providerBranchId = offer.branch_id;
-      existingItem.providerBusinessName = offer.business_name;
-      existingItem.providerBranchName = offer.branch_name;
-      existingItem.providerWhatsapp = offer.whatsapp_phone;
-      existingItem.providerPrice = offer.amount;
-      existingItem.roundedFrom = null;
-      ST.mapState.offerPickerCartIndex = null;
-      Computo.saveCart();
-      Computo.updateCartUI();
-      closeOfferPicker();
-      ST.showToast(`${material.denominacion.substring(0, 30)} → ${offer.business_name}`);
-      return;
-    }
-
-    const qtyInput = document.getElementById(`qty-${materialId}`);
-    const typedQty = qtyInput ? Math.max(1, parseFloat(qtyInput.value) || 1) : 1;
-
-    // Si venías mirando en "Cómputo Métrico" (ej: 10 metros de hierro) y el
-    // proveedor vende por unidad de compra discreta (ej: barras de 12m), no
-    // le podés pedir "10 metros" -- hay que redondear hacia arriba a cuántas
-    // unidades de compra hacen falta. Si ya estabas en modo Venta, o el
-    // proveedor vende justo por la unidad de cómputo (ej: por kg), no hace
-    // falta convertir nada.
-    let qty = typedQty;
-    let roundedFrom = null;
-    const proveedorVendePorUnidadDeCompra = offer.unit === material.unidadVenta;
-    const envase = Number(material.envase) || 1;
-    if (ST.state.pricingMode === 'computo' && proveedorVendePorUnidadDeCompra && envase > 0 && offer.unit !== material.unidadComputo) {
-      qty = Math.ceil(typedQty / envase);
-      roundedFrom = { qty: typedQty, unit: material.unidadComputo };
-    }
-
-    const existingIndex = ST.state.computoCart.findIndex(i => i.id === materialId && i.type === 'material' && i.providerOfferId === offer.offer_id);
-    if (existingIndex > -1) {
-      ST.state.computoCart[existingIndex].qty += qty;
-    } else {
-      ST.state.computoCart.push({
-        id: materialId,
-        denominacion: material.denominacion,
-        rubro: material.rubro,
-        unit: offer.unit,
-        qty: qty,
-        type: 'material',
-        mode: ST.state.pricingMode,
-        providerOfferId: offer.offer_id,
-        providerBranchId: offer.branch_id,
-        providerBusinessName: offer.business_name,
-        providerBranchName: offer.branch_name,
-        providerWhatsapp: offer.whatsapp_phone,
-        providerPrice: offer.amount,
-        roundedFrom: roundedFrom
-      });
-    }
-
-    if (roundedFrom) {
-      ST.showToast(`Necesitás ${roundedFrom.qty} ${roundedFrom.unit} → se redondeó a ${qty} ${offer.unit}${qty === 1 ? '' : 's'} para poder comprarlo.`);
-    }
-
-    Computo.saveCart();
-    Computo.updateCartUI();
-    closeOfferPicker();
-    ST.showToast(`Agregado desde ${offer.business_name}: ${material.denominacion.substring(0, 30)}`);
-  }
-
-  export function setupOfferPickerListeners() {
-    if (!ST.supabaseClient) return;
-    ST.offerPickerModalCloseBtn.addEventListener('click', closeOfferPicker);
-    ST.offerPickerModalBackdrop.addEventListener('click', closeOfferPicker);
-  }
-
-  // --- FASE E, PARTE 1: Dashboard de competitividad (dentro de "Mi Proveedor") ---
-  // Reutiliza branch_price_variation(), ya construida en la Fase D para la
-  // ficha que ve el USUARIO al tocar un pin. Acá el proveedor ve exactamente
-  // lo mismo, pero de su propio negocio, sin salir de su panel.
-  export async function loadFavoriteIds() {
-    if (!ST.supabaseClient || !ST.authState.user) return;
-    const { data, error } = await ST.supabaseClient
-      .from('provider_favorites')
-      .select('branch_id')
-      .eq('user_id', ST.authState.user.id);
-    if (!error) {
-      ST.favoritesState.ids = new Set((data || []).map(r => r.branch_id));
-      ST.favoritesState.loaded = true;
-    }
-  }
-
-  export async function toggleFavorite(branchId, businessName) {
-    if (!ST.authState.user) {
-      ST.showToast('Iniciá sesión para guardar favoritos.');
       Auth.showAuthTab('login');
       Auth.openAuthModal();
+      Auth.showAuthError('Iniciá sesión para guardar tu presupuesto.');
       return;
     }
-    const isFav = ST.favoritesState.ids.has(branchId);
-    if (isFav) {
-      const { error } = await ST.supabaseClient.from('provider_favorites').delete().eq('user_id', ST.authState.user.id).eq('branch_id', branchId);
-      if (error) {
-        ST.showToast('No se pudo quitar de favoritos: ' + error.message);
-        return;
-      }
-      ST.favoritesState.ids.delete(branchId);
-      ST.showToast('Sacado de favoritos.');
-    } else {
-      const { error } = await ST.supabaseClient.from('provider_favorites').insert({ user_id: ST.authState.user.id, branch_id: branchId });
-      if (error) {
-        ST.showToast('No se pudo guardar el favorito: ' + error.message);
-        return;
-      }
-      ST.favoritesState.ids.add(branchId);
-      ST.showToast(`${businessName} agregado a favoritos.`);
+    if (ST.state.computoCart.length === 0) {
+      ST.showToast('Agregá al menos un ítem antes de guardar.');
+      return;
     }
-    // Si la ficha del mapa está abierta, refresca el botón para mostrar el nuevo estado.
-    if (ST.mapState.lastSelectedBranch && ST.mapState.lastSelectedBranch.branch_id === branchId) {
-      showBranchDetail(branchId, ST.mapState.lastSelectedBranch);
+
+    const name = ST.drawerComputationName.value.trim() || 'Mi cómputo';
+    const obraData = {
+      obra_nombre: ST.drawerObraNombre.value.trim() || null,
+      obra_ubicacion: ST.drawerObraUbicacion.value.trim() || null,
+      obra_comitente: ST.drawerObraComitente.value.trim() || null,
+      obra_referencia: ST.drawerObraReferencia.value.trim() || null
+    };
+    ST.btnSaveComputation.disabled = true;
+
+    try {
+      let computationId = ST.computationState.currentId;
+
+      if (computationId) {
+        const { error } = await ST.supabaseClient
+          .from('computations')
+          .update({ name, locality: ST.authState.profile?.locality || null, ...obraData })
+          .eq('id', computationId);
+        if (error) throw error;
+
+        const { error: deleteError } = await ST.supabaseClient
+          .from('computation_items')
+          .delete()
+          .eq('computation_id', computationId);
+        if (deleteError) throw deleteError;
+      } else {
+        const { data, error } = await ST.supabaseClient
+          .from('computations')
+          .insert({ name, user_id: ST.authState.user.id, locality: ST.authState.profile?.locality || null, ...obraData })
+          .select('id')
+          .single();
+        if (error) throw error;
+        computationId = data.id;
+        ST.computationState.currentId = computationId;
+      }
+
+      const rows = ST.state.computoCart.map(item => cartItemToRow(item, computationId));
+      const { error: insertError } = await ST.supabaseClient.from('computation_items').insert(rows);
+      if (insertError) throw insertError;
+
+      updateComputationNameUI();
+      ST.showToast('Presupuesto guardado.');
+    } catch (err) {
+      ST.showToast('No se pudo guardar: ' + err.message);
+    } finally {
+      ST.btnSaveComputation.disabled = false;
     }
   }
 
-  export async function loadFavorites() {
-    const list = document.getElementById('favorites-list');
+  export function startNewComputation() {
+    ST.computationState.currentId = null;
+    ST.state.computoCart = [];
+    saveCart();
+    ST.drawerComputationName.value = 'Mi cómputo';
+    ST.drawerObraNombre.value = '';
+    ST.drawerObraUbicacion.value = '';
+    ST.drawerObraComitente.value = '';
+    ST.drawerObraReferencia.value = '';
+    updateComputationNameUI();
+    updateCartUI();
+    ST.showToast('Empezaste un presupuesto nuevo.');
+  }
+
+  export async function loadMyComputations() {
     if (!ST.authState.user) return;
-    list.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando...</p>';
+    ST.myComputationsList.innerHTML = '<p style="color:var(--text-muted);">Cargando...</p>';
 
     const { data, error } = await ST.supabaseClient
-      .from('provider_favorites')
-      .select('id, branch_id, provider_branches(name, locality, whatsapp_phone, providers(business_name))')
+      .from('computations')
+      .select('id, name, locality, updated_at, computation_items(count)')
       .eq('user_id', ST.authState.user.id)
-      .order('created_at', { ascending: false });
+      .order('updated_at', { ascending: false });
 
     if (error) {
-      list.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, "cargar favoritos")}</p>`;
+      ST.myComputationsList.innerHTML = `<p style="color:#b91c1c;">${ST.friendlyError(error, 'cargar Mis Presupuestos')}</p>`;
       return;
     }
+
     if (!data || data.length === 0) {
-      list.innerHTML = `
+      ST.myComputationsList.innerHTML = `
         <div class="computo-empty-ST.state">
-          <div class="empty-icon">⭐</div>
-          <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no guardaste ningún proveedor</h4>
-          <p style="font-size: 0.85rem; color: var(--text-muted);">Desde el mapa, tocá un pin y usá el botón de favorito en su ficha.</p>
+          <div class="empty-icon">📋</div>
+          <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no guardaste ningún presupuesto</h4>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Armá un cómputo desde el catálogo y tocá "Guardar" en el panel lateral.</p>
         </div>
       `;
       return;
     }
 
-    list.innerHTML = data.map(fav => {
-      const branch = fav.provider_branches;
-      const whatsappUrl = branch.whatsapp_phone
-        ? `https://wa.me/${branch.whatsapp_phone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde NEXOBRA.')}`
-        : null;
+    ST.myComputationsList.innerHTML = data.map(comp => {
+      const count = comp.computation_items?.[0]?.count ?? 0;
+      const fecha = new Date(comp.updated_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
       return `
         <div class="computation-row">
           <div class="computation-row-info">
-            <h4>${ST.escapeHtml(branch.providers?.business_name) || '(proveedor eliminado)'}</h4>
-            <span>${ST.escapeHtml(branch.name)} · ${ST.escapeHtml(branch.locality)}</span>
+            <h4>${ST.escapeHtml(comp.name)}</h4>
+            <span>${count} ítem${count === 1 ? '' : 's'} · actualizado el ${fecha}${comp.locality ? ' · ' + comp.locality : ''}</span>
           </div>
           <div class="computation-row-actions">
-            ${whatsappUrl ? `<a href="${whatsappUrl}" target="_blank" class="btn-computo" style="padding:7px 12px; font-size:0.78rem; text-decoration:none;">💬 WhatsApp</a>` : ''}
-            <button class="danger" onclick="window.nexoBraApp.removeFavorite('${fav.branch_id}')">Quitar</button>
+            <button onclick="window.nexoBraApp.openComputation('${comp.id}')">Abrir</button>
+            <button onclick="window.nexoBraApp.duplicateComputation('${comp.id}')">Duplicar</button>
+            <button class="danger" onclick="window.nexoBraApp.deleteComputation('${comp.id}')">Eliminar</button>
           </div>
         </div>
       `;
     }).join('');
   }
 
-  export async function removeFavorite(branchId) {
-    await ST.supabaseClient.from('provider_favorites').delete().eq('user_id', ST.authState.user.id).eq('branch_id', branchId);
-    ST.favoritesState.ids.delete(branchId);
-    ST.showToast('Sacado de favoritos.');
-    loadFavorites();
-  }
+  export async function openComputation(id) {
+    const [{ data: comp, error: compError }, { data: items, error: itemsError }] = await Promise.all([
+      ST.supabaseClient.from('computations').select('id, name, obra_nombre, obra_ubicacion, obra_comitente, obra_referencia').eq('id', id).single(),
+      ST.supabaseClient.from('computation_items').select('*').eq('computation_id', id)
+    ]);
 
-  // --- FASE E, PARTE 3: Alertas de precio ---
-  // Importante: modelo "pull", no hay mail/push. El usuario ve la comparación
-  // cuando entra a "Mis Alertas" (o desde el catálogo). No hay cron todavía.
-  export async function loadAlertIds() {
-    if (!ST.supabaseClient || !ST.authState.user) return;
-    const { data, error } = await ST.supabaseClient
-      .from('price_alerts')
-      .select('*')
-      .eq('user_id', ST.authState.user.id);
-    if (!error) {
-      ST.alertsState.byMaterial = {};
-      (data || []).forEach(row => { ST.alertsState.byMaterial[row.material_id] = row; });
-      ST.alertsState.loaded = true;
-    }
-  }
-
-  export async function toggleMaterialAlert(materialId, materialName) {
-    if (!ST.authState.user) {
-      ST.showToast('Iniciá sesión para crear alertas de precio.');
-      Auth.showAuthTab('login');
-      Auth.openAuthModal();
+    if (compError || itemsError) {
+      ST.showToast('No se pudo abrir el presupuesto.');
       return;
     }
-    const existing = ST.alertsState.byMaterial[materialId];
-    if (existing) {
-      await ST.supabaseClient.from('price_alerts').delete().eq('id', existing.id);
-      delete ST.alertsState.byMaterial[materialId];
-      ST.showToast('Alerta eliminada.');
-    } else {
-      const oferta = ST.providerPricesState.byMaterial[materialId];
-      if (!oferta) {
-        ST.showToast('Todavía no hay ofertas de proveedores cargadas para este material en tu zona.');
-        return;
-      }
-      const { data, error } = await ST.supabaseClient
-        .from('price_alerts')
-        .insert({
-          user_id: ST.authState.user.id,
-          material_id: materialId,
-          center_lat: ST.mapState.center.lat,
-          center_lng: ST.mapState.center.lng,
-          radius_km: ST.mapState.radiusKm,
-          reference_price: oferta.median_price
-        })
-        .select('*')
-        .single();
-      if (!error) {
-        ST.alertsState.byMaterial[materialId] = data;
-        ST.showToast(`Te avisamos acá si baja el precio de ${materialName}.`);
-      }
+
+    ST.computationState.currentId = comp.id;
+    ST.state.computoCart = (items || []).map(rowToCartItem);
+    saveCart();
+    ST.drawerComputationName.value = comp.name;
+    ST.drawerObraNombre.value = comp.obra_nombre || '';
+    ST.drawerObraUbicacion.value = comp.obra_ubicacion || '';
+    ST.drawerObraComitente.value = comp.obra_comitente || '';
+    ST.drawerObraReferencia.value = comp.obra_referencia || '';
+    // Al reabrir, el cómputo vuelve a arrancar en el mes más actual disponible
+    // (no en el que se guardó la última vez) — el usuario lo cambia si quiere.
+    if (Pricing.sharedMonths.length > 0) {
+      ST.state.computoMonth = Pricing.sharedMonths[Pricing.sharedMonths.length - 1];
+      Pricing.populateComputoMonthSelect();
     }
-    Catalog.renderProducts();
+    updateComputationNameUI();
+    updateCartUI();
+    openDrawer();
+    ST.showToast(`Abriste "${comp.name}"`);
   }
 
-  export async function loadAlerts() {
-    const list = document.getElementById('alerts-list');
-    if (!ST.authState.user) return;
-    list.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando...</p>';
+  export async function duplicateComputation(id) {
+    const [{ data: comp, error: compError }, { data: items, error: itemsError }] = await Promise.all([
+      ST.supabaseClient.from('computations').select('name, locality, obra_nombre, obra_ubicacion, obra_comitente, obra_referencia').eq('id', id).single(),
+      ST.supabaseClient.from('computation_items').select('*').eq('computation_id', id)
+    ]);
+    if (compError || itemsError) {
+      ST.showToast('No se pudo duplicar el presupuesto.');
+      return;
+    }
 
-    const { data, error } = await ST.supabaseClient
-      .from('price_alerts')
-      .select('*')
-      .eq('user_id', ST.authState.user.id)
-      .order('created_at', { ascending: false });
+    const { data: newComp, error: insertError } = await ST.supabaseClient
+      .from('computations')
+      .insert({
+        name: `${comp.name} (copia)`, user_id: ST.authState.user.id, locality: comp.locality,
+        obra_nombre: comp.obra_nombre, obra_ubicacion: comp.obra_ubicacion,
+        obra_comitente: comp.obra_comitente, obra_referencia: comp.obra_referencia
+      })
+      .select('id')
+      .single();
+    if (insertError) {
+      ST.showToast('No se pudo duplicar el presupuesto.');
+      return;
+    }
+
+    if (items && items.length > 0) {
+      const rows = items.map(row => ({ ...row, id: undefined, computation_id: newComp.id, created_at: undefined, updated_at: undefined }));
+      await ST.supabaseClient.from('computation_items').insert(rows);
+    }
+
+    ST.showToast('Presupuesto duplicado.');
+    loadMyComputations();
+  }
+
+  export async function deleteComputation(id) {
+    if (!confirm('¿Eliminar este presupuesto? Esta acción no se puede deshacer.')) return;
+    const { error } = await ST.supabaseClient.from('computations').delete().eq('id', id);
+    if (error) {
+      ST.showToast('No se pudo eliminar: ' + error.message);
+      return;
+    }
+    if (ST.computationState.currentId === id) startNewComputation();
+    ST.showToast('Presupuesto eliminado.');
+    loadMyComputations();
+  }
+
+  export function setupComputationListeners() {
+    if (!ST.supabaseClient) return;
+    ST.btnSaveComputation.addEventListener('click', saveComputation);
+    ST.btnNewComputation.addEventListener('click', startNewComputation);
+    ST.btnOpenMyComputations.addEventListener('click', () => {
+      ST.authDropdown.style.display = 'none';
+      Main.switchView('my-computations');
+    });
+  }
+  export function addLaborToComputo(code) {
+    const role = ST.laborState.roles.find(r => r.code === code);
+    if (!role) return;
+
+    const qtyInput = document.getElementById(`labor-qty-${code}`);
+    const qty = qtyInput ? Math.max(0.5, parseFloat(qtyInput.value) || 1) : 1;
+    const unit = role.unit === 'mes' ? 'mes' : 'hora';
+
+    const existingIndex = ST.state.computoCart.findIndex(i => i.id === code && i.type === 'labor');
+    if (existingIndex > -1) {
+      ST.state.computoCart[existingIndex].qty += qty;
+    } else {
+      // Igual que con materiales: no se congela precio acá, se resuelve en vivo
+      // contra ST.state.computoMonth al mostrar/exportar el cómputo.
+      ST.state.computoCart.push({
+        id: code,
+        denominacion: `${role.name} (mano de obra)`,
+        rubro: 'Mano de obra',
+        unit: unit,
+        qty: qty,
+        type: 'labor'
+      });
+    }
+
+    saveCart();
+    updateCartUI();
+    ST.showToast(`+${qty} ${unit} agregado: ${role.name}`);
+  }
+
+  export function addToComputo(itemId) {
+    const item = NEXOBRA_DATA.find(i => i.id === itemId);
+    if (!item) return;
+
+    const qtyInput = document.getElementById(`qty-${itemId}`);
+    const qty = qtyInput ? Math.max(1, parseFloat(qtyInput.value) || 1) : 1;
+    const unit = ST.state.pricingMode === 'venta' ? item.unidadVenta : item.unidadComputo;
+
+    const existingIndex = ST.state.computoCart.findIndex(i => i.id === itemId && i.type === 'material' && i.mode === ST.state.pricingMode);
+
+    if (existingIndex > -1) {
+      ST.state.computoCart[existingIndex].qty += qty;
+    } else {
+      // El carrito no congela precio: solo guarda la referencia y la cantidad.
+      // El precio se calcula siempre "en vivo" contra ST.state.computoMonth (ver Pricing.resolveItemPricing),
+      // así que agregar un ítem hoy o hace una semana da el mismo resultado: el precio más actual,
+      // hasta que el usuario elija otro mes desde "Mi Cómputo".
+      ST.state.computoCart.push({
+        id: item.id,
+        denominacion: item.denominacion,
+        rubro: item.rubro,
+        unit: unit,
+        qty: qty,
+        type: 'material',
+        mode: ST.state.pricingMode
+      });
+    }
+
+    saveCart();
+    updateCartUI();
+    ST.showToast(`+${qty} ${unit} agregado: ${item.denominacion.substring(0, 24)}...`);
+
+    const btn = document.getElementById(`btn-add-${itemId}`);
+    if (btn) {
+      const origText = btn.innerHTML;
+      btn.innerHTML = `<span>✓ Agregado</span>`;
+      btn.classList.add('added');
+      setTimeout(() => {
+        btn.innerHTML = origText;
+        btn.classList.remove('added');
+      }, 1200);
+    }
+  }
+
+  export function changeCardQty(itemId, delta) {
+    const input = document.getElementById(`qty-${itemId}`);
+    if (input) {
+      let val = parseInt(input.value, 10) || 1;
+      val = Math.max(1, val + delta);
+      input.value = val;
+    }
+  }
+
+  export function updateItemQtyInCart(index, newQty) {
+    if (newQty <= 0) {
+      ST.state.computoCart.splice(index, 1);
+    } else {
+      ST.state.computoCart[index].qty = newQty;
+    }
+    saveCart();
+    updateCartUI();
+  }
+
+  export function removeCartItem(index) {
+    ST.state.computoCart.splice(index, 1);
+    saveCart();
+    updateCartUI();
+  }
+
+  export function clearComputoCart() {
+    if (ST.state.computoCart.length === 0) return;
+    if (confirm('¿Deseas vaciar todo tu cómputo de materiales?')) {
+      ST.state.computoCart = [];
+      saveCart();
+      updateCartUI();
+      ST.showToast('Cómputo vaciado');
+    }
+  }
+
+  export function saveCart() {
+    localStorage.setItem('nexobra_computo', JSON.stringify(ST.state.computoCart));
+  }
+  export function computeCartSubtotals() {
+    const resolved = ST.state.computoCart.map(item => ({ item, pricing: Pricing.resolveItemPricing(item, ST.state.computoMonth) }));
+    const materiales = resolved.filter(r => (r.item.type || 'material') === 'material');
+    const manoDeObra = resolved.filter(r => r.item.type === 'labor');
+    const subtotalMateriales = materiales.reduce((sum, r) => sum + (r.item.qty * r.pricing.unitPrice), 0);
+    const subtotalManoObra = manoDeObra.reduce((sum, r) => sum + (r.item.qty * r.pricing.unitPrice), 0);
+    return { materiales, manoDeObra, subtotalMateriales, subtotalManoObra, total: subtotalMateriales + subtotalManoObra };
+  }
+
+  /**
+   * Separa el carrito en grupos por proveedor elegido (providerBranchId) más
+   * un resto "sin proveedor asignado" (referencia NEXOBRA o mano de obra).
+   * Conserva el índice original de cada ítem en ST.state.computoCart, porque
+   * eliminar/editar cantidad sigue operando por índice sobre ese array plano.
+   */
+  export function groupCartByProvider() {
+    const groups = {};
+    const order = [];
+    const sinProveedor = [];
+    ST.state.computoCart.forEach((item, idx) => {
+      if (item.type === 'material' && item.providerOfferId) {
+        const key = item.providerBranchId;
+        if (!groups[key]) {
+          groups[key] = {
+            branchId: key,
+            businessName: item.providerBusinessName,
+            branchName: item.providerBranchName,
+            whatsapp: item.providerWhatsapp,
+            items: []
+          };
+          order.push(key);
+        }
+        groups[key].items.push({ item, idx });
+      } else {
+        sinProveedor.push({ item, idx });
+      }
+    });
+    return { groups: order.map(k => groups[k]), sinProveedor };
+  }
+
+  export function buildProviderWhatsappUrl(group) {
+    let text = `Hola! Te escribo desde NEXOBRA para pedirte presupuesto de estos materiales:\n\n`;
+    group.items.forEach(({ item }) => {
+      text += `• ${item.denominacion} — ${item.qty} ${item.unit}\n`;
+    });
+    text += `\n¿Me pasás precio y disponibilidad? Gracias!`;
+    const digits = (group.whatsapp || '').replace(/\D/g, '');
+    return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+  }
+
+  /** Saca el proveedor asignado a un ítem y lo vuelve a dejar con el precio de referencia. */
+  /**
+   * Genera (o reutiliza) un link público para ver este presupuesto sin
+   * necesidad de cuenta ni de abrir ningún archivo -- útil para mandárselo
+   * a un cliente. El presupuesto tiene que estar guardado primero (si no,
+   * no hay ninguna fila en la base todavía a la cual apuntar el link).
+   */
+  export async function shareComputation() {
+    if (!ST.computationState.currentId) {
+      ST.showToast('Guardá el presupuesto primero (arriba, con el botón "Guardar") para poder compartirlo.');
+      return;
+    }
+    if (!ST.authState.user) {
+      ST.showToast('Iniciá sesión para compartir un presupuesto.');
+      return;
+    }
+
+    const { data: existing } = await ST.supabaseClient
+      .from('computations')
+      .select('share_token, is_public')
+      .eq('id', ST.computationState.currentId)
+      .single();
+
+    let token = existing?.share_token;
+    if (!token) {
+      token = crypto.randomUUID();
+    }
+
+    const { error } = await ST.supabaseClient
+      .from('computations')
+      .update({ share_token: token, is_public: true })
+      .eq('id', ST.computationState.currentId);
 
     if (error) {
-      list.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, "cargar alertas")}</p>`;
+      ST.showToast('No se pudo generar el link: ' + error.message);
       return;
     }
-    if (!data || data.length === 0) {
-      list.innerHTML = `
-        <div class="computo-empty-state">
-          <div class="empty-icon">🔔</div>
-          <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no armaste ninguna alerta</h4>
-          <p style="font-size: 0.85rem; color: var(--text-muted);">En el catálogo, activá "Ofertas de proveedores cercanos" y usá el botón de campana en cualquier material.</p>
+
+    const url = `${window.location.origin}/?share=${token}`;
+    showShareLinkBox(url);
+  }
+
+  export async function unshareComputation() {
+    if (!ST.computationState.currentId) return;
+    const { error } = await ST.supabaseClient
+      .from('computations')
+      .update({ is_public: false })
+      .eq('id', ST.computationState.currentId);
+    if (error) {
+      ST.showToast('No se pudo desactivar el link: ' + error.message);
+      return;
+    }
+    ST.showToast('El link ya no muestra este presupuesto.');
+    document.getElementById('share-link-box')?.remove();
+  }
+
+  function showShareLinkBox(url) {
+    document.getElementById('share-link-box')?.remove();
+    const box = document.createElement('div');
+    box.id = 'share-link-box';
+    box.className = 'share-link-box';
+    box.innerHTML = `
+      <p style="font-size:0.78rem; font-weight:700; margin-bottom:6px;">🔗 Link para compartir (sin login, cualquiera puede verlo):</p>
+      <div style="display:flex; gap:6px;">
+        <input type="text" value="${ST.escapeHtml(url)}" readonly class="form-select" style="flex:1; font-size:0.78rem;" onclick="this.select()">
+        <button class="btn-computo" style="flex-shrink:0;" onclick="navigator.clipboard.writeText('${url}'); window.nexoBraApp.showToast('Copiado.')">Copiar</button>
+      </div>
+      <button style="background:none; border:none; color:var(--text-subtle); font-size:0.72rem; text-decoration:underline; cursor:pointer; margin-top:6px;" onclick="window.nexoBraApp.unshareComputation()">Dejar de compartir</button>
+    `;
+    const actions = document.querySelector('.drawer-actions');
+    actions.insertAdjacentElement('afterend', box);
+  }
+
+  /**
+   * Vista pública de solo lectura para un presupuesto compartido por link
+   * (?share=TOKEN). No requiere login -- la RLS permite leer estas dos
+   * tablas cuando is_public=true. Usa los valores "congelados" al momento
+   * de guardar (price_snapshot, etc.), no un recálculo en vivo -- así el
+   * link siempre muestra exactamente lo que se compartió.
+   */
+  export async function renderSharedComputation(token) {
+    document.getElementById('shared-computation-view').style.display = 'block';
+    document.querySelectorAll('body > *:not(#shared-computation-view)').forEach(el => {
+      if (el.tagName !== 'SCRIPT') el.style.display = 'none';
+    });
+
+    const body = document.getElementById('shared-computation-body');
+
+    // Se lee a través de una función (get_shared_computation), no de las
+    // tablas directo -- así el ÚNICO camino para ver este presupuesto es
+    // conocer el token exacto, no alcanza con que exista algún presupuesto
+    // público en la base.
+    const { data, error } = await ST.supabaseClient.rpc('get_shared_computation', { p_token: token });
+    const comp = data?.[0];
+
+    if (error || !comp) {
+      body.innerHTML = `
+        <div style="text-align:center; padding: 3rem 0;">
+          <div style="font-size:2.5rem; margin-bottom:1rem;">🔒</div>
+          <h2 style="margin-bottom:8px;">Este link ya no está disponible</h2>
+          <p style="color:var(--text-muted);">Puede que quien lo compartió haya dejado de compartirlo, o el link esté mal copiado.</p>
+          <a href="/" class="btn-computo" style="display:inline-flex; margin-top:1.5rem; text-decoration:none;">Ir a NEXOBRA</a>
         </div>
       `;
       return;
     }
 
-    const rows = await Promise.all(data.map(async alert => {
-      const material = NEXOBRA_DATA.find(m => m.id === alert.material_id);
-      const { data: current } = await ST.supabaseClient.rpc('representative_price_nearby', {
-        p_material_id: alert.material_id,
-        center_lat: alert.center_lat,
-        center_lng: alert.center_lng,
-        radius_km: alert.radius_km
-      });
-      const currentPrice = current?.[0]?.median_price ?? null;
-      const bajó = currentPrice !== null && currentPrice < alert.reference_price;
-      const pct = currentPrice !== null ? Math.round(((currentPrice - alert.reference_price) / alert.reference_price) * 1000) / 10 : null;
-      return { alert, material, currentPrice, bajó, pct };
-    }));
+    const items = comp.items || [];
 
-    list.innerHTML = rows.map(({ alert, material, currentPrice, bajó, pct }) => `
-      <div class="computation-row">
-        <div class="computation-row-info">
-          <h4>${ST.escapeHtml(material ? material.denominacion : alert.material_id)}</h4>
-          <span>Precio de referencia: ${ST.formatMoney(alert.reference_price)} ${currentPrice !== null ? `· Ahora: ${ST.formatMoney(currentPrice)}` : '· Sin ofertas cercanas actuales'}</span>
-          ${alert.last_notified_at ? `<span style="display:block; font-size:0.72rem; color:var(--text-subtle);">📧 Último aviso por mail: ${new Date(alert.last_notified_at).toLocaleDateString('es-AR')}, a ${ST.formatMoney(alert.last_notified_price)}</span>` : '<span style="display:block; font-size:0.72rem; color:var(--text-subtle);">Todavía no bajó lo suficiente como para avisarte por mail.</span>'}
+    const obraCampos = [
+      { label: 'Obra', value: comp.obra_nombre },
+      { label: 'Ubicación', value: comp.obra_ubicacion },
+      { label: 'Comitente', value: comp.obra_comitente },
+      { label: 'Referencia', value: comp.obra_referencia }
+    ].filter(c => c.value);
+
+    const total = (items || []).reduce((sum, it) => sum + (Number(it.price_snapshot) * Number(it.quantity)), 0);
+
+    body.innerHTML = `
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">${ST.escapeHtml(comp.name)}</h2>
+          <p class="catalog-subtitle">Presupuesto compartido desde NEXOBRA · ${new Date(comp.created_at).toLocaleDateString('es-AR')}</p>
         </div>
-        <div class="computation-row-actions" style="align-items:center;">
-          ${currentPrice !== null
-            ? (bajó ? `<span class="price-drop-badge">▼ Bajó ${Math.abs(pct)}%</span>` : `<span class="price-same-badge">Sin bajas</span>`)
-            : ''
-          }
-          <button class="danger" onclick="window.nexoBraApp.removeAlert('${alert.id}', '${alert.material_id}')">Eliminar</button>
+      </div>
+      ${obraCampos.length > 0 ? `
+        <div class="about-origen-card" style="display:block;">
+          ${obraCampos.map(c => `<p class="pilar-text" style="margin-bottom:6px;"><strong>${c.label}:</strong> ${ST.escapeHtml(c.value)}</p>`).join('')}
+        </div>
+      ` : ''}
+      <div class="table-view-container">
+        <table class="materials-table">
+          <thead>
+            <tr><th>Material / Ítem</th><th>Cant.</th><th>Precio unit.</th><th style="text-align:right;">Subtotal</th></tr>
+          </thead>
+          <tbody>
+            ${(items || []).map(it => `
+              <tr>
+                <td>${ST.escapeHtml(it.denomination_snapshot)}</td>
+                <td>${it.quantity} ${it.unit}</td>
+                <td>${ST.formatMoney(it.price_snapshot)}</td>
+                <td style="text-align:right;">${ST.formatMoney(it.price_snapshot * it.quantity)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="summary-row total-row" style="margin-top: 1.5rem;">
+        <span>Total Estimado</span>
+        <span>${ST.formatMoney(total)}</span>
+      </div>
+      <p style="font-size:0.78rem; color:var(--text-muted); margin-top:8px;">
+        Valores orientativos, calculados con precios de NEXOBRA al momento de compartir este presupuesto. No incluyen impuestos, cargas sociales ni fletes.
+      </p>
+      <div style="text-align:center; margin-top: 2.5rem; padding-top: 2rem; border-top: 1px solid var(--border-light);">
+        <p style="margin-bottom:12px;">¿Necesitás armar tu propio presupuesto?</p>
+        <a href="/" class="btn-computo" style="display:inline-flex; text-decoration:none;">Armalo gratis en NEXOBRA →</a>
+      </div>
+    `;
+  }
+
+  export function unassignProvider(idx) {
+    const item = ST.state.computoCart[idx];
+    if (!item) return;
+    const material = NEXOBRA_DATA.find(m => m.id === item.id);
+    item.providerOfferId = null;
+    item.providerBranchId = null;
+    item.providerBusinessName = null;
+    item.providerBranchName = null;
+    item.providerWhatsapp = null;
+    item.providerPrice = null;
+    item.roundedFrom = null;
+    if (material) item.unit = item.mode === 'venta' ? material.unidadVenta : material.unidadComputo;
+    saveCart();
+    updateCartUI();
+    ST.showToast('Volvió al precio de referencia.');
+  }
+
+  export function renderCartItemRow(item, idx) {
+    const pricing = Pricing.resolveItemPricing(item, ST.state.computoMonth);
+    const subtotal = item.qty * pricing.unitPrice;
+    const esManoDeObra = item.type === 'labor';
+    return `
+      <div class="computo-item">
+        <div class="computo-item-head">
+          <div>
+            <span class="card-code" style="font-size: 0.7rem;">${esManoDeObra ? 'MANO DE OBRA' : item.id}</span>
+            <h4 class="computo-item-title">${ST.escapeHtml(item.denominacion)}</h4>
+            ${pricing.isProviderSourced ? '<span class="cart-badge-provider">Precio fijo del proveedor</span>' : ''}
+            ${pricing.projectedFromEarlierMonth ? `<span class="cart-badge-provider" style="background:#fef3c7; color:#92400e;">📈 Con dato de ${ST.monthLabel(pricing.projectedFromEarlierMonth)}</span>` : ''}
+            ${item.roundedFrom ? `<span class="cart-badge-provider" style="background:#dbeafe; color:#1e40af;">Redondeado desde ${item.roundedFrom.qty} ${item.roundedFrom.unit}</span>` : ''}
+          </div>
+          <button class="btn-remove-item" onclick="window.nexoBraApp.removeCartItem(${idx})" title="Eliminar ítem">&times;</button>
+        </div>
+        
+        <div class="computo-item-controls">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="color: var(--text-muted);">Cant:</span>
+            <input 
+              type="number" 
+              style="width: 55px; padding: 4px 6px; border: 1px solid var(--border-light); border-radius: 4px; font-weight: 700;" 
+              value="${item.qty}" 
+              min="${esManoDeObra ? 0.5 : 1}" 
+              step="${esManoDeObra ? 0.5 : 1}"
+              onchange="window.nexoBraApp.updateItemQtyInCart(${idx}, parseFloat(this.value) || 1)"
+            >
+            <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">${item.unit}</span>
+          </div>
+            <div style="text-align: right;">
+              ${pricing.disponible
+                ? `<div style="font-size: 0.74rem; color: var(--text-subtle);">${ST.formatMoney(pricing.unitPrice)}/${item.unit}</div>
+                   ${pricing.basePrice ? `<div class="cart-price-trace">Base ${ST.formatMoney(pricing.basePrice)} · × ${ST.formatFactor(pricing.factor || 1)}</div>` : ''}
+                   <div class="computo-item-subtotal">${ST.formatMoney(subtotal)}</div>`
+                : `<div style="font-size: 0.74rem; color: #b91c1c;">Sin dato para este mes</div>`
+              }
+          </div>
+        </div>
+
+        ${!esManoDeObra ? `
+          <div class="computo-item-provider-row">
+            <button class="btn-choose-provider-small" onclick="window.nexoBraApp.openOfferPicker(${ST.escAttr(item.id)}, ${idx})">
+              🏪 ${pricing.isProviderSourced ? 'Cambiar proveedor' : 'Elegir proveedor'}
+            </button>
+            ${pricing.isProviderSourced ? `<button class="btn-unassign-provider-small" onclick="window.nexoBraApp.unassignProvider(${idx})">Volver a referencia</button>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  export function updateCartUI() {
+    const { subtotalMateriales, subtotalManoObra, total } = computeCartSubtotals();
+
+    ST.headerCartCount.textContent = ST.state.computoCart.length;
+    ST.drawerTotalItems.textContent = ST.state.computoCart.length;
+    ST.drawerSubtotal.textContent = ST.formatMoney(subtotalMateriales);
+    ST.drawerTotal.textContent = ST.formatMoney(total);
+
+    const laborRow = document.getElementById('drawer-subtotal-labor-row');
+    const laborValue = document.getElementById('drawer-subtotal-labor');
+    if (laborRow && laborValue) {
+      laborRow.style.display = subtotalManoObra > 0 ? 'flex' : 'none';
+      laborValue.textContent = ST.formatMoney(subtotalManoObra);
+    }
+
+    if (ST.state.computoCart.length === 0) {
+      ST.drawerBody.innerHTML = `
+        <div class="computo-empty-ST.state">
+          <div class="empty-icon">📋</div>
+          <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Tu cómputo está vacío</h4>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+            Sumá materiales y mano de obra desde el catálogo para calcular los costos de tu obra o presupuesto al instante.
+          </p>
+          <button class="btn-computo" onclick="document.getElementById('drawer-close-btn').click();">
+            Explorar catálogo
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    const { groups, sinProveedor } = groupCartByProvider();
+
+    const gruposHtml = groups.map(group => `
+      <div class="provider-group">
+        <div class="provider-group-header">
+          <h4>🏪 ${ST.escapeHtml(group.businessName)} — ${ST.escapeHtml(group.branchName)}</h4>
+          ${group.whatsapp ? `<a class="whatsapp-mini-btn" target="_blank" href="${buildProviderWhatsappUrl(group)}">💬 Mandar pedido a este proveedor</a>` : '<span style="font-size:0.72rem; color:var(--text-muted);">Sin WhatsApp cargado</span>'}
+        </div>
+        <div class="provider-group-body">
+          ${group.items.map(({ item, idx }) => renderCartItemRow(item, idx)).join('')}
         </div>
       </div>
     `).join('');
+
+    const sinProveedorHtml = sinProveedor.length === 0 ? '' : `
+      ${groups.length > 0 ? '<p style="font-size:0.78rem; font-weight:700; color:var(--text-muted); margin: 14px 0 8px;">SIN PROVEEDOR ASIGNADO (referencia NEXOBRA)</p>' : ''}
+      <div class="computo-list">
+        ${sinProveedor.map(({ item, idx }) => renderCartItemRow(item, idx)).join('')}
+      </div>
+    `;
+
+    ST.drawerBody.innerHTML = gruposHtml + sinProveedorHtml;
   }
 
-  export async function removeAlert(alertId, materialId) {
-    await ST.supabaseClient.from('price_alerts').delete().eq('id', alertId);
-    delete ST.alertsState.byMaterial[materialId];
-    ST.showToast('Alerta eliminada.');
-    loadAlerts();
+  // --- PRINT / PDF EXPORT ---
+  /**
+   * FASE G4 — "Presupuesto de Referencia": TODO el material se valoriza con
+   * el Precio de Referencia (Fase G1), en unidad de cómputo, sin importar si
+   * el ítem tiene un proveedor elegido o no. Sirve para planificar/estimar,
+   * no para ir a comprar (para eso está exportListaDeCompra).
+   */
+  export function exportPresupuestoReferencia() {
+    if (ST.state.computoCart.length === 0) {
+      alert('No hay ítems en tu cómputo para exportar.');
+      return;
+    }
+    const periodo = ST.monthLabel(ST.state.computoMonth);
+    const nombre = ST.drawerComputationName.value.trim() || 'Mi cómputo';
+
+    const materiales = ST.state.computoCart.filter(i => (i.type || 'material') === 'material');
+    const manoDeObra = ST.state.computoCart.filter(i => i.type === 'labor');
+
+    const filasMateriales = materiales.map(item => {
+      const material = NEXOBRA_DATA.find(m => m.id === item.id);
+      if (!material) return { item, unitPrice: 0, unit: item.unit, isMarketSourced: false, disponible: false };
+      const trace = Pricing.getReferencePrice(material, 'computo', ST.state.computoMonth);
+      return { item, unitPrice: trace.currentPrice, unit: material.unidadComputo, isMarketSourced: trace.isMarketSourced, disponible: true };
+    });
+    const subtotalMateriales = filasMateriales.reduce((sum, f) => sum + f.item.qty * f.unitPrice, 0);
+
+    const filasManoObra = manoDeObra.map(item => {
+      const pricing = Pricing.resolveItemPricing(item, ST.state.computoMonth);
+      return { item, unitPrice: pricing.unitPrice };
+    });
+    const subtotalManoObra = filasManoObra.reduce((sum, f) => sum + f.item.qty * f.unitPrice, 0);
+
+    const exportData = [
+      [`NEXOBRA - Presupuesto de Referencia - ${nombre}`],
+      [`Precios calculados a: ${periodo}`, `Generado: ${new Date().toLocaleDateString('es-AR')}`],
+      ['Este presupuesto usa siempre el Precio de Referencia de NEXOBRA (unidad de cómputo), para planificar y estimar la obra. No es una lista para ir a comprar.'],
+      []
+    ];
+
+    if (filasMateriales.length > 0) {
+      exportData.push(['MATERIALES']);
+      exportData.push(['Código', 'Descripción', 'Rubro', 'Cantidad', 'Unidad de cómputo', 'Precio Unitario (ARS)', 'Subtotal (ARS)', 'Origen del precio']);
+      filasMateriales.forEach(({ item, unitPrice, unit, isMarketSourced, disponible }) => {
+        exportData.push([
+          item.id, ST.sanitizeForExcel(item.denominacion), item.rubro, item.qty, unit,
+          disponible ? unitPrice : 's/d', disponible ? item.qty * unitPrice : 's/d',
+          disponible ? (isMarketSourced ? 'Mercado real' : 'Proyectado por IPC') : 'Material no encontrado'
+        ]);
+      });
+      exportData.push(['', '', '', '', '', 'Subtotal Materiales:', subtotalMateriales, '']);
+      exportData.push([]);
+    }
+
+    if (filasManoObra.length > 0) {
+      exportData.push(['MANO DE OBRA']);
+      exportData.push(['Rol', '', '', 'Cantidad', 'Unidad', 'Precio Unitario (ARS)', 'Subtotal (ARS)', '']);
+      filasManoObra.forEach(({ item, unitPrice }) => {
+        exportData.push([ST.sanitizeForExcel(item.denominacion), '', '', item.qty, item.unit, unitPrice, item.qty * unitPrice, '']);
+      });
+      exportData.push(['', '', '', '', '', 'Subtotal Mano de Obra:', subtotalManoObra, '']);
+      exportData.push([]);
+    }
+
+    exportData.push(['', '', '', '', '', 'TOTAL ESTIMADO:', subtotalMateriales + subtotalManoObra, 'ARS']);
+    exportData.push([]);
+    exportData.push(['Valores orientativos. No incluyen impuestos, cargas sociales ni flete.']);
+
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    ws['!cols'] = [{ wch: 14 }, { wch: 40 }, { wch: 20 }, { wch: 10 }, { wch: 14 }, { wch: 20 }, { wch: 18 }, { wch: 22 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Presupuesto_Referencia');
+    const safeName = nombre.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '_') || 'Presupuesto';
+    XLSX.writeFile(wb, `${safeName}_Presupuesto_Referencia.xlsx`);
+    ST.showToast('Presupuesto de Referencia descargado.');
   }
 
-  export function setupFavoritesAndAlertsListeners() {
-    if (!ST.supabaseClient) return;
-    const btnOpenFavorites = document.getElementById('btn-open-favorites');
-    const btnOpenAlerts = document.getElementById('btn-open-alerts');
-    if (btnOpenFavorites) btnOpenFavorites.addEventListener('click', () => {
-      ST.authDropdown.style.display = 'none';
-      Main.switchView('favorites');
+  /**
+   * FASE G4 — "Lista de Compra": solo los materiales que YA tienen un
+   * proveedor elegido, agrupados por proveedor, con la cantidad y unidad de
+   * COMPRA real (ya redondeada, ver chooseProviderOffer en map.js). Los que
+   * todavía no tienen proveedor asignado se excluyen y se avisan aparte —
+   * no se les asigna uno automático.
+   */
+  export function exportListaDeCompra() {
+    const { groups, sinProveedor } = groupCartByProvider();
+    const materialesSinProveedor = sinProveedor.filter(({ item }) => (item.type || 'material') === 'material');
+
+    if (groups.length === 0) {
+      alert('Todavía no elegiste ningún proveedor para tus materiales. Usá "Elegir proveedor" en el catálogo (con la comparación por zona activada) para armar tu lista de compra.');
+      return;
+    }
+
+    const nombre = ST.drawerComputationName.value.trim() || 'Mi cómputo';
+    const exportData = [
+      [`NEXOBRA - Lista de Compra - ${nombre}`],
+      [`Generado: ${new Date().toLocaleDateString('es-AR')}`],
+      ['Cada proveedor tiene su propia tabla, con la cantidad y unidad de compra real (ya redondeada donde hacía falta). Precio fijo al momento de elegir cada proveedor.'],
+      []
+    ];
+
+    groups.forEach(group => {
+      const subtotal = group.items.reduce((sum, { item }) => sum + item.qty * item.providerPrice, 0);
+      exportData.push([`PROVEEDOR: ${group.businessName} — ${group.branchName}`]);
+      exportData.push(['Descripción', 'Cantidad a comprar', 'Unidad de compra', 'Precio Unitario (ARS)', 'Subtotal (ARS)']);
+      group.items.forEach(({ item }) => {
+        exportData.push([ST.sanitizeForExcel(item.denominacion), item.qty, item.unit, item.providerPrice, item.qty * item.providerPrice]);
+      });
+      exportData.push(['', '', '', 'Subtotal este proveedor:', subtotal]);
+      exportData.push([]);
     });
-    if (btnOpenAlerts) btnOpenAlerts.addEventListener('click', () => {
-      ST.authDropdown.style.display = 'none';
-      Main.switchView('alerts');
+
+    if (materialesSinProveedor.length > 0) {
+      exportData.push(['⚠ SIN PROVEEDOR ASIGNADO — no incluidos arriba, elegí un proveedor para cada uno en el catálogo:']);
+      materialesSinProveedor.forEach(({ item }) => {
+        exportData.push([ST.sanitizeForExcel(item.denominacion), item.qty, item.unit || '']);
+      });
+      exportData.push([]);
+    }
+
+    exportData.push(['Valores orientativos, precio fijado por el proveedor al momento de elegirlo. No incluyen impuestos, cargas sociales ni flete. Confirmá siempre disponibilidad final con cada proveedor.']);
+
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    ws['!cols'] = [{ wch: 40 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 16 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Lista_de_Compra');
+    const safeName = nombre.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '_') || 'Lista_Compra';
+    XLSX.writeFile(wb, `${safeName}_Lista_de_Compra.xlsx`);
+
+    if (materialesSinProveedor.length > 0) {
+      ST.showToast(`Lista de Compra descargada. ${materialesSinProveedor.length} material${materialesSinProveedor.length === 1 ? '' : 'es'} sin proveedor no se incluyó — elegilo en el catálogo.`);
+    } else {
+      ST.showToast('Lista de Compra descargada.');
+    }
+  }
+
+  export function printComputo() {
+    if (ST.state.computoCart.length === 0) {
+      alert('No hay ítems en tu cómputo para imprimir.');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    const { materiales, manoDeObra, subtotalMateriales, subtotalManoObra, total } = computeCartSubtotals();
+    const dateStr = new Date().toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
+    const periodoPresupuesto = ST.monthLabel(ST.state.computoMonth);
+
+    // Datos de obra: opcionales, solo se muestran las filas que el usuario completó.
+    const obraCampos = [
+      { label: 'Obra', value: ST.drawerObraNombre.value.trim() },
+      { label: 'Ubicación', value: ST.drawerObraUbicacion.value.trim() },
+      { label: 'Comitente', value: ST.drawerObraComitente.value.trim() },
+      { label: 'Referencia', value: ST.drawerObraReferencia.value.trim() }
+    ].filter(c => c.value);
+    const obraDataBlock = obraCampos.length === 0 ? '' : `
+      <div class="obra-data-box">
+        ${obraCampos.map(c => `<div><strong>${c.label}:</strong> ${ST.escapeHtml(c.value)}</div>`).join('')}
+      </div>
+    `;
+
+    const filaMaterial = ({ item, pricing }) => `
+      <tr>
+        <td><strong>${item.id}</strong></td>
+        <td>${ST.escapeHtml(item.denominacion)}</td>
+        <td>${item.rubro}</td>
+        <td>${item.qty}</td>
+        <td>${item.unit}</td>
+        <td>${ST.formatMoney(pricing.unitPrice)}${pricing.basePrice ? `<br><small>Base ${ST.formatMoney(pricing.basePrice)} · × ${ST.formatFactor(pricing.factor || 1)}</small>` : ''}</td>
+        <td style="text-align: right;"><strong>${ST.formatMoney(item.qty * pricing.unitPrice)}</strong></td>
+      </tr>
+    `;
+
+    const tablaMateriales = materiales.length === 0 ? '' : `
+      <h3 style="margin-bottom: 15px;">Materiales</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Código</th><th>Descripción</th><th>Rubro</th><th>Cantidad</th><th>Unidad</th>
+            <th>Precio Unit. / trazabilidad</th><th style="text-align: right;">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>${materiales.map(filaMaterial).join('')}</tbody>
+      </table>
+      <div class="subtotal-box">Subtotal Materiales: ${ST.formatMoney(subtotalMateriales)}</div>
+    `;
+
+    const tablaManoObra = manoDeObra.length === 0 ? '' : `
+      <h3 style="margin-bottom: 15px; margin-top: 30px;">Mano de Obra</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Rol</th><th>Cantidad</th><th>Unidad</th>
+            <th>Precio Unit.</th><th style="text-align: right;">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${manoDeObra.map(({ item, pricing }) => `
+            <tr>
+              <td><strong>${ST.escapeHtml(item.denominacion)}</strong></td>
+              <td>${item.qty}</td>
+              <td>${item.unit}</td>
+              <td>${ST.formatMoney(pricing.unitPrice)}</td>
+              <td style="text-align: right;"><strong>${ST.formatMoney(item.qty * pricing.unitPrice)}</strong></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div class="subtotal-box">Subtotal Mano de Obra: ${ST.formatMoney(subtotalManoObra)}</div>
+    `;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <title>NEXOBRA - Cómputo y Presupuesto de Obra</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; color: #111; max-width: 1000px; margin: 0 auto; }
+          .header-print { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #F5B000; padding-bottom: 15px; margin-bottom: 20px; }
+          .logo { font-size: 24px; font-weight: 900; }
+          .logo span { color: #F5B000; }
+          .meta { font-size: 13px; color: #555; }
+          .periodo-banner { background: #FEF3C7; border: 1px solid #F5B000; border-radius: 8px; padding: 10px 14px; font-size: 14px; font-weight: 700; margin-bottom: 20px; }
+          .obra-data-box { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; background: #F8F9FB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 13px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th { background: #F1F3F7; text-align: left; padding: 10px; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #CCC; }
+          td { padding: 10px; border-bottom: 1px solid #EEE; font-size: 13px; }
+          .subtotal-box { text-align: right; font-size: 13px; font-weight: bold; padding-top: 8px; }
+          .total-box { margin-top: 20px; text-align: right; font-size: 18px; font-weight: bold; border-top: 2px solid #111; padding-top: 15px; }
+          .disclaimer { margin-top: 30px; font-size: 11px; color: #888; border-top: 1px dashed #CCC; padding-top: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="header-print">
+          <div>
+            <div class="logo">NEX<span>OBRA</span></div>
+            <div style="font-size: 12px; color: #666; font-weight: bold;">COMPARADOR TÉCNICO & CÓMPUTO DE OBRA</div>
+          </div>
+          <div class="meta" style="text-align: right;">
+            <div>Fecha de emisión: <strong>${dateStr}</strong></div>
+          </div>
+        </div>
+
+        <h2 style="margin-bottom: 4px;">Resumen de Cómputo y Presupuesto de Obra</h2>
+        <div class="periodo-banner">📅 Presupuesto calculado a precios de: ${periodoPresupuesto}</div>
+        ${obraDataBlock}
+
+        ${tablaMateriales}
+        ${tablaManoObra}
+
+        <div class="total-box">
+          Total Estimado: ${ST.formatMoney(total)}
+        </div>
+
+        <div class="disclaimer">
+          * Este presupuesto es orientativo, calculado a precios de ${periodoPresupuesto}. Los valores de referencia informan precio base, factor y fecha de actualización. Los montos <strong>no incluyen impuestos, cargas sociales ni fletes</strong> — deben cargarse aparte según cada caso. Confirmá precio final, disponibilidad, entrega y pago directamente con el proveedor.
+        </div>
+
+        <script>
+          window.onload = function() { window.print(); }
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
+  // --- COPY TEXT FOR WHATSAPP ---
+  export function copyComputoToClipboard() {
+    if (ST.state.computoCart.length === 0) {
+      alert('No hay ítems en tu cómputo para copiar.');
+      return;
+    }
+
+    const { materiales, manoDeObra, subtotalMateriales, subtotalManoObra, total } = computeCartSubtotals();
+    const periodoPresupuesto = ST.monthLabel(ST.state.computoMonth);
+
+    let text = `🏗️ *NEXOBRA - Cómputo y Presupuesto*\n`;
+    text += `📅 Emitido: ${new Date().toLocaleDateString('es-AR')} · Precios de: *${periodoPresupuesto}*\n\n`;
+
+    if (materiales.length > 0) {
+      text += `*MATERIALES*\n`;
+      materiales.forEach(({ item, pricing }, index) => {
+        text += `${index + 1}. *${item.denominacion}*\n`;
+        text += `   Cant: ${item.qty} ${item.unit} | Unit: ${ST.formatMoney(pricing.unitPrice)} | Subtotal: ${ST.formatMoney(item.qty * pricing.unitPrice)}\n`;
+      });
+      text += `Subtotal Materiales: *${ST.formatMoney(subtotalMateriales)}*\n\n`;
+    }
+
+    if (manoDeObra.length > 0) {
+      text += `*MANO DE OBRA*\n`;
+      manoDeObra.forEach(({ item, pricing }, index) => {
+        text += `${index + 1}. *${item.denominacion}*\n`;
+        text += `   Cant: ${item.qty} ${item.unit} | Unit: ${ST.formatMoney(pricing.unitPrice)} | Subtotal: ${ST.formatMoney(item.qty * pricing.unitPrice)}\n`;
+      });
+      text += `Subtotal Mano de Obra: *${ST.formatMoney(subtotalManoObra)}*\n\n`;
+    }
+
+    text += `💰 *TOTAL ESTIMADO: ${ST.formatMoney(total)}*\n`;
+    text += `_Valores orientativos NEXOBRA, calculados a precios de ${periodoPresupuesto}. No incluyen impuestos, cargas sociales ni fletes. Confirmar disponibilidad y precio final con el proveedor._`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      ST.showToast('✓ Cómputo copiado al portapapeles (Listo para WhatsApp)');
+    }).catch(() => {
+      alert('No se pudo copiar automáticamente.');
     });
   }
+
+  // --- DRAWER TOGGLING ---
+  export function openDrawer() {
+    ST.computoDrawer.classList.add('open');
+    ST.drawerBackdrop.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  export function closeDrawer() {
+    ST.computoDrawer.classList.remove('open');
+    ST.drawerBackdrop.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  // ==========================================================================
+  // EXCEL BULK PROCESSOR (ETAPA 3)
+  // ==========================================================================
