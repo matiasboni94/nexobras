@@ -298,6 +298,11 @@ import * as ST from './state.js';
     const btnStartComputoHome = document.getElementById('btn-start-computo-home');
     if (btnStartComputoHome) btnStartComputoHome.addEventListener('click', () => Computo.openDrawer());
 
+    // Evolución histórica de un material
+    const materialHistoryCloseBtn = document.getElementById('material-history-modal-close-btn');
+    if (materialHistoryCloseBtn) materialHistoryCloseBtn.addEventListener('click', Pricing.closeMaterialHistoryModal);
+    if (ST.materialHistoryModalBackdrop) ST.materialHistoryModalBackdrop.addEventListener('click', Pricing.closeMaterialHistoryModal);
+
     // Catalog Search listener
     ST.catalogSearchInput.addEventListener('input', (e) => {
       ST.state.searchQuery = e.target.value;
@@ -450,6 +455,7 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
     closeProviderReview: Admin.closeProviderReview,
     openNewMaterialForm: Provider.openNewMaterialForm,
     selectMaterialOnMap: MapModule.selectMaterialOnMap,
+    openMaterialHistoryChart: Pricing.openMaterialHistoryChart,
     deleteIndexValue: Admin.deleteIndexValue,
     unassignProvider: Computo.unassignProvider
   };
