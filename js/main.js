@@ -183,6 +183,15 @@ import * as ST from './state.js';
   }
 
   export function init() {
+    // Presupuesto compartido por link público (?share=TOKEN): se muestra una
+    // vista mínima de solo lectura, sin inicializar el resto de la app
+    // (nav, mapa, auth, etc. no hacen falta acá).
+    const shareToken = new URLSearchParams(window.location.search).get('share');
+    if (shareToken) {
+      Computo.renderSharedComputation(shareToken);
+      return;
+    }
+
     Catalog.renderHomeSubareas();
     Catalog.renderRubroPills();
     Catalog.renderProducts();
@@ -372,6 +381,8 @@ import * as ST from './state.js';
     if (ST.btnExportPresupuestoReferencia) ST.btnExportPresupuestoReferencia.addEventListener('click', Computo.exportPresupuestoReferencia);
     if (ST.btnExportListaCompra) ST.btnExportListaCompra.addEventListener('click', Computo.exportListaDeCompra);
     ST.btnCopyComputo.addEventListener('click', Computo.copyComputoToClipboard);
+    const btnShareComputo = document.getElementById('btn-share-computo');
+    if (btnShareComputo) btnShareComputo.addEventListener('click', Computo.shareComputation);
     ST.btnClearComputo.addEventListener('click', Computo.clearComputoCart);
 
     // Excel Modal Listeners
@@ -456,6 +467,11 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
     openNewMaterialForm: Provider.openNewMaterialForm,
     selectMaterialOnMap: MapModule.selectMaterialOnMap,
     openMaterialHistoryChart: Pricing.openMaterialHistoryChart,
+    loadBranchReviews: MapModule.loadBranchReviews,
+    setReviewStars: MapModule.setReviewStars,
+    submitReview: MapModule.submitReview,
+    showToast: ST.showToast,
+    unshareComputation: Computo.unshareComputation,
     deleteIndexValue: Admin.deleteIndexValue,
     unassignProvider: Computo.unassignProvider
   };
