@@ -272,6 +272,36 @@ import * as ST from './state.js';
   let lastCatalogFilterSignature = null;
 
   // --- RENDER PRODUCTS (GRID & TABLE) ---
+  const technicalDataCache = {}; // material_id -> {brand, technical_description, yield_value, yield_unit}
+
+  async function loadTechnicalDataFor(materialIds) {
+    const missing = materialIds.filter(id => !(id in technicalDataCache));
+    if (missing.length === 0 || !ST.supabaseClient) return;
+
+    const { data, error } = await ST.supabaseClient
+      .from('materials')
+      .select('id, brand, technical_description, yield_value, yield_unit')
+      .in('id', missing);
+
+    if (error) return;
+    missing.forEach(id => { technicalDataCache[id] = null; }); // evita repreguntar si un material no trajo fila
+    (data || []).forEach(row => { technicalDataCache[row.id] = row; });
+  }
+
+  function renderTechnicalDataBadges() {
+    document.querySelectorAll('[data-tech-info]').forEach(el => {
+      const info = technicalDataCache[el.dataset.techInfo];
+      if (!info || (!info.brand && !info.technical_description && !info.yield_value)) return;
+      el.innerHTML = `
+        <div class="card-tech-info">
+          ${info.brand ? `<span class="card-tech-brand">${ST.escapeHtml(info.brand)}</span>` : ''}
+          ${info.yield_value ? `<span class="card-tech-yield">📐 ${info.yield_value} ${ST.escapeHtml(info.yield_unit) || ''}</span>` : ''}
+          ${info.technical_description ? `<p class="card-tech-desc">${ST.escapeHtml(info.technical_description)}</p>` : ''}
+        </div>
+      `;
+    });
+  }
+
   export function renderProducts() {
     // Si cambió la búsqueda, el rubro o el orden, la paginación vuelve a empezar
     // desde la página 1 -- así nunca te quedás "perdido" en la página 5 de un
@@ -317,6 +347,11 @@ import * as ST from './state.js';
     ST.visibleCount.textContent = filtered.length;
     if (ST.state.searchQuery.trim()) ST.logSearch(ST.state.searchQuery, filtered.length);
     ST.activeFilterLabel.textContent = ST.state.activeRubro !== 'Todos' ? ` en ${ST.state.activeRubro}` : '';
+
+    // Ficha técnica (marca, descripción, rendimiento): vive en la base, no en
+    // data.js -- se trae en un solo pedido agrupado para lo que se está por
+    // mostrar, no una consulta por tarjeta.
+    loadTechnicalDataFor(visible.map(i => i.id)).then(() => renderTechnicalDataBadges());
 
     if (filtered.length === 0) {
       ST.productsGrid.innerHTML = `
@@ -390,6 +425,7 @@ import * as ST from './state.js';
             </div>
             <h3 class="product-title">${ST.escapeHtml(item.denominacion)}</h3>
             <div class="product-category-tree">${ST.escapeHtml(item.categoria)} &rsaquo; ${ST.escapeHtml(item.subcategoria)}</div>
+            <div data-tech-info="${item.id}"></div>
           </div>
 
           <div>
