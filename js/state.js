@@ -190,27 +190,14 @@
   }
 
   /**
-   * Registra una búsqueda para la analítica del admin (qué se busca y con
-   * cuántos resultados) -- lo más valioso son las búsquedas con 0
-   * resultados, porque es literalmente "lo que la gente quiere y no
-   * tenemos". Con debounce: espera a que la persona deje de escribir un
-   * momento antes de guardar, para no llenar la tabla con cada letra que
-   * tipea.
+   * Para mostrar un error de la base al usuario SIN exponer el mensaje
+   * técnico crudo de Postgres/Supabase (que puede ser confuso o revelar de
+   * más). El error real queda en la consola del navegador, para quien
+   * necesite diagnosticarlo.
    */
-  let searchLogTimeout = null;
-  export function logSearch(query, resultsCount) {
-    if (!query || query.trim().length < 2) return;
-    clearTimeout(searchLogTimeout);
-    searchLogTimeout = setTimeout(() => {
-      if (!supabaseClient) return;
-      supabaseClient.from('search_log').insert({
-        query: query.trim(),
-        results_count: resultsCount,
-        user_id: authState.user?.id || null
-      }).then(({ error }) => {
-        if (error) console.warn('No se pudo registrar la búsqueda:', error.message);
-      });
-    }, 1200);
+  export function friendlyError(error, context) {
+    console.error(`[NEXOBRA] ${context}:`, error);
+    return 'No se pudo cargar esto en este momento. Probá de nuevo en un rato.';
   }
 
   export function formatMoney(amount) {
