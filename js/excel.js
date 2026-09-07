@@ -2,6 +2,7 @@
 
 import * as ST from './state.js';
 import * as Computo from './computo.js';
+import * as Pricing from './pricing.js';
 
   /**
    * Interpreta la columna "Unidad" de un Excel de forma flexible (tolera
@@ -399,4 +400,63 @@ import * as Computo from './computo.js';
     XLSX.utils.book_append_sheet(wb, ws, "Cotizacion_NEXOBRA");
     XLSX.writeFile(wb, `Cotizacion_NEXOBRA_${dateLabel.replace(/\s+/g, '_')}.xlsx`);
     ST.showToast('✓ Archivo Excel cotizado descargado exitosamente');
+  }
+
+  /**
+   * Descarga el catálogo completo (943 materiales) con sus precios para el
+   * mes que esté elegido en el selector del catálogo (ST.state.priceMonth)
+   * -- para quien solo quiere los datos, sin usar el cómputo web. Reutiliza
+   * la misma lógica de precio que ya usa cada tarjeta del catálogo, no
+   * calcula nada por su cuenta.
+   */
+  export async function downloadFullCatalog() {
+    try {
+      await ST.ensureXlsxLoaded();
+    } catch (err) {
+      ST.showToast(err.message);
+      return;
+    }
+
+    const targetMonth = ST.state.priceMonth;
+    ST.showToast('Preparando el archivo, puede tardar unos segundos...');
+
+    // Una sola consulta trae las anclas de mercado de los 943 materiales para
+    // este mes (no una consulta por material).
+    await Pricing.loadMarketAnchors(targetMonth);
+
+    const rows = NEXOBRA_DATA.map(item => {
+      const venta = Pricing.getReferencePrice(item, 'venta', targetMonth);
+      const computo = Pricing.getReferencePrice(item, 'computo', targetMonth);
+      return [
+        item.id,
+        item.rubro,
+        item.categoria,
+        item.subcategoria,
+        item.denominacion,
+        item.brand || '',
+        item.technical_description || '',
+        item.yield_value ? `${item.yield_value} ${item.yield_unit || ''}`.trim() : '',
+        item.unidadVenta,
+        venta.currentPrice,
+        item.unidadComputo,
+        computo.currentPrice,
+        venta.isMarketSourced ? 'Mercado real' : 'Proyectado por IPC'
+      ];
+    });
+
+    const header = [
+      'Código', 'Rubro', 'Categoría', 'Subcategoría', 'Denominación', 'Marca', 'Descripción técnica', 'Rendimiento',
+      'Unidad Venta', 'Precio Venta', 'Unidad Cómputo', 'Precio Cómputo', 'Origen del precio'
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    ws['!cols'] = [
+      { wch: 10 }, { wch: 22 }, { wch: 18 }, { wch: 18 }, { wch: 42 }, { wch: 16 }, { wch: 30 }, { wch: 14 },
+      { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 18 }
+    ];
+    const wb = XLSX.utils.book_new();
+    const mesLabel = ST.monthLabel(targetMonth);
+    XLSX.utils.book_append_sheet(wb, ws, mesLabel.replace(/\s+/g, '_').substring(0, 31));
+    XLSX.writeFile(wb, `Catalogo_NEXOBRA_${mesLabel.replace(/\s+/g, '_')}.xlsx`);
+    ST.showToast(`✓ Catálogo completo descargado (${rows.length} materiales, ${mesLabel})`);
   }
