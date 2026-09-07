@@ -356,3 +356,4 @@ import * as Computo from './computo.js';
     XLSX.writeFile(wb, `Cotizacion_NEXOBRA_${dateLabel.replace(/\s+/g, '_')}.xlsx`);
     ST.showToast('✓ Archivo Excel cotizado descargado exitosamente');
   }
+

@@ -609,3 +609,4 @@ import * as ST from './state.js';
     Catalog.updateCatalogHeader();
     updateReferenceStatus();
   }
+
