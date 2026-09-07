@@ -714,9 +714,15 @@ import * as ST from './state.js';
    * el ítem tiene un proveedor elegido o no. Sirve para planificar/estimar,
    * no para ir a comprar (para eso está exportListaDeCompra).
    */
-  export function exportPresupuestoReferencia() {
+  export async function exportPresupuestoReferencia() {
     if (ST.state.computoCart.length === 0) {
       alert('No hay ítems en tu cómputo para exportar.');
+      return;
+    }
+    try {
+      await ST.ensureXlsxLoaded();
+    } catch (err) {
+      ST.showToast(err.message);
       return;
     }
     const periodo = ST.monthLabel(ST.state.computoMonth);
@@ -790,7 +796,13 @@ import * as ST from './state.js';
    * todavía no tienen proveedor asignado se excluyen y se avisan aparte —
    * no se les asigna uno automático.
    */
-  export function exportListaDeCompra() {
+  export async function exportListaDeCompra() {
+    try {
+      await ST.ensureXlsxLoaded();
+    } catch (err) {
+      ST.showToast(err.message);
+      return;
+    }
     const { groups, sinProveedor } = groupCartByProvider();
     const materialesSinProveedor = sinProveedor.filter(({ item }) => (item.type || 'material') === 'material');
 
@@ -1029,4 +1041,3 @@ import * as ST from './state.js';
   // ==========================================================================
   // EXCEL BULK PROCESSOR (ETAPA 3)
   // ==========================================================================
-
