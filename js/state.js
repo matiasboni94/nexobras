@@ -200,6 +200,28 @@
     return 'No se pudo cargar esto en este momento. Probá de nuevo en un rato.';
   }
 
+  /**
+   * Registra una búsqueda para la analítica del admin (qué se busca y con
+   * cuántos resultados) -- lo más valioso son las búsquedas con 0
+   * resultados. Con debounce: espera a que la persona deje de escribir un
+   * momento antes de guardar, para no llenar la tabla con cada letra.
+   */
+  let searchLogTimeout = null;
+  export function logSearch(query, resultsCount) {
+    if (!query || query.trim().length < 2) return;
+    clearTimeout(searchLogTimeout);
+    searchLogTimeout = setTimeout(() => {
+      if (!supabaseClient) return;
+      supabaseClient.from('search_log').insert({
+        query: query.trim(),
+        results_count: resultsCount,
+        user_id: authState.user?.id || null
+      }).then(({ error }) => {
+        if (error) console.warn('No se pudo registrar la búsqueda:', error.message);
+      });
+    }, 1200);
+  }
+
   export function formatMoney(amount) {
     if (isNaN(amount)) return '$ 0,00';
     return new Intl.NumberFormat('es-AR', {
