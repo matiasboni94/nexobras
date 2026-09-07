@@ -224,6 +224,14 @@ import * as ST from './state.js';
     document.getElementById('profile-locality').value = ST.authState.profile?.locality || '';
     document.getElementById('profile-matricula').value = ST.authState.profile?.matricula || '';
     document.getElementById('profile-rubro').value = ST.authState.profile?.rubro_habitual || '';
+
+    // Solo se ofrece "convertirse en proveedor" a cuentas que hoy son
+    // usuario común -- si ya es proveedor o admin, no tiene sentido mostrarlo.
+    const becomeProviderSection = document.getElementById('profile-become-provider-section');
+    if (becomeProviderSection) {
+      becomeProviderSection.style.display = ST.authState.profile?.role === 'user' ? 'block' : 'none';
+    }
+
     ST.profileModal.classList.add('open');
     ST.profileModalBackdrop.classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -234,6 +242,36 @@ import * as ST from './state.js';
     ST.profileModal.classList.remove('open');
     ST.profileModalBackdrop.classList.remove('open');
     document.body.style.overflow = '';
+  }
+
+  /**
+   * Un usuario común pide convertirse en proveedor, desde su propio
+   * perfil -- no hace falta que un admin lo apruebe para este paso: lo
+   * único que hace es desbloquearle el acceso al panel "Mi Proveedor".
+   * La aprobación real sigue pasando después, cuando complete sus datos
+   * comerciales (verification_status), igual que siempre.
+   */
+  export async function becomeProvider() {
+    if (!ST.authState.user) return;
+    const btn = document.getElementById('btn-become-provider');
+    if (btn) { btn.disabled = true; btn.textContent = 'Un momento...'; }
+
+    const { error } = await ST.supabaseClient
+      .from('profiles')
+      .update({ role: 'provider' })
+      .eq('id', ST.authState.user.id);
+
+    if (error) {
+      ST.showToast('No se pudo hacer el cambio: ' + error.message);
+      if (btn) { btn.disabled = false; btn.textContent = 'Convertirme en proveedor'; }
+      return;
+    }
+
+    ST.authState.profile.role = 'provider';
+    document.getElementById('profile-become-provider-section').style.display = 'none';
+    Provider.updateProviderNavVisibility();
+    ST.showToast('¡Listo! Ya tenés acceso a "Mi Proveedor" en el menú.');
+    closeProfileModal();
   }
 
   export async function handleProfileSubmit(e) {
@@ -275,6 +313,8 @@ import * as ST from './state.js';
     ST.profileModalCloseBtn.addEventListener('click', closeProfileModal);
     ST.profileModalBackdrop.addEventListener('click', closeProfileModal);
     ST.profileForm.addEventListener('submit', handleProfileSubmit);
+    const btnBecomeProvider = document.getElementById('btn-become-provider');
+    if (btnBecomeProvider) btnBecomeProvider.addEventListener('click', becomeProvider);
   }
 
   // --- ELEGIR ROL (solo la primera vez que se entra por Google) ---
