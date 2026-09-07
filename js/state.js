@@ -422,3 +422,20 @@
   export const materialHistorySubtitle = document.getElementById('material-history-subtitle');
   export const materialHistoryStatus = document.getElementById('material-history-status');
   export const materialHistoryChart = document.getElementById('material-history-chart');
+
+  // FIX 2026-09-07: catalog.js y map.js llaman a ST.logSearch() para registrar búsquedas
+  // (tabla public.search_log), pero esta función nunca se había implementado en state.js.
+  // Eso tiraba "TypeError: ST.logSearch is not a function" y cortaba renderProducts()
+  // cada vez que había texto en el buscador. Va envuelta en try/catch: si la tabla o
+  // sus columnas no coinciden, el log simplemente no se guarda, pero el catálogo no se rompe.
+  export async function logSearch(query, resultsCount) {
+    try {
+      if (!supabaseClient || !query) return;
+      await supabaseClient.from('search_log').insert({
+        query,
+        results_count: resultsCount ?? null
+      });
+    } catch (e) {
+      // No crítico: si falla el log de búsqueda, no debe afectar la experiencia del usuario.
+    }
+  }
