@@ -35,71 +35,45 @@ import * as Computo from './computo.js';
     document.body.style.overflow = '';
   }
 
+  const BASE_MONTH = '2025-04-01'; // el mismo mes base que usan los materiales del catálogo
+
   /**
-   * Arma dinámicamente las opciones del selector de período, en vez de la
-   * lista fija que había quedado (solo hasta agosto 2025, sin actualizar
-   * nunca más). Usa los valores reales de IPC ya cargados en la base,
-   * calcula el factor de cada mes contra abril 2025 (el mes base original),
-   * y deja seleccionado por defecto el mes más reciente disponible -- así
-   * no hay que elegir nada a mano salvo que se quiera un factor distinto.
+   * Arma los selectores de año y mes reutilizando el mismo componente y los
+   * mismos datos de IPC que ya carga el catálogo (ST.indexState) -- no hace
+   * falta ninguna consulta nueva. Deja seleccionado el mes más reciente
+   * disponible por defecto.
    */
-  export async function loadExcelReferencePeriods() {
-    const select = ST.excelTargetDate;
-    if (!select || !ST.supabaseClient) return;
+  export function setupExcelPeriodPicker() {
+    const yearSelect = document.getElementById('excel-target-year');
+    const monthSelect = document.getElementById('excel-target-month');
+    if (!yearSelect || !monthSelect || !ST.indexState.loaded) return;
 
-    const BASE_MONTH = '2025-04-01'; // el mismo mes base que usan los materiales del catálogo
+    const mesesDisponibles = ST.indexState.months.filter(m => m >= BASE_MONTH);
+    if (mesesDisponibles.length === 0) return;
 
-    const { data, error } = await ST.supabaseClient
-      .from('index_values')
-      .select('reference_month, value, index_series!inner(code)')
-      .eq('index_series.code', ST.indexState.seriesCode)
-      .eq('is_published', true)
-      .gte('reference_month', BASE_MONTH)
-      .order('reference_month');
-
-    if (error || !data || data.length === 0) return; // se conserva lo que hubiera en el HTML como respaldo
-
-    const baseRow = data.find(r => r.reference_month === BASE_MONTH);
-    if (!baseRow) return;
-    const baseValue = Number(baseRow.value);
-
-    const customOption = select.querySelector('option[value="custom"]');
-    select.querySelectorAll('option:not([value="custom"])').forEach(opt => opt.remove());
-
-    data.forEach(row => {
-      const factor = Number(row.value) / baseValue;
-      const date = new Date(`${row.reference_month}T00:00:00`);
-      const label = date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-      const labelCapitalizado = label.charAt(0).toUpperCase() + label.slice(1);
-      const opt = document.createElement('option');
-      opt.value = factor.toFixed(4);
-      opt.textContent = row.reference_month === BASE_MONTH
-        ? `${labelCapitalizado} (Mes Base - 100%)`
-        : `${labelCapitalizado} (factor de referencia: ${factor.toFixed(3).replace('.', ',')})`;
-      select.insertBefore(opt, customOption);
-    });
-
-    // Por defecto, el mes más reciente disponible -- no "Factor Personalizado".
-    const options = select.querySelectorAll('option:not([value="custom"])');
-    if (options.length > 0) {
-      options[options.length - 1].selected = true;
-    }
+    ST.wireYearMonthPicker(yearSelect, monthSelect, mesesDisponibles, mesesDisponibles[mesesDisponibles.length - 1], () => {});
   }
 
   export function getActiveFactor() {
-    const val = ST.excelTargetDate.value;
-    if (val === 'custom') {
+    const useCustom = document.getElementById('excel-use-custom-factor')?.checked;
+    if (useCustom) {
       return parseFloat(ST.customFactorInput.value) || 1.0;
     }
-    return parseFloat(val) || 1.0;
+    const monthSelect = document.getElementById('excel-target-month');
+    const selectedMonth = monthSelect?.value;
+    const baseValue = ST.indexState.values[BASE_MONTH];
+    const selectedValue = ST.indexState.values[selectedMonth];
+    if (!baseValue || !selectedValue) return 1.0;
+    return selectedValue / baseValue;
   }
 
   export function getSelectedDateLabel() {
-    const opt = ST.excelTargetDate.options[ST.excelTargetDate.selectedIndex];
-    if (ST.excelTargetDate.value === 'custom') {
-      return `Personalizado (x${getActiveFactor()})`;
+    const useCustom = document.getElementById('excel-use-custom-factor')?.checked;
+    if (useCustom) {
+      return `Personalizado (x${getActiveFactor().toFixed(2)})`;
     }
-    return opt.text.split('(')[0].trim();
+    const monthSelect = document.getElementById('excel-target-month');
+    return ST.monthLabel(monthSelect?.value);
   }
 
   export function handleExcelFileSelect(e) {
