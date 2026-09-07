@@ -310,7 +310,7 @@ import * as ST from './state.js';
 
     const { data: reviews, error } = await ST.supabaseClient
       .from('provider_reviews')
-      .select('rating, comment, created_at, profiles(full_name)')
+      .select('user_id, rating, comment, created_at')
       .eq('provider_id', providerId)
       .order('created_at', { ascending: false })
       .limit(10);
@@ -320,13 +320,25 @@ import * as ST from './state.js';
       return;
     }
 
+    // Los apodos se traen aparte, desde una vista pública que solo expone
+    // el apodo (nunca el nombre completo, teléfono, etc. de terceros).
+    const userIds = [...new Set((reviews || []).map(r => r.user_id))];
+    const displayNames = {};
+    if (userIds.length > 0) {
+      const { data: names } = await ST.supabaseClient
+        .from('public_display_names')
+        .select('id, display_name')
+        .in('id', userIds);
+      (names || []).forEach(n => { displayNames[n.id] = n.display_name; });
+    }
+
     const reviewsHtml = (reviews || []).length === 0
       ? '<p style="font-size:0.8rem; color:var(--text-muted); margin-top:10px;">Todavía nadie dejó una reseña. ¡Sé el primero!</p>'
       : reviews.map(r => `
           <div class="review-row">
             <div class="review-row-header">
               <span class="star-rating-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
-              <span style="font-size:0.72rem; color:var(--text-subtle);">${ST.escapeHtml(r.profiles?.full_name) || 'Usuario de NEXOBRA'} · ${new Date(r.created_at).toLocaleDateString('es-AR')}</span>
+              <span style="font-size:0.72rem; color:var(--text-subtle);">${ST.escapeHtml(displayNames[r.user_id]) || 'Usuario de NEXOBRA'} · ${new Date(r.created_at).toLocaleDateString('es-AR')}</span>
             </div>
             ${r.comment ? `<p class="review-row-comment">${ST.escapeHtml(r.comment)}</p>` : ''}
           </div>
