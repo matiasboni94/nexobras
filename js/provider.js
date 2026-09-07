@@ -199,6 +199,44 @@ import * as ST from './state.js';
     const rounded = Math.round(data.avg_rating);
     const stars = '★'.repeat(rounded) + '☆'.repeat(5 - rounded);
     el.innerHTML = `<span class="star-rating"><span class="star-rating-stars">${stars}</span> ${data.avg_rating} <span class="star-rating-count">(${data.review_count} reseña${data.review_count === 1 ? '' : 's'})</span></span>`;
+
+    loadOwnReviewsList(providerId);
+  }
+
+  /** Lista de comentarios que recibió el proveedor, con el apodo público
+   * de quien la dejó (nunca el nombre completo ni otros datos privados). */
+  async function loadOwnReviewsList(providerId) {
+    const container = document.getElementById('provider-own-reviews-list');
+    if (!container) return;
+
+    const { data: reviews, error } = await ST.supabaseClient
+      .from('provider_reviews')
+      .select('user_id, rating, comment, created_at')
+      .eq('provider_id', providerId)
+      .order('created_at', { ascending: false });
+
+    if (error || !reviews || reviews.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    const userIds = [...new Set(reviews.map(r => r.user_id))];
+    const displayNames = {};
+    const { data: names } = await ST.supabaseClient
+      .from('public_display_names')
+      .select('id, display_name')
+      .in('id', userIds);
+    (names || []).forEach(n => { displayNames[n.id] = n.display_name; });
+
+    container.innerHTML = reviews.map(r => `
+      <div class="review-row">
+        <div class="review-row-header">
+          <span class="star-rating-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
+          <span style="font-size:0.72rem; color:var(--text-subtle);">${ST.escapeHtml(displayNames[r.user_id]) || 'Usuario de NEXOBRA'} · ${new Date(r.created_at).toLocaleDateString('es-AR')}</span>
+        </div>
+        ${r.comment ? `<p class="review-row-comment">${ST.escapeHtml(r.comment)}</p>` : ''}
+      </div>
+    `).join('');
   }
 
   export async function suggestTechnicalData(materialId) {
