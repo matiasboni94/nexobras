@@ -390,6 +390,8 @@ import * as ST from './state.js';
 
     // Excel Modal Listeners
     ST.btnOpenExcelModal.addEventListener('click', Excel.openExcelModal);
+    const btnDownloadFullCatalog = document.getElementById('btn-download-full-catalog');
+    if (btnDownloadFullCatalog) btnDownloadFullCatalog.addEventListener('click', Excel.downloadFullCatalog);
     ST.excelModalCloseBtn.addEventListener('click', Excel.closeExcelModal);
     ST.excelModalBackdrop.addEventListener('click', Excel.closeExcelModal);
 
