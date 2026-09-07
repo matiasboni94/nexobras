@@ -148,7 +148,7 @@ import * as ST from './state.js';
 
     if (!data || data.length === 0) {
       ST.myComputationsList.innerHTML = `
-        <div class="computo-empty-ST.state">
+        <div class="computo-empty-state">
           <div class="empty-icon">📋</div>
           <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no guardaste ningún presupuesto</h4>
           <p style="font-size: 0.85rem; color: var(--text-muted);">Armá un cómputo desde el catálogo y tocá "Guardar" en el panel lateral.</p>
@@ -669,13 +669,13 @@ import * as ST from './state.js';
 
     if (ST.state.computoCart.length === 0) {
       ST.drawerBody.innerHTML = `
-        <div class="computo-empty-ST.state">
+        <div class="computo-empty-state">
           <div class="empty-icon">📋</div>
           <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Tu cómputo está vacío</h4>
           <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
             Sumá materiales y mano de obra desde el catálogo para calcular los costos de tu obra o presupuesto al instante.
           </p>
-          <button class="btn-computo" onclick="document.getElementById('drawer-close-btn').click();">
+          <button class="btn-computo" onclick="document.getElementById('drawer-close-btn').click(); document.getElementById('nav-btn-catalogo').click();">
             Explorar catálogo
           </button>
         </div>
