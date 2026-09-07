@@ -199,6 +199,7 @@ import * as ST from './state.js';
     Pricing.updateReferenceStatus();
     Pricing.loadCatalogFromSupabase();
     Promise.all([Pricing.loadIndexSeries(), Pricing.loadLaborSeries()]).then(Pricing.reconcilePriceMonth);
+    Excel.loadExcelReferencePeriods();
     Auth.setupAuthListeners();
     Auth.setupProfileListeners();
     Auth.setupRoleListeners();
