@@ -1319,9 +1319,17 @@
                 <label for="branch-province">Provincia</label>
                 <input type="text" id="branch-province" class="form-select" placeholder="Ej: Misiones">
               </div>
-              <div class="config-field">
+              <div class="config-field" style="grid-column: 1 / -1;">
                 <label for="branch-address">Dirección</label>
-                <input type="text" id="branch-address" class="form-select">
+                <div style="display:flex; gap:8px;">
+                  <input type="text" id="branch-address" class="form-select" style="flex:1; min-width:0;" placeholder="Calle, número, localidad">
+                  <button type="button" class="btn-action-drawer btn-copy" id="btn-geocode-address" style="flex-shrink:0;">📍 Buscar en el mapa</button>
+                </div>
+              </div>
+              <div class="config-field" style="grid-column: 1 / -1;">
+                <label>Ubicación exacta (arrastrá el pin para ajustar)</label>
+                <div id="branch-location-map" style="height: 260px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-light);"></div>
+                <p id="branch-location-status" style="font-size: 0.75rem; color: var(--text-subtle); margin-top: 6px;">Buscá tu dirección arriba, o hacé clic directo en el mapa para marcar el lugar.</p>
               </div>
               <div class="config-field">
                 <label for="branch-whatsapp">WhatsApp de la sucursal</label>
@@ -1333,16 +1341,14 @@
               </div>
               <div class="config-field">
                 <label for="branch-lat">Latitud</label>
-                <input type="text" id="branch-lat" class="form-select" placeholder="Ej: -27.4864">
+                <input type="text" id="branch-lat" class="form-select" readonly style="opacity:0.7;" placeholder="Se completa solo">
               </div>
               <div class="config-field">
                 <label for="branch-lng">Longitud</label>
-                <input type="text" id="branch-lng" class="form-select" placeholder="Ej: -55.1200">
+                <input type="text" id="branch-lng" class="form-select" readonly style="opacity:0.7;" placeholder="Se completa solo">
               </div>
             </div>
-            <p style="font-size: 0.75rem; color: var(--text-subtle); margin: -8px 0 14px;">
-              Para la latitud/longitud: buscá tu dirección en Google Maps, hacé clic derecho sobre el pin y elegí "¿Qué hay aquí?" — te va a mostrar las dos coordenadas para copiar y pegar acá.
-            </p>
+
             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; margin-bottom: 16px;">
               <input type="checkbox" id="branch-delivery-available" style="width: auto;">
               Ofrezco flete/entrega a domicilio
