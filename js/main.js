@@ -198,8 +198,10 @@ import * as ST from './state.js';
     Computo.updateCartUI();
     Pricing.updateReferenceStatus();
     Pricing.loadCatalogFromSupabase();
-    Promise.all([Pricing.loadIndexSeries(), Pricing.loadLaborSeries()]).then(Pricing.reconcilePriceMonth);
-    Excel.loadExcelReferencePeriods();
+    Promise.all([Pricing.loadIndexSeries(), Pricing.loadLaborSeries()]).then(() => {
+      Pricing.reconcilePriceMonth();
+      Excel.setupExcelPeriodPicker();
+    });
     Auth.setupAuthListeners();
     Auth.setupProfileListeners();
     Auth.setupRoleListeners();
@@ -391,8 +393,21 @@ import * as ST from './state.js';
     ST.excelModalCloseBtn.addEventListener('click', Excel.closeExcelModal);
     ST.excelModalBackdrop.addEventListener('click', Excel.closeExcelModal);
 
-    ST.excelTargetDate.addEventListener('change', (e) => {
-      ST.customFactorField.style.display = e.target.value === 'custom' ? 'flex' : 'none';
+    const excelUseCustomFactor = document.getElementById('excel-use-custom-factor');
+    if (excelUseCustomFactor) excelUseCustomFactor.addEventListener('change', (e) => {
+      ST.customFactorField.style.display = e.target.checked ? 'flex' : 'none';
+      if (ST.state.excelProcessedRows.length > 0) {
+        Excel.recalculateExcelRows();
+      }
+    });
+    const excelTargetMonth = document.getElementById('excel-target-month');
+    if (excelTargetMonth) excelTargetMonth.addEventListener('change', () => {
+      if (ST.state.excelProcessedRows.length > 0) {
+        Excel.recalculateExcelRows();
+      }
+    });
+    const customFactorInputEl = document.getElementById('custom-factor-input');
+    if (customFactorInputEl) customFactorInputEl.addEventListener('input', () => {
       if (ST.state.excelProcessedRows.length > 0) {
         Excel.recalculateExcelRows();
       }
