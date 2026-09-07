@@ -19,11 +19,11 @@ drop table if exists public.material_aliases cascade;
 drop table if exists public.materials cascade;
 drop table if exists public.profiles cascade;
 
-drop function if exists public.is_admin();
-drop function if exists public.handle_new_user();
-drop function if exists public.set_updated_at();
+drop function if exists public.is_admin() cascade;
+drop function if exists public.handle_new_user() cascade;
+drop function if exists public.set_updated_at() cascade;
 
-drop type if exists public.offer_status;
-drop type if exists public.user_role;
+drop type if exists public.offer_status cascade;
+drop type if exists public.user_role cascade;
 
 commit;
