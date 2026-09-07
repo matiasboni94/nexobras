@@ -35,6 +35,57 @@ import * as Computo from './computo.js';
     document.body.style.overflow = '';
   }
 
+  /**
+   * Arma dinámicamente las opciones del selector de período, en vez de la
+   * lista fija que había quedado (solo hasta agosto 2025, sin actualizar
+   * nunca más). Usa los valores reales de IPC ya cargados en la base,
+   * calcula el factor de cada mes contra abril 2025 (el mes base original),
+   * y deja seleccionado por defecto el mes más reciente disponible -- así
+   * no hay que elegir nada a mano salvo que se quiera un factor distinto.
+   */
+  export async function loadExcelReferencePeriods() {
+    const select = ST.excelTargetDate;
+    if (!select || !ST.supabaseClient) return;
+
+    const BASE_MONTH = '2025-04-01'; // el mismo mes base que usan los materiales del catálogo
+
+    const { data, error } = await ST.supabaseClient
+      .from('index_values')
+      .select('reference_month, value, index_series!inner(code)')
+      .eq('index_series.code', ST.indexState.seriesCode)
+      .eq('is_published', true)
+      .gte('reference_month', BASE_MONTH)
+      .order('reference_month');
+
+    if (error || !data || data.length === 0) return; // se conserva lo que hubiera en el HTML como respaldo
+
+    const baseRow = data.find(r => r.reference_month === BASE_MONTH);
+    if (!baseRow) return;
+    const baseValue = Number(baseRow.value);
+
+    const customOption = select.querySelector('option[value="custom"]');
+    select.querySelectorAll('option:not([value="custom"])').forEach(opt => opt.remove());
+
+    data.forEach(row => {
+      const factor = Number(row.value) / baseValue;
+      const date = new Date(`${row.reference_month}T00:00:00`);
+      const label = date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+      const labelCapitalizado = label.charAt(0).toUpperCase() + label.slice(1);
+      const opt = document.createElement('option');
+      opt.value = factor.toFixed(4);
+      opt.textContent = row.reference_month === BASE_MONTH
+        ? `${labelCapitalizado} (Mes Base - 100%)`
+        : `${labelCapitalizado} (factor de referencia: ${factor.toFixed(3).replace('.', ',')})`;
+      select.insertBefore(opt, customOption);
+    });
+
+    // Por defecto, el mes más reciente disponible -- no "Factor Personalizado".
+    const options = select.querySelectorAll('option:not([value="custom"])');
+    if (options.length > 0) {
+      options[options.length - 1].selected = true;
+    }
+  }
+
   export function getActiveFactor() {
     const val = ST.excelTargetDate.value;
     if (val === 'custom') {
@@ -250,7 +301,14 @@ import * as Computo from './computo.js';
     }).join('');
   }
 
-  export function generateTemplateExcel() {
+  export async function generateTemplateExcel() {
+    try {
+      await ST.ensureXlsxLoaded();
+    } catch (err) {
+      ST.showToast(err.message);
+      return;
+    }
+
     const ws_data = [
       ["Código (Opcional)", "Material o Descripción", "Cantidad Requerida", "Unidad"],
       ["BL-003", "Cemento Portland Loma Negra 50kg", 20, "Bolsa"],
@@ -356,4 +414,3 @@ import * as Computo from './computo.js';
     XLSX.writeFile(wb, `Cotizacion_NEXOBRA_${dateLabel.replace(/\s+/g, '_')}.xlsx`);
     ST.showToast('✓ Archivo Excel cotizado descargado exitosamente');
   }
-
