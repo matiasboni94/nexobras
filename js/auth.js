@@ -65,7 +65,7 @@ import * as ST from './state.js';
     if (ST.authState.user) {
       const { data: profile } = await ST.supabaseClient
         .from('profiles')
-        .select('full_name, role, phone, locality, matricula, rubro_habitual, role_confirmed')
+        .select('full_name, public_nickname, role, phone, locality, matricula, rubro_habitual, role_confirmed')
         .eq('id', ST.authState.user.id)
         .single();
       ST.authState.profile = profile || null;
@@ -223,6 +223,7 @@ import * as ST from './state.js';
     document.getElementById('profile-phone').value = ST.authState.profile?.phone || '';
     document.getElementById('profile-locality').value = ST.authState.profile?.locality || '';
     document.getElementById('profile-matricula').value = ST.authState.profile?.matricula || '';
+    document.getElementById('profile-nickname').value = ST.authState.profile?.public_nickname || '';
     document.getElementById('profile-rubro').value = ST.authState.profile?.rubro_habitual || '';
 
     // Solo se ofrece "convertirse en proveedor" a cuentas que hoy son
@@ -285,6 +286,7 @@ import * as ST from './state.js';
       .from('profiles')
       .update({
         full_name: document.getElementById('profile-full-name').value.trim(),
+        public_nickname: document.getElementById('profile-nickname').value.trim() || null,
         phone: document.getElementById('profile-phone').value.trim() || null,
         locality: document.getElementById('profile-locality').value.trim() || null,
         matricula: document.getElementById('profile-matricula').value.trim() || null,
