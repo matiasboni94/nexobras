@@ -71,10 +71,102 @@ import * as ST from './state.js';
         document.getElementById('branch-lng').value = branch.longitude ?? '';
         document.getElementById('branch-delivery-available').checked = !!branch.delivery_available;
       }
+      initBranchLocationMap(branch?.latitude, branch?.longitude);
     }
 
     await loadProviderCatalog();
     await loadProviderDashboard();
+  }
+
+  let branchLocationMap = null;
+  let branchLocationMarker = null;
+
+  /**
+   * Mapa chico embebido en "Mi Proveedor" para marcar la ubicación exacta
+   * de la sucursal -- reemplaza tener que copiar coordenadas a mano desde
+   * Google Maps. Usa el mismo Leaflet + OpenStreetMap que el mapa
+   * principal del sitio (ya está cargado globalmente, no hace falta
+   * agregar nada nuevo).
+   */
+  function initBranchLocationMap(initialLat, initialLng) {
+    const lat = initialLat || -27.4864; // Oberá, Misiones -- punto de partida si todavía no hay nada cargado
+    const lng = initialLng || -55.1199;
+    const zoom = initialLat ? 15 : 12;
+
+    if (!branchLocationMap) {
+      branchLocationMap = L.map('branch-location-map').setView([lat, lng], zoom);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(branchLocationMap);
+
+      branchLocationMarker = L.marker([lat, lng], { draggable: true }).addTo(branchLocationMap);
+
+      branchLocationMarker.on('dragend', () => {
+        const pos = branchLocationMarker.getLatLng();
+        setBranchLatLng(pos.lat, pos.lng);
+      });
+
+      branchLocationMap.on('click', (e) => {
+        branchLocationMarker.setLatLng(e.latlng);
+        setBranchLatLng(e.latlng.lat, e.latlng.lng);
+      });
+
+      // Por si el navegador todavía no terminó de aplicar el display:block
+      // del panel en el mismo instante en que Leaflet mide el contenedor.
+      setTimeout(() => branchLocationMap.invalidateSize(), 50);
+    } else {
+      // El panel pudo haber estado oculto (display:none) cuando se creó el
+      // mapa por primera vez -- Leaflet necesita que se le avise el tamaño
+      // real una vez que ya es visible, si no queda con dimensiones rotas.
+      setTimeout(() => branchLocationMap.invalidateSize(), 50);
+      branchLocationMap.setView([lat, lng], zoom);
+      branchLocationMarker.setLatLng([lat, lng]);
+    }
+
+    if (initialLat && initialLng) {
+      setBranchLatLng(initialLat, initialLng);
+    }
+  }
+
+  function setBranchLatLng(lat, lng) {
+    document.getElementById('branch-lat').value = lat.toFixed(6);
+    document.getElementById('branch-lng').value = lng.toFixed(6);
+    document.getElementById('branch-location-status').textContent = 'Ubicación marcada. Arrastrá el pin si no quedó exacta.';
+  }
+
+  /**
+   * Busca la dirección escrita usando Nominatim (el buscador gratuito de
+   * OpenStreetMap) y mueve el pin ahí. Si no encuentra nada, el usuario
+   * igual puede marcar el lugar a mano haciendo clic en el mapa.
+   */
+  export async function geocodeBranchAddress() {
+    const address = document.getElementById('branch-address').value.trim();
+    const locality = document.getElementById('branch-locality').value.trim();
+    const province = document.getElementById('branch-province').value.trim();
+    const statusEl = document.getElementById('branch-location-status');
+
+    if (!address && !locality) {
+      ST.showToast('Escribí al menos la localidad para poder buscarla.');
+      return;
+    }
+
+    const query = [address, locality, province, 'Argentina'].filter(Boolean).join(', ');
+    statusEl.textContent = 'Buscando...';
+
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`);
+      const results = await res.json();
+      if (!results || results.length === 0) {
+        statusEl.textContent = 'No se encontró esa dirección. Probá con menos detalle, o marcá el lugar directo en el mapa de abajo.';
+        return;
+      }
+      const { lat, lon } = results[0];
+      branchLocationMap.setView([lat, lon], 16);
+      branchLocationMarker.setLatLng([lat, lon]);
+      setBranchLatLng(parseFloat(lat), parseFloat(lon));
+    } catch (err) {
+      statusEl.textContent = 'No se pudo buscar en este momento. Marcá el lugar directo en el mapa de abajo.';
+    }
   }
 
   function updateLogoPreview(url) {
@@ -705,6 +797,8 @@ import * as ST from './state.js';
     ST.btnApplyBulkPercent.addEventListener('click', applyBulkPercent);
     const btnDownloadProviderTemplate = document.getElementById('btn-download-provider-template');
     if (btnDownloadProviderTemplate) btnDownloadProviderTemplate.addEventListener('click', generateProviderTemplate);
+    const btnGeocodeAddress = document.getElementById('btn-geocode-address');
+    if (btnGeocodeAddress) btnGeocodeAddress.addEventListener('click', (e) => { e.preventDefault(); geocodeBranchAddress(); });
   }
 
   export function setupNewMaterialListeners() {
