@@ -839,15 +839,15 @@
       <!-- CONFIGURACIÓN DE FECHA & MODALIDAD -->
       <div class="excel-config-grid">
         <div class="config-field">
-          <label for="excel-target-date">Período de actualización de referencia:</label>
-          <select id="excel-target-date" class="form-select">
-            <option value="1.00">Abril 2025 (Mes Base - 100%)</option>
-            <option value="1.035">Mayo 2025 (factor de referencia: 1,035)</option>
-            <option value="1.072">Junio 2025 (factor de referencia: 1,072)</option>
-            <option value="1.110">Julio 2025 (factor de referencia: 1,110)</option>
-            <option value="1.155">Agosto 2025 (factor de referencia: 1,155)</option>
-            <option value="custom">Factor Personalizado...</option>
-          </select>
+          <label>Período de actualización de referencia:</label>
+          <div style="display:flex; gap:8px;">
+            <select id="excel-target-year" class="form-select" style="flex:1; min-width:0;"></select>
+            <select id="excel-target-month" class="form-select" style="flex:1.4; min-width:0;"></select>
+          </div>
+          <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-weight:400; font-size:0.8rem; cursor:pointer;">
+            <input type="checkbox" id="excel-use-custom-factor" style="width:auto;">
+            Usar un factor personalizado en vez del período de arriba
+          </label>
         </div>
 
         <div class="config-field" id="custom-factor-field" style="display: none;">
@@ -874,7 +874,7 @@
         </p>
         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
           <button class="btn-computo" id="btn-browse-file" type="button">Seleccionar archivo Excel</button>
-          <button class="btn-action-drawer btn-copy" id="btn-download-template" type="button" style="background: white;">Descargar Plantilla de Ejemplo (.xlsx)</button>
+          <button class="btn-action-drawer btn-copy" id="btn-download-template" type="button">Descargar Plantilla de Ejemplo (.xlsx)</button>
         </div>
       </div>
 
