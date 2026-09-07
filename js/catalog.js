@@ -292,13 +292,13 @@ import * as ST from './state.js';
     // (buscaste algo, o elegiste un rubro puntual).
     const sinFiltroActivo = !ST.state.searchQuery.trim() && ST.state.activeRubro === 'Todos';
     if (sinFiltroActivo) {
-      ST.visibleCount.textContent = '943';
+      ST.visibleCount.textContent = NEXOBRA_DATA.length;
       ST.activeFilterLabel.textContent = '';
       ST.productsGrid.innerHTML = `
         <div style="grid-column: 1 / -1; text-align: center; padding: 3rem 1rem;">
           <div style="font-size: 2.5rem; margin-bottom: 1rem;">🔎</div>
-          <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">943 materiales, listos para buscar</h3>
-          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 480px; margin: 0 auto;">
+          <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">${NEXOBRA_DATA.length} materiales, listos para buscar</h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem; max-width: 640px; margin: 0 auto;">
             Escribí lo que necesitás (aunque sea coloquial, como "durlock" o "sika"), o elegí un rubro debajo.
           </p>
         </div>
