@@ -958,7 +958,7 @@ import * as ST from './state.js';
     status.textContent = `${data.length} proveedor${data.length === 1 ? '' : 'es'} encontrado${data.length === 1 ? '' : 's'}.`;
 
     container.innerHTML = data.map(p => {
-      const whatsappDigits = p.whatsapp_phone ? p.whatsapp_phone.replace(/\D/g, '') : null;
+      const whatsappDigits = (p.whatsapp_phone || p.contact_phone) ? (p.whatsapp_phone || p.contact_phone).replace(/\D/g, '') : null;
       return `
         <div class="provider-directory-card">
           <div class="provider-directory-card-header">
@@ -974,7 +974,6 @@ import * as ST from './state.js';
           ${p.description ? `<p style="font-size:0.85rem; color:var(--text-muted);">${ST.escapeHtml(p.description)}</p>` : ''}
           <div class="provider-directory-actions">
             ${whatsappDigits ? `<a href="https://wa.me/${whatsappDigits}" target="_blank" rel="noopener" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;">💬 WhatsApp</a>` : ''}
-            ${p.contact_phone ? `<a href="tel:${ST.escapeHtml(p.contact_phone)}" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;">📞 Llamar</a>` : ''}
             ${p.website_url ? `<a href="${ST.escapeHtml(p.website_url)}" target="_blank" rel="noopener" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;">🌐 Sitio web</a>` : ''}
           </div>
         </div>
