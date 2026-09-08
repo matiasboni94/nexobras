@@ -955,6 +955,132 @@ import * as ST from './state.js';
     loadAlerts();
   }
 
+  // --- Alertas de rubro ("avisame de proveedores nuevos cerca mío") ---
+  // Independiente de price_alerts: no es por material, es por rubro +
+  // radio, pensada para el Directorio de Proveedores. Un usuario tiene como
+  // mucho una alerta activa por rubro (unique en la tabla).
+  export async function loadCategoryAlertIds() {
+    if (!ST.supabaseClient || !ST.authState.user) return;
+    const { data, error } = await ST.supabaseClient
+      .from('category_alerts')
+      .select('*')
+      .eq('user_id', ST.authState.user.id);
+    if (!error) {
+      ST.categoryAlertsState.byCategoryId = {};
+      (data || []).forEach(row => { ST.categoryAlertsState.byCategoryId[row.category_id] = row; });
+      ST.categoryAlertsState.loaded = true;
+    }
+  }
+
+  export async function toggleCategoryAlert() {
+    if (!ST.authState.user) {
+      ST.showToast('Iniciá sesión para crear alertas de proveedores nuevos.');
+      Auth.showAuthTab('login');
+      Auth.openAuthModal();
+      return;
+    }
+    const categoryId = ST.directoryState.categoryId;
+    if (!categoryId) {
+      ST.showToast('Elegí primero un rubro puntual (no "Todos") para poder avisarte.');
+      return;
+    }
+    const existing = ST.categoryAlertsState.byCategoryId[categoryId];
+    if (existing) {
+      await ST.supabaseClient.from('category_alerts').delete().eq('id', existing.id);
+      delete ST.categoryAlertsState.byCategoryId[categoryId];
+      ST.showToast('Alerta de rubro eliminada.');
+    } else {
+      const { data, error } = await ST.supabaseClient
+        .from('category_alerts')
+        .insert({
+          user_id: ST.authState.user.id,
+          category_id: categoryId,
+          center_lat: ST.directoryState.center.lat,
+          center_lng: ST.directoryState.center.lng,
+          radius_km: ST.directoryState.radiusKm
+        })
+        .select('*')
+        .single();
+      if (!error) {
+        ST.categoryAlertsState.byCategoryId[categoryId] = data;
+        ST.showToast('Listo, te avisamos por mail si aparece un proveedor nuevo de este rubro en tu zona.');
+      } else {
+        ST.showToast(ST.friendlyError(error, 'crear la alerta'));
+      }
+    }
+    updateCategoryAlertButton();
+  }
+
+  export function updateCategoryAlertButton() {
+    const btn = document.getElementById('btn-directory-create-alert');
+    if (!btn) return;
+    const categoryId = ST.directoryState.categoryId;
+    if (!categoryId) {
+      btn.textContent = '🔔 Elegí un rubro para avisarte';
+      btn.classList.remove('active');
+      return;
+    }
+    const activa = !!ST.categoryAlertsState.byCategoryId[categoryId];
+    btn.textContent = activa ? '🔕 Ya te avisamos de este rubro' : '🔔 Avisame de proveedores nuevos';
+    btn.classList.toggle('active', activa);
+  }
+
+  export async function loadCategoryAlerts() {
+    const list = document.getElementById('category-alerts-list');
+    if (!list || !ST.authState.user) return;
+    list.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando...</p>';
+
+    if (ST.directoryState.categories.length === 0) {
+      const { data } = await ST.supabaseClient.from('provider_categories').select('id, name, kind').eq('active', true).order('name');
+      ST.directoryState.categories = data || [];
+    }
+
+    const { data, error } = await ST.supabaseClient
+      .from('category_alerts')
+      .select('*')
+      .eq('user_id', ST.authState.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      list.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, "cargar alertas de rubro")}</p>`;
+      return;
+    }
+    if (!data || data.length === 0) {
+      list.innerHTML = `
+        <div class="computo-empty-state">
+          <div class="empty-icon">🔔</div>
+          <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no armaste ninguna alerta de rubro</h4>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">En el Directorio de Proveedores, elegí un rubro y tocá "Avisame de proveedores nuevos".</p>
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = data.map(alert => {
+      const cat = ST.directoryState.categories.find(c => c.id === alert.category_id);
+      return `
+        <div class="computation-row">
+          <div class="computation-row-info">
+            <h4>${ST.escapeHtml(cat ? cat.name : 'Rubro')}</h4>
+            <span>Radio: ${alert.radius_km} km</span>
+            ${alert.last_checked_at ? `<span style="display:block; font-size:0.72rem; color:var(--text-subtle);">Última revisión: ${new Date(alert.last_checked_at).toLocaleDateString('es-AR')}</span>` : ''}
+          </div>
+          <div class="computation-row-actions" style="align-items:center;">
+            <button class="danger" onclick="window.nexoBraApp.removeCategoryAlert('${alert.id}', '${alert.category_id}')">Eliminar</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  export async function removeCategoryAlert(alertId, categoryId) {
+    await ST.supabaseClient.from('category_alerts').delete().eq('id', alertId);
+    delete ST.categoryAlertsState.byCategoryId[categoryId];
+    ST.showToast('Alerta de rubro eliminada.');
+    loadCategoryAlerts();
+    updateCategoryAlertButton();
+  }
+
   export function setupFavoritesAndAlertsListeners() {
     if (!ST.supabaseClient) return;
     const btnOpenFavorites = document.getElementById('btn-open-favorites');
@@ -999,6 +1125,7 @@ import * as ST from './state.js';
         ST.directoryState.categoryId = btn.dataset.catId || null;
         loadDirectoryCategories();
         loadProvidersDirectory();
+        updateCategoryAlertButton();
       });
     });
   }

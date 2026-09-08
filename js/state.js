@@ -308,6 +308,7 @@
   export const providerPricesState = { loaded: false, byMaterial: {} };
   export const favoritesState = { ids: new Set(), loaded: false };
   export const alertsState = { byMaterial: {}, loaded: false };
+  export const categoryAlertsState = { byCategoryId: {}, loaded: false }; // "avisame de proveedores nuevos de este rubro cerca mío" (distinto de alertsState, que es por material)
   export const homeView = document.getElementById('home-view');
   export const catalogView = document.getElementById('catalog-view');
   export const laborView = document.getElementById('labor-view');

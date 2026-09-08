@@ -78,6 +78,7 @@ import * as ST from './state.js';
     if (viewName === 'providers-directory') {
       MapModule.loadDirectoryCategories();
       MapModule.loadProvidersDirectory();
+      MapModule.loadCategoryAlertIds().then(() => MapModule.updateCategoryAlertButton());
     }
 
     ST.navBtnCatalogo.classList.toggle('active', viewName === 'catalog');
@@ -155,6 +156,7 @@ import * as ST from './state.js';
         if (alertsViewEl) alertsViewEl.style.display = 'none';
       } else {
         MapModule.loadAlerts();
+        MapModule.loadCategoryAlerts();
       }
     }
     if (viewName === 'provider') {
@@ -260,6 +262,8 @@ import * as ST from './state.js';
       ST.directoryState.radiusKm = parseInt(e.target.value, 10);
       MapModule.loadProvidersDirectory();
     });
+    const btnDirectoryCreateAlert = document.getElementById('btn-directory-create-alert');
+    if (btnDirectoryCreateAlert) btnDirectoryCreateAlert.addEventListener('click', MapModule.toggleCategoryAlert);
 
     const btnMethodologyCatalog = document.getElementById('btn-open-methodology-catalog');
     if (btnMethodologyCatalog) btnMethodologyCatalog.addEventListener('click', () => switchView('about'));
@@ -542,6 +546,8 @@ toggleFavorite: MapModule.toggleFavorite,
 removeFavorite: MapModule.removeFavorite,
 toggleMaterialAlert: MapModule.toggleMaterialAlert,
     removeAlert: MapModule.removeAlert,
+    toggleCategoryAlert: MapModule.toggleCategoryAlert,
+    removeCategoryAlert: MapModule.removeCategoryAlert,
     openMaterialEditor: Admin.openMaterialEditor,
     approveProvider: Admin.approveProvider,
     rejectProvider: Admin.rejectProvider,
