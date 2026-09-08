@@ -222,6 +222,29 @@
     }, 1200);
   }
 
+  /**
+   * Registra una "interacción" de un usuario con un proveedor puntual, para
+   * alimentar el dashboard de estadísticas del proveedor (Mi Proveedor):
+   * cuántas consultas recibe, por qué material, a qué distancia, etc.
+   * Fire-and-forget: si falla, no debe romper ni frenar nada de la UI (por
+   * eso no se espera el resultado ni se muestra ningún error al usuario).
+   * Funciona también para usuarios sin login (user_id queda null).
+   */
+  export function logProviderInteraction(branchId, providerId, eventType, materialId, materialName, distanceKm) {
+    if (!supabaseClient || !branchId || !providerId || !eventType) return;
+    supabaseClient.from('provider_interaction_events').insert({
+      branch_id: branchId,
+      provider_id: providerId,
+      event_type: eventType,
+      material_id: materialId || null,
+      material_name: materialName || null,
+      distance_km: (distanceKm === undefined || distanceKm === null || isNaN(distanceKm)) ? null : distanceKm,
+      user_id: authState.user?.id || null
+    }).then(({ error }) => {
+      if (error) console.warn('No se pudo registrar la interacción con el proveedor:', error.message);
+    });
+  }
+
   export function formatMoney(amount) {
     if (isNaN(amount)) return '$ 0,00';
     return new Intl.NumberFormat('es-AR', {

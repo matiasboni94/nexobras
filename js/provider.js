@@ -80,6 +80,7 @@ import * as ST from './state.js';
 
     await loadProviderCatalog();
     await loadProviderDashboard();
+    await loadProviderInteractionStats();
   }
 
   let branchLocationMap = null;
@@ -976,6 +977,106 @@ import * as ST from './state.js';
     if (!ST.supabaseClient) return;
     const radiusSelect = document.getElementById('provider-dashboard-radius');
     if (radiusSelect) radiusSelect.addEventListener('change', loadProviderDashboard);
+  }
+
+  // --- DASHBOARD DE INTERACCIONES / CONSULTAS ---
+  // Nombres de día en el orden en que Postgres los devuelve (extract(dow):
+  // 0 = domingo ... 6 = sábado). Se muestran reordenados lunes-a-domingo,
+  // que es como la gente arma su semana acá.
+  const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const ORDEN_SEMANA_LUN_A_DOM = [1, 2, 3, 4, 5, 6, 0];
+
+  function barRow(label, cantidad, maxCantidad) {
+    const pct = maxCantidad > 0 ? Math.max(4, Math.round((cantidad / maxCantidad) * 100)) : 0;
+    return `
+      <div class="stats-bar-row">
+        <span class="stats-bar-label">${ST.escapeHtml(label)}</span>
+        <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${pct}%;"></div></div>
+        <span class="stats-bar-value">${cantidad}</span>
+      </div>
+    `;
+  }
+
+  export async function loadProviderInteractionStats() {
+    const summaryEl = document.getElementById('provider-stats-summary');
+    const bodyEl = document.getElementById('provider-stats-body');
+    if (!summaryEl || !bodyEl || !ST.providerState.provider) return;
+
+    summaryEl.innerHTML = '';
+    bodyEl.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Calculando...</p>';
+
+    const { data, error } = await ST.supabaseClient.rpc('get_provider_dashboard_stats', {
+      p_provider_id: ST.providerState.provider.id
+    });
+
+    if (error) {
+      bodyEl.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, 'cargar las estadísticas de consultas')}</p>`;
+      return;
+    }
+
+    const stats = data || {};
+    const rating = stats.rating || {};
+
+    summaryEl.innerHTML = `
+      <div class="provider-stats-card">
+        <strong>${stats.total_30d ?? 0}</strong>
+        <span>Consultas (últimos 30 días)</span>
+      </div>
+      <div class="provider-stats-card">
+        <strong>${stats.total_90d ?? 0}</strong>
+        <span>Consultas (últimos 90 días)</span>
+      </div>
+      <div class="provider-stats-card">
+        <strong>${stats.whatsapp_clicks_30d ?? 0}</strong>
+        <span>Clicks a WhatsApp (30 días)</span>
+      </div>
+      <div class="provider-stats-card">
+        <strong>${rating.review_count ? rating.avg_rating : 's/d'}</strong>
+        <span>Valoración promedio${rating.review_count ? ` (${rating.review_count} reseña${rating.review_count === 1 ? '' : 's'})` : ' (sin reseñas)'}</span>
+      </div>
+    `;
+
+    if (!stats.total_90d) {
+      bodyEl.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted); margin-top:10px;">Todavía no tenés consultas registradas. En cuanto alguien vea tu ficha o te escriba por WhatsApp desde NEXOBRA, va a empezar a aparecer acá.</p>';
+      return;
+    }
+
+    // Por distancia
+    const porDistancia = stats.by_distance_30d || [];
+    const ordenDistancia = ['0-5km', '5-15km', '15-30km', '30km+', 'sin_datos'];
+    const distanciaOrdenada = ordenDistancia
+      .map(rango => porDistancia.find(r => r.rango === rango))
+      .filter(Boolean);
+    const maxDistancia = Math.max(1, ...distanciaOrdenada.map(r => r.cantidad));
+    const distanciaLabels = { '0-5km': '0 a 5 km', '5-15km': '5 a 15 km', '15-30km': '15 a 30 km', '30km+': 'Más de 30 km', 'sin_datos': 'Sin datos de distancia' };
+
+    // Top materiales/servicios
+    const topMateriales = stats.top_materials_30d || [];
+    const maxMaterial = Math.max(1, ...topMateriales.map(m => m.cantidad));
+
+    // Patrón semanal (últimas 8 semanas)
+    const porDia = stats.weekly_pattern_8w || [];
+    const diaMap = {};
+    porDia.forEach(d => { diaMap[d.dia_semana] = d.cantidad; });
+    const maxDia = Math.max(1, ...ORDEN_SEMANA_LUN_A_DOM.map(d => diaMap[d] || 0));
+
+    // Histórico mensual (últimos 12 meses)
+    const porMes = stats.monthly_history_12m || [];
+    const maxMes = Math.max(1, ...porMes.map(m => m.cantidad));
+
+    bodyEl.innerHTML = `
+      <h4 class="provider-subsection-title">Por distancia (últimos 30 días)</h4>
+      ${distanciaOrdenada.length ? distanciaOrdenada.map(r => barRow(distanciaLabels[r.rango] || r.rango, r.cantidad, maxDistancia)).join('') : '<p style="font-size:0.8rem; color:var(--text-muted);">Sin datos todavía.</p>'}
+
+      <h4 class="provider-subsection-title">Materiales/servicios más consultados (últimos 30 días)</h4>
+      ${topMateriales.length ? topMateriales.map(m => barRow(m.material_name || m.material_id, m.cantidad, maxMaterial)).join('') : '<p style="font-size:0.8rem; color:var(--text-muted);">Todavía no hay consultas ligadas a un material puntual (por ejemplo, las del Directorio de Proveedores no tienen material asociado).</p>'}
+
+      <h4 class="provider-subsection-title">¿Qué día te consultan más? (últimas 8 semanas)</h4>
+      ${ORDEN_SEMANA_LUN_A_DOM.map(d => barRow(DIAS_SEMANA[d], diaMap[d] || 0, maxDia)).join('')}
+
+      <h4 class="provider-subsection-title">Histórico mensual (últimos 12 meses)</h4>
+      ${porMes.length ? porMes.map(m => barRow(m.mes, m.cantidad, maxMes)).join('') : '<p style="font-size:0.8rem; color:var(--text-muted);">Sin datos todavía.</p>'}
+    `;
   }
 
   // --- FASE E, PARTE 2: Favoritos ---

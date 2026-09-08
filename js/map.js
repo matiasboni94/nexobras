@@ -195,8 +195,13 @@ import * as ST from './state.js';
     const esFavorito = ST.favoritesState.ids.has(offer.branch_id);
     const stockLabel = offer.stock_status === 'agotado' ? 'Agotado' : offer.stock_status === 'a_pedido' ? 'A pedido' : 'En stock';
     const whatsappLink = offer.whatsapp_phone
-      ? `<a class="btn-computo" style="text-decoration:none;" href="https://wa.me/${offer.whatsapp_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola! Vi en NEXOBRA que tenés ${materialName} a ${ST.formatMoney(offer.amount)}/${offer.unit}. ¿Seguís teniendo disponible?`)}" target="_blank" rel="noopener">💬 Contactar por WhatsApp</a>`
+      ? `<a class="btn-computo" style="text-decoration:none;" href="https://wa.me/${offer.whatsapp_phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola! Vi en NEXOBRA que tenés ${materialName} a ${ST.formatMoney(offer.amount)}/${offer.unit}. ¿Seguís teniendo disponible?`)}" target="_blank" rel="noopener" onclick="window.nexoBraApp.logProviderInteraction(${ST.escAttr(offer.branch_id)}, ${ST.escAttr(offer.provider_id)}, 'whatsapp_click', ${ST.escAttr(materialId)}, ${ST.escAttr(materialName)}, ${JSON.stringify(offer.distance_km ?? null)})">💬 Contactar por WhatsApp</a>`
       : '';
+
+    // Registra la "consulta" a este proveedor para su dashboard de estadísticas
+    // (cantidad de interacciones, por qué material, a qué distancia). No bloquea
+    // ni condiciona el render del panel: si falla, no pasa nada para el usuario.
+    ST.logProviderInteraction(offer.branch_id, offer.provider_id, 'offer_view', materialId, materialName, offer.distance_km);
 
     ST.mapBranchPanel.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
@@ -1172,12 +1177,18 @@ import * as ST from './state.js';
           ${p.matricula ? `<p style="font-size:0.78rem; color:var(--text-muted);"><strong>Matrícula:</strong> ${ST.escapeHtml(p.matricula)}</p>` : ''}
           ${p.description ? `<p style="font-size:0.85rem; color:var(--text-muted);">${ST.escapeHtml(p.description)}</p>` : ''}
           <div class="provider-directory-actions">
-            ${whatsappDigits ? `<a href="https://wa.me/${whatsappDigits}" target="_blank" rel="noopener" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;">💬 WhatsApp</a>` : ''}
-            ${p.website_url ? `<a href="${ST.escapeHtml(p.website_url)}" target="_blank" rel="noopener" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;">🌐 Sitio web</a>` : ''}
+            ${whatsappDigits ? `<a href="https://wa.me/${whatsappDigits}" target="_blank" rel="noopener" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;" onclick="window.nexoBraApp.logProviderInteraction(${ST.escAttr(p.branch_id)}, ${ST.escAttr(p.provider_id)}, 'whatsapp_click', null, null, ${JSON.stringify(p.distance_km ?? null)})">💬 WhatsApp</a>` : ''}
+            ${p.website_url ? `<a href="${ST.escapeHtml(p.website_url)}" target="_blank" rel="noopener" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;" onclick="window.nexoBraApp.logProviderInteraction(${ST.escAttr(p.branch_id)}, ${ST.escAttr(p.provider_id)}, 'website_click', null, null, ${JSON.stringify(p.distance_km ?? null)})">🌐 Sitio web</a>` : ''}
           </div>
         </div>
       `;
     }).join('');
+
+    // Registra que cada uno de estos proveedores apareció en una búsqueda del
+    // Directorio, para su dashboard ("cantidad de interacciones" por distancia).
+    // Es una señal más débil que un click, pero es la única forma de saber que
+    // alguien efectivamente vio la ficha (no solo la buscó por WhatsApp/web).
+    data.forEach(p => ST.logProviderInteraction(p.branch_id, p.provider_id, 'directory_view', null, null, p.distance_km));
   }
 
   export function requestDirectoryUserLocation() {
