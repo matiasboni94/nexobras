@@ -237,13 +237,34 @@ import * as ST from './state.js';
 
   /** Lista de comentarios que recibió el proveedor, con el apodo público
    * de quien la dejó (nunca el nombre completo ni otros datos privados). */
+  export async function replyToReview(reviewId) {
+    const respuesta = prompt('Escribí tu respuesta pública a esta reseña (máx. 300 caracteres):');
+    if (!respuesta || !respuesta.trim()) return;
+    if (respuesta.length > 300) {
+      ST.showToast('La respuesta no puede superar los 300 caracteres.');
+      return;
+    }
+
+    const { error } = await ST.supabaseClient
+      .from('provider_reviews')
+      .update({ reply: respuesta.trim(), replied_at: new Date().toISOString() })
+      .eq('id', reviewId);
+
+    if (error) {
+      ST.showToast('No se pudo publicar la respuesta: ' + error.message);
+      return;
+    }
+    ST.showToast('Respuesta publicada.');
+    loadOwnReviewsList(ST.providerState.provider.id);
+  }
+
   async function loadOwnReviewsList(providerId) {
     const container = document.getElementById('provider-own-reviews-list');
     if (!container) return;
 
     const { data: reviews, error } = await ST.supabaseClient
       .from('provider_reviews')
-      .select('user_id, rating, comment, created_at')
+      .select('id, user_id, rating, comment, created_at, reply')
       .eq('provider_id', providerId)
       .order('created_at', { ascending: false });
 
@@ -267,6 +288,14 @@ import * as ST from './state.js';
           <span style="font-size:0.72rem; color:var(--text-subtle);">${ST.escapeHtml(displayNames[r.user_id]) || 'Usuario de NEXOBRA'} · ${new Date(r.created_at).toLocaleDateString('es-AR')}</span>
         </div>
         ${r.comment ? `<p class="review-row-comment">${ST.escapeHtml(r.comment)}</p>` : ''}
+        ${r.reply ? `
+          <div class="review-reply-box">
+            <strong style="font-size:0.75rem;">Tu respuesta:</strong>
+            <p style="font-size:0.8rem; margin-top:2px;">${ST.escapeHtml(r.reply)}</p>
+          </div>
+        ` : `
+          <button class="btn-action-drawer btn-copy" style="font-size:0.75rem; margin-top:6px; padding:5px 10px;" onclick="window.nexoBraApp.replyToReview(${ST.escAttr(r.id)})">Responder</button>
+        `}
       </div>
     `).join('');
   }
