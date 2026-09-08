@@ -1503,6 +1503,17 @@
         </div>
       </details>
 
+      <!-- 5c. OFERTAS POR MAIL A SUSCRIPTORES -->
+      <details class="provider-section">
+        <summary>📧 Ofertas por mail a tus suscriptores</summary>
+        <div class="provider-section-body">
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">
+            Los clientes que se suscriben a tus ofertas (desde tu ficha en el mapa) reciben un mail con tu catálogo activo cuando vos decidís mandarlo. Es aparte de tus favoritos. Máximo un envío cada 24 horas.
+          </p>
+          <div id="provider-broadcast-status"><!-- se completa con loadProviderBroadcastStatus() --></div>
+        </div>
+      </details>
+
       <!-- 5b. DASHBOARD DE INTERACCIONES / CONSULTAS -->
       <details class="provider-section" open>
         <summary>📈 Consultas que recibís</summary>
@@ -1532,6 +1543,10 @@
         </div>
       </div>
       <div id="favorites-list" class="computations-list"><!-- se completa con loadFavorites() --></div>
+
+      <h3 style="margin: 28px 0 4px; font-size: 1.05rem;">📧 Ofertas por mail</h3>
+      <p class="catalog-subtitle" style="margin-bottom: 14px;">Proveedores que te avisan por mail cuando mandan sus ofertas del día o de la semana.</p>
+      <div id="offer-subscriptions-list" class="computations-list"><!-- se completa con loadOfferSubscriptions() --></div>
     </div>
   </div>
 
