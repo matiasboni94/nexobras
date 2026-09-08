@@ -1,30 +1,1803 @@
-drop function if exists public.nearby_providers_directory(double precision, double precision, double precision, uuid);
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEXOBRA | Comparador técnico de precios para la construcción</title>
+  <meta name="description" content="Comparador técnico de precios, materiales y cómputos para la construcción en Argentina. Consultá valores de referencia trazables y ofertas de proveedores locales.">
+  <link rel="icon" type="image/png" href="assets/nexobra-icon.png">
+  <link rel="apple-touch-icon" href="assets/nexobra-icon.png">
+  <!-- Modo oscuro: se aplica ANTES de cargar el CSS, para que no haya un
+       parpadeo del tema equivocado al abrir la página. Si el usuario nunca
+       tocó el botón de tema, no se guarda nada acá y manda la preferencia
+       del sistema (ver @media prefers-color-scheme en style.css). -->
+  <script>
+    (function () {
+      var saved = localStorage.getItem('nexobra-theme');
+      if (saved === 'dark' || saved === 'light') {
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-create function public.nearby_providers_directory(
-  center_lat double precision, center_lng double precision, radius_km double precision default 50,
-  p_category_id uuid default null
-)
-returns table (
-  branch_id uuid, provider_id uuid, business_name text, branch_name text, locality text,
-  whatsapp_phone text, contact_phone text, contact_email text, website_url text,
-  description text, matricula text, category_name text, category_kind text,
-  latitude numeric, longitude numeric, distance_km double precision,
-  logo_url text, avg_rating numeric, review_count bigint
-)
-language sql stable as $$
-  select
-    b.id, p.id, p.business_name, b.name, b.locality, b.whatsapp_phone,
-    p.contact_phone, p.contact_email, p.website_url,
-    p.description, p.matricula, c.name, c.kind,
-    b.latitude, b.longitude,
-    ST_Distance(b.geog, ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326)::geography) / 1000.0,
-    p.logo_url, r.avg_rating, coalesce(r.review_count, 0)
-  from public.provider_branches b
-  join public.providers p on p.id = b.provider_id
-  left join public.provider_categories c on c.id = p.category_id
-  left join public.provider_ratings_summary r on r.provider_id = p.id
-  where b.active = true and p.active = true and p.verification_status = 'approved' and b.geog is not null
-    and (p_category_id is null or p.category_id = p_category_id)
-    and ST_DWithin(b.geog, ST_SetSRID(ST_MakePoint(center_lng, center_lat), 4326)::geography, radius_km * 1000)
-  order by 16 asc;
-$$;
+  <!-- HEADER & NAVIGATION -->
+  <header class="header" id="main-header">
+    <div class="container header-container">
+      
+      <!-- LOGO NEXOBRA -->
+      <a href="#inicio" class="brand-wrapper" id="nav-brand-logo">
+        <div class="brand-logo-icon">
+          <img src="assets/nexobra-icon.png" alt="NEXOBRA" width="36" height="36" style="display:block; object-fit: contain;">
+        </div>
+        <div class="brand-title-group">
+          <div class="brand-name">NEX<span class="accent">OBRA</span></div>
+          <span class="brand-badge-tag">COMPARADOR TÉCNICO</span>
+        </div>
+      </a>
+
+      <!-- MAIN NAV LINKS -->
+      <nav class="nav-links-desktop">
+        <button class="nav-link" id="nav-btn-quienes-somos">Quiénes Somos</button>
+        <button class="nav-link" id="nav-btn-guia">Guía de Uso</button>
+        <button class="nav-link" id="nav-btn-catalogo">Catálogo Completo</button>
+        <button class="nav-link" id="nav-btn-proveedores">Proveedores</button>
+        <button class="nav-link" id="nav-btn-manoobra">Mano de Obra</button>
+        <button class="nav-link" id="nav-btn-contacto">Contacto</button>
+      </nav>
+
+      <!-- BOTÓN HAMBURGUESA (solo mobile) -->
+      <button class="btn-mobile-menu" id="btn-mobile-menu" aria-label="Abrir menú">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+
+      <!-- HEADER ACTIONS -->
+      <div class="header-actions">
+        <button class="btn-excel-tool" id="btn-open-excel-modal" title="Subir listado de materiales en Excel y cotizar automáticamente">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="8" y1="13" x2="16" y2="13"></line>
+            <line x1="8" y1="17" x2="16" y2="17"></line>
+          </svg>
+          <span>Cotizar con Excel</span>
+        </button>
+
+        <button class="btn-computo" id="btn-open-drawer" title="Abrir mi presupuesto y cómputo de materiales">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+          <span>Mi Cómputo</span>
+          <span class="computo-counter" id="header-cart-count">0</span>
+        </button>
+
+        <button class="btn-theme-toggle" id="btn-theme-toggle" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">
+          <svg id="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <circle cx="12" cy="12" r="4"></circle>
+            <line x1="12" y1="2" x2="12" y2="4"></line>
+            <line x1="12" y1="20" x2="12" y2="22"></line>
+            <line x1="4.93" y1="4.93" x2="6.34" y2="6.34"></line>
+            <line x1="17.66" y1="17.66" x2="19.07" y2="19.07"></line>
+            <line x1="2" y1="12" x2="4" y2="12"></line>
+            <line x1="20" y1="12" x2="22" y2="12"></line>
+            <line x1="4.93" y1="19.07" x2="6.34" y2="17.66"></line>
+            <line x1="17.66" y1="6.34" x2="19.07" y2="4.93"></line>
+          </svg>
+          <svg id="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="display:none;">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+
+        <div class="auth-header-wrapper">
+          <button class="btn-auth-login" id="btn-open-auth-modal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span id="auth-header-label">Ingresar</span>
+          </button>
+          <div class="auth-dropdown" id="auth-dropdown" style="display: none;">
+            <button type="button" id="btn-open-my-computations">Mis Presupuestos</button>
+            <button type="button" id="btn-open-favorites">Mis Favoritos</button>
+            <button type="button" id="btn-open-alerts">Mis Alertas de Precio</button>
+            <button type="button" id="btn-open-my-provider" style="display: none;">Mi Proveedor</button>
+            <button type="button" id="btn-open-admin" style="display: none;">Panel de Admin</button>
+            <button type="button" id="btn-open-profile">Mi Perfil</button>
+            <button type="button" id="btn-logout" class="danger">Cerrar sesión</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- MENÚ MOBILE (panel deslizable, solo visible <900px) -->
+  <div class="mobile-menu-backdrop" id="mobile-menu-backdrop"></div>
+  <nav class="mobile-menu-panel" id="mobile-menu-panel" aria-label="Menú de navegación">
+    <button class="mobile-menu-close" id="mobile-menu-close" aria-label="Cerrar menú">&times;</button>
+    <button class="mobile-menu-link active" id="mobile-nav-btn-home">Inicio</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-quienes-somos">Quiénes Somos</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-guia">Guía de Uso</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-catalogo">Catálogo Completo</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-proveedores">Proveedores</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-manoobra">Mano de Obra</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-contacto">Contacto</button>
+  </nav>
+
+  <!-- =========================================================================
+       VISTA 1: HOME / PRESENTACIÓN DE NEXOBRA & SELECCIÓN DE ÁREAS
+       ========================================================================= -->
+  <div id="home-view" class="view-section active">
+    
+    <!-- HERO PRINCIPAL -->
+    <section class="hero-home">
+      <div class="container hero-home-content">
+        <h1 class="hero-main-title">
+          Compará precios y armá tus cómputos <span class="accent-word">con datos claros y trazables</span>
+        </h1>
+        <p class="hero-main-desc">
+          <strong>NEXOBRA</strong> ayuda a arquitectos, ingenieros y constructores a comparar materiales y presupuestar. Consultá valores de referencia con su fecha, fuente y fórmula de actualización, y comparalos con precios informados por proveedores de tu zona.
+        </p>
+
+      </div>
+    </section>
+
+    <!-- MAPA DE PROVEEDORES CON BÚSQUEDA DE MATERIAL (Fase G5) -->
+    <section class="section-map-home">
+      <div class="container">
+        <h2 class="section-title" style="margin-bottom: 1.5rem;">Mapa de Proveedores</h2>
+        <p class="section-desc" style="max-width: none; margin-bottom: 2rem;">Buscá un material y mirá qué proveedores lo tienen cerca tuyo, o explorá todos los proveedores de la zona.</p>
+
+        <div class="home-map-search-row">
+          <div class="search-input-wrapper" style="max-width: 100%; flex: 1;">
+            <span class="search-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </span>
+            <input type="text" id="home-map-material-search" class="search-input" placeholder="Buscar un material en el mapa (ej: cemento, hierro)..." autocomplete="off">
+          </div>
+          <button class="btn-action-drawer btn-copy" id="btn-clear-map-material-search" type="button" style="display:none;">✕ Ver todos los proveedores</button>
+        </div>
+        <div id="home-map-material-results" class="provider-search-results" style="margin-bottom: 10px;"></div>
+
+        <div class="catalog-header-banner" style="margin-top: 0;">
+          <p id="map-status-msg" style="font-size: 0.8rem; color: var(--text-muted); margin: 0;"></p>
+          <div class="map-controls">
+            <button class="btn-computo" id="btn-geolocate" style="padding: 9px 14px;">📍 Usar mi ubicación</button>
+            <label for="map-radius-select" style="font-size: 0.8rem; font-weight: 700; margin-left: 6px;">Radio:</label>
+            <select id="map-radius-select" class="sort-select">
+              <option value="10">10 km</option>
+              <option value="25" selected>25 km</option>
+              <option value="50">50 km</option>
+              <option value="100">100 km</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="map-layout">
+          <div id="provider-map" class="provider-map-container"></div>
+          <div id="map-branch-panel" class="map-branch-panel">
+            <div class="map-branch-panel-empty">
+              <div style="font-size: 2rem;">🗺️</div>
+              <p>Buscá un material arriba, o tocá un pin para ver la ficha del proveedor.</p>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:center; gap:10px; margin-top: 1.5rem; flex-wrap:wrap;">
+          <button class="btn-action-drawer btn-copy" id="btn-catalog-from-map" type="button">
+            Ver catálogo completo &rarr;
+          </button>
+          <button class="btn-action-drawer btn-copy" id="btn-methodology-from-map" type="button">
+            ¿Cómo se obtiene el valor? &rarr;
+          </button>
+        </div>
+
+        <p class="quick-tags-label" style="margin-top: 1.5rem;">
+          NEXOBRA no vende materiales ni garantiza stock: te muestra información para comparar y te conecta directamente con el proveedor.
+        </p>
+
+        <div class="home-computo-cta">
+          <div class="home-computo-cta-icon">🧾</div>
+          <div>
+            <h3 class="pilar-title" style="margin-bottom: 4px;">¿Ya sabés qué necesitás?</h3>
+            <p class="pilar-text" style="margin-bottom: 0;">Armá tu cómputo: buscá un material arriba, sumalo, y elegí un proveedor cuando quieras comprar de verdad.</p>
+          </div>
+          <button class="btn-computo" id="btn-start-computo-home" type="button" style="flex-shrink:0;">
+            🛒 Armar mi cómputo
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- BANNER: COTIZADOR DE EXCEL -->
+    <section class="section-excel-cta">
+      <div class="container">
+        <div class="excel-banner-card">
+          <div class="excel-banner-content">
+            <h3 class="excel-banner-title">¿Ya tenés tu listado de materiales en Excel?</h3>
+            <p class="excel-banner-text">
+              Subí tu propia planilla de cómputo métrico (.xlsx o .csv) y NEXOBRA te devolverá el archivo cotizado y actualizado a la fecha o mes que elijas en segundos.
+            </p>
+            <div class="excel-banner-buttons">
+              <button class="btn-computo" onclick="document.getElementById('btn-open-excel-modal').click();">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <span>Subir y Cotizar Excel Ahora</span>
+              </button>
+            </div>
+          </div>
+          <div class="excel-banner-visual">
+            <div class="mock-excel-sheet">
+              <div class="mock-sheet-row head"><span>Item</span><span>Cant.</span><span>Precio Unit.</span><span>Subtotal</span></div>
+              <div class="mock-sheet-row"><span>Cemento Portland 50kg</span><span>30 bl</span><span>$ 17.292</span><span>$ 518.760</span></div>
+              <div class="mock-sheet-row"><span>Arena gruesa m3</span><span>6 m3</span><span>$ 31.703</span><span>$ 190.218</span></div>
+              <div class="mock-sheet-row"><span>Hierro ADN420 8mm</span><span>25 b</span><span>$ 13.877</span><span>$ 346.925</span></div>
+              <div class="mock-sheet-row total"><span>TOTAL GENERAL</span><span></span><span></span><span>$ 1.055.903</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- =========================================================================
+       VISTA 2: CATÁLOGO DE MATERIALES (FILTRADO POR RUBRO O BÚSQUEDA)
+       ========================================================================= -->
+  <div id="catalog-view" class="view-section" style="display: none;">
+    <main class="container" id="main-catalog-content" style="padding-top: 1.5rem;">
+
+      <!-- CATALOG HEADER -->
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title" id="catalog-header-title">Catálogo Completo</h2>
+          <p class="catalog-subtitle" id="catalog-header-subtitle">Consultor técnico de precios y rendimientos de obra</p>
+        </div>
+      </div>
+
+      <!-- Buscador del catálogo: la acción principal de esta página -->
+      <div class="catalog-search-hero">
+        <div class="search-input-wrapper" style="max-width: 100%;">
+          <span class="search-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </span>
+          <input type="text" id="catalog-search-input" class="search-input" placeholder="Buscá un material (aunque sea coloquial, como &quot;durlock&quot; o &quot;sika&quot;)...">
+        </div>
+      </div>
+
+      <!-- CONTROLS CARD: DUAL PRICING & CATEGORIES -->
+      <section class="controls-card" id="app-controls">
+        
+        <div class="controls-header">
+          <!-- Dual Mode Switcher -->
+          <div class="pricing-mode-selector">
+          <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted);">UNIDAD DE PRECIO:</span>
+            <div class="mode-toggle-group" role="group" aria-label="Selector de modalidad de precios">
+              <button class="mode-btn active" id="mode-venta" data-mode="venta" title="Ver precios por unidad de bulto/venta comercial">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                </svg>
+                <span>Venta Comercial (Envase)</span>
+              </button>
+              <button class="mode-btn" id="mode-computo" data-mode="computo" title="Ver precios por unidad métrica de cómputo (m², m³, ml, kg)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
+                  <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+                </svg>
+                <span>Cómputo Métrico (m²/m³/ml)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Sort & View Controls -->
+          <div class="view-sort-controls">
+            <label for="sort-select" style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted);">Ordenar:</label>
+            <select id="sort-select" class="sort-select">
+              <option value="relevance">Relevancia / Nomenclatura</option>
+              <option value="price-asc">Menor precio</option>
+              <option value="price-desc">Mayor precio</option>
+              <option value="alpha-asc">Nombre A-Z</option>
+            </select>
+
+            <!-- View toggler (Grid vs Table) -->
+            <button class="view-toggle-btn active" id="btn-view-grid" title="Vista en tarjetas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+            </button>
+            <button class="view-toggle-btn" id="btn-view-table" title="Vista en tabla de cómputo">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="8" y1="6" x2="21" y2="6"></line>
+                <line x1="8" y1="12" x2="21" y2="12"></line>
+                <line x1="8" y1="18" x2="21" y2="18"></line>
+                <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                <line x1="3" y1="18" x2="3.01" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+
+        </div>
+
+        <div class="controls-header" style="margin-top: 1rem;">
+          <div class="pricing-mode-selector">
+            <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted);">PRECIO DE REFERENCIA</span>
+            <button class="mode-btn" id="btn-toggle-compare-providers" type="button">
+              📍 Comparar con proveedores cercanos
+            </button>
+          </div>
+          <button class="btn-action-drawer btn-copy" id="btn-open-methodology-catalog" type="button">
+            Cómo se calcula el valor
+          </button>
+        </div>
+
+        <div id="catalog-providers-controls" style="display:none; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap;">
+          <label for="catalog-radius-select" style="font-size:0.8rem; font-weight:700; color:var(--text-muted);">Radio de búsqueda:</label>
+          <select id="catalog-radius-select" class="sort-select">
+            <option value="10">10 km</option>
+            <option value="25" selected>25 km</option>
+            <option value="50">50 km</option>
+            <option value="100">100 km</option>
+          </select>
+          <span id="catalog-providers-status" style="font-size:0.78rem; color:var(--text-subtle);"></span>
+        </div>
+
+        <!-- RUBRO FILTER PILLS -->
+        <div class="category-filter-bar" id="rubros-filter-container">
+          <!-- Populated via JavaScript -->
+        </div>
+
+      </section>
+
+      <!-- RESULTS SUMMARY -->
+      <div class="results-summary">
+        <div>
+          <span>Mostrando </span>
+          <span class="results-count" id="visible-count">0</span>
+          <span> materiales</span>
+          <span id="active-filter-label" style="font-weight: 600; color: var(--brand-dark);"></span>
+        </div>
+        <div class="price-month-picker">
+          <label for="price-year-select">Ver precios actualizados a:</label>
+          <select id="price-year-select" class="sort-select"></select>
+          <select id="price-month-select" class="sort-select"></select>
+          <button type="button" id="btn-download-full-catalog" class="btn-action-drawer btn-copy" style="font-size: 0.75rem; padding: 6px 10px;" title="Descarga los 943 materiales con sus precios para el mes elegido arriba">📥 Descargar catálogo completo (Excel)</button>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-subtle);">
+          <span id="reference-price-status">Valores de referencia · Base: <strong>Abril 2025</strong> · Metodología y actualización visibles en cada ítem</span>
+          <br><span style="font-size: 0.72rem;">Precios orientativos. No incluyen impuestos ni flete. Este período también se aplica a Mano de Obra, para que tu presupuesto quede con una sola fecha de referencia.</span>
+        </div>
+      </div>
+
+      <!-- PRODUCTS CONTAINER (GRID VIEW) -->
+      <div class="products-grid" id="products-grid">
+        <!-- Injected via JavaScript -->
+      </div>
+
+      <!-- PRODUCTS CONTAINER (TABLE VIEW) -->
+      <div class="table-view-container" id="products-table-view" style="display: none;">
+        <table class="materials-table">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Denominación Técnica</th>
+              <th>Rubro / Categoría</th>
+              <th>Precio Venta</th>
+              <th>Precio Cómputo</th>
+              <th style="text-align: right;">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="products-table-body">
+            <!-- Injected via JavaScript -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- PAGINACIÓN DEL CATÁLOGO -->
+      <div class="catalog-pagination-row">
+        <span id="catalog-pagination-status" style="font-size: 0.82rem; color: var(--text-muted);"></span>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label for="catalog-page-size-select" style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">Mostrar de a:</label>
+          <select id="catalog-page-size-select" class="sort-select">
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+          </select>
+          <button class="btn-computo" id="btn-load-more-catalog" style="display:none;">Cargar más</button>
+        </div>
+      </div>
+
+      <!-- RUBROS DE OBRA, debajo del listado de materiales -->
+      <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border-light, #eee);">
+        <div class="section-heading-center" style="margin-bottom: 1.5rem;">
+          <div class="subheading-accent">Explorar por especialidad</div>
+          <h2 class="section-title" style="font-size: 1.5rem;">Rubros de Obra</h2>
+          <p class="section-desc">Filtrá el catálogo por rubro, o explorá abajo.</p>
+        </div>
+        <div class="rubros-hub-grid" id="rubros-hub-grid"><!-- Populated by JavaScript --></div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- OFFCANVAS / DRAWER CÓMPUTO DE OBRA -->
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+  <aside class="computo-drawer" id="computo-drawer" aria-label="Presupuesto y Cómputo de Obra">
+    
+    <div class="drawer-header">
+      <div class="drawer-title-group">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+        </svg>
+        <h3 class="drawer-title">Mi Cómputo de Obra</h3>
+      </div>
+      <button class="drawer-close-btn" id="drawer-close-btn">&times;</button>
+    </div>
+
+    <div class="drawer-computation-name" id="drawer-computation-name-row">
+      <input type="text" id="drawer-computation-name" class="form-select" value="Mi cómputo" placeholder="Nombre de la obra/presupuesto">
+      <button class="btn-save-computation" id="btn-save-computation" title="Guardar presupuesto">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+        <span id="btn-save-computation-label">Guardar</span>
+      </button>
+    </div>
+
+    <details class="drawer-obra-data" id="drawer-obra-data">
+      <summary>📋 Datos de la obra (opcional, para el PDF)</summary>
+      <div class="drawer-obra-data-grid">
+        <input type="text" id="drawer-obra-nombre" class="form-select" placeholder="Nombre de la obra">
+        <input type="text" id="drawer-obra-ubicacion" class="form-select" placeholder="Ubicación">
+        <input type="text" id="drawer-obra-comitente" class="form-select" placeholder="Comitente">
+        <input type="text" id="drawer-obra-referencia" class="form-select" placeholder="Referencia / N° de expediente">
+      </div>
+    </details>
+
+    <div class="drawer-computo-month-row">
+      <label for="computo-year-select">📅 Precios calculados a:</label>
+      <select id="computo-year-select" class="sort-select"></select>
+      <select id="computo-month-select" class="sort-select"></select>
+    </div>
+    <p class="drawer-computo-month-hint">Cambiá el mes acá para recalcular <strong>todo</strong> el presupuesto de una sola vez, antes de guardar, imprimir o compartir.</p>
+
+    <div class="drawer-body" id="drawer-body">
+      <!-- Items list or empty state -->
+    </div>
+
+    <div class="drawer-footer" id="drawer-footer">
+      <div class="summary-row">
+        <span>Ítems en lista:</span>
+        <strong id="drawer-total-items">0</strong>
+      </div>
+      <div class="summary-row">
+        <span>Subtotal Materiales:</span>
+        <strong id="drawer-subtotal">$ 0,00</strong>
+      </div>
+      <div class="summary-row" id="drawer-subtotal-labor-row" style="display: none;">
+        <span>Subtotal Mano de Obra:</span>
+        <strong id="drawer-subtotal-labor">$ 0,00</strong>
+      </div>
+      <div class="summary-row total-row">
+        <span>Total Estimado:</span>
+        <span id="drawer-total" style="color: var(--brand-yellow); text-shadow: 0 0 1px #000;">$ 0,00</span>
+      </div>
+      <p style="font-size: 0.7rem; color: var(--text-subtle); margin: 6px 0 0; line-height: 1.4;">
+        Valores orientativos. No incluyen impuestos, cargas sociales ni fletes — cargalos vos según tu caso antes de presupuestar.
+      </p>
+
+      <div class="drawer-actions">
+        <button class="btn-action-drawer btn-print" id="btn-print-computo">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Imprimir / PDF
+        </button>
+        <button class="btn-action-drawer btn-copy" id="btn-copy-computo">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          Copiar Texto
+        </button>
+        <button class="btn-action-drawer" id="btn-share-computo" style="background: var(--color-accent, #3b82f6); color: #fff;" title="Generá un link para que cualquiera lo vea sin necesidad de cuenta, sin abrir ningún archivo">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+          Compartir por link
+        </button>
+        <button class="btn-action-drawer" id="btn-export-presupuesto-referencia" style="background: var(--color-success); color: #fff;" title="Todo valorizado con el Precio de Referencia NEXOBRA, para planificar/estimar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Presupuesto de Referencia (Excel)
+        </button>
+        <button class="btn-action-drawer" id="btn-export-lista-compra" style="background: var(--brand-yellow); color: var(--brand-dark);" title="Solo los materiales con proveedor elegido, agrupados por proveedor, listos para comprar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Lista de Compra (Excel)
+        </button>
+      </div>
+      <button class="btn-action-drawer" id="btn-clear-computo" style="background: none; color: #EF4444; font-size: 0.78rem; text-decoration: underline; margin-top: 4px;">
+        Vaciar cómputo
+      </button>
+    </div>
+
+  </aside>
+
+  <!-- MODAL: PROCESAMIENTO MASIVO DE EXCEL (ETAPA 3) -->
+  <!-- ========================= MODAL: INGRESAR / REGISTRARME ========================= -->
+  <div class="modal-backdrop" id="auth-modal-backdrop"></div>
+  <div class="excel-modal" id="auth-modal" role="dialog" aria-labelledby="modal-auth-title" style="max-width: 440px;">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="modal-icon-badge">👤</div>
+        <div>
+          <h3 id="modal-auth-title" style="font-size: 1.25rem; font-weight: 800; margin-bottom: 2px;">Mi cuenta NEXOBRA</h3>
+          <p style="font-size: 0.8rem; color: var(--text-subtle);">Guardá tus presupuestos o cargá tu proveedor</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" id="auth-modal-close-btn">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- GOOGLE PRIMERO: para quien lo tiene, es la opción con menos fricción -->
+      <button type="button" id="btn-google-auth" class="btn-google-auth">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.09A6.6 6.6 0 0 1 5.5 12c0-.73.12-1.43.34-2.09V7.07H2.18A11 11 0 0 0 1 12c0 1.77.43 3.45 1.18 4.93z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        <span>Continuar con Google</span>
+      </button>
+      <p style="font-size: 0.7rem; color: var(--text-subtle); margin-top: 10px; line-height: 1.4;">
+        Al continuar con Google, NEXOBRA solo accede a tu nombre y email para crear tu cuenta — no publicamos nada en tu nombre ni accedemos a otros datos de tu perfil de Google.
+      </p>
+
+      <div class="auth-divider"><span>o con tu email</span></div>
+
+      <!-- TABS -->
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="auth-tab-login" type="button">Ingresar</button>
+        <button class="auth-tab" id="auth-tab-register" type="button">Registrarme</button>
+      </div>
+
+      <p id="auth-error-msg" class="auth-error" style="display: none;"></p>
+      <p id="auth-info-msg" class="auth-info" style="display: none;"></p>
+
+      <!-- FORM: INGRESAR -->
+      <form id="auth-form-login" class="auth-form">
+        <div class="config-field">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" class="form-select" required autocomplete="email">
+        </div>
+        <div class="config-field">
+          <label for="login-password">Contraseña</label>
+          <input type="password" id="login-password" class="form-select" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-computo" style="width: 100%; justify-content: center;" id="btn-submit-login">
+          Ingresar
+        </button>
+        <button type="button" id="btn-forgot-password" style="background: none; border: none; color: var(--text-subtle); font-size: 0.78rem; text-decoration: underline; cursor: pointer; margin-top: 8px;">
+          Olvidé mi contraseña
+        </button>
+      </form>
+
+      <!-- FORM: REGISTRARME -->
+      <form id="auth-form-register" class="auth-form" style="display: none;">
+        <div class="config-field">
+          <label for="register-name">Nombre y apellido / Razón social</label>
+          <input type="text" id="register-name" class="form-select" required autocomplete="name">
+        </div>
+        <div class="config-field">
+          <label for="register-email">Email</label>
+          <input type="email" id="register-email" class="form-select" required autocomplete="email">
+        </div>
+        <div class="config-field">
+          <label for="register-password">Contraseña</label>
+          <input type="password" id="register-password" class="form-select" required minlength="6" autocomplete="new-password">
+        </div>
+        <div class="config-field">
+          <label>¿Cómo vas a usar NEXOBRA?</label>
+          <div class="auth-role-picker">
+            <label class="auth-role-option">
+              <input type="radio" name="register-role" value="user" checked>
+              <div>
+                <strong>Soy profesional / particular</strong>
+                <span>Quiero comparar precios y armar presupuestos</span>
+              </div>
+            </label>
+            <label class="auth-role-option">
+              <input type="radio" name="register-role" value="provider">
+              <div>
+                <strong>Soy proveedor / proveedor</strong>
+                <span>Quiero cargar mis precios y ganar visibilidad</span>
+              </div>
+            </label>
+          </div>
+        </div>
+        <button type="submit" class="btn-computo" style="width: 100%; justify-content: center;" id="btn-submit-register">
+          Crear cuenta
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================= MODAL: MI PERFIL ========================= -->
+  <div class="modal-backdrop" id="profile-modal-backdrop"></div>
+  <div class="excel-modal" id="profile-modal" role="dialog" aria-labelledby="modal-profile-title" style="max-width: 440px;">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="modal-icon-badge">🧑‍🔧</div>
+        <div>
+          <h3 id="modal-profile-title" style="font-size: 1.25rem; font-weight: 800; margin-bottom: 2px;">Mi perfil</h3>
+          <p style="font-size: 0.8rem; color: var(--text-subtle);">Se usa para centrar el mapa de precios en tu zona</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" id="profile-modal-close-btn">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <p id="profile-error-msg" class="auth-error" style="display: none;"></p>
+      <p id="profile-info-msg" class="auth-info" style="display: none;"></p>
+
+      <form id="profile-form" class="auth-form">
+        <div class="config-field">
+          <label for="profile-full-name">Nombre y apellido / Razón social</label>
+          <input type="text" id="profile-full-name" class="form-select">
+        </div>
+        <div class="config-field">
+          <label for="profile-nickname">Apodo público (se muestra en tus reseñas)</label>
+          <input type="text" id="profile-nickname" class="form-select" placeholder="Ej: Matías, en vez de tu nombre completo">
+        </div>
+        <div class="config-field">
+          <label for="profile-email">Email</label>
+          <input type="email" id="profile-email" class="form-select" disabled style="opacity: 0.6;">
+        </div>
+        <div class="config-field">
+          <label for="profile-phone">Teléfono / WhatsApp</label>
+          <input type="tel" id="profile-phone" class="form-select" placeholder="Opcional">
+        </div>
+        <div class="config-field">
+          <label for="profile-locality">Ubicación principal</label>
+          <input type="text" id="profile-locality" class="form-select" placeholder="Ej: Oberá, Misiones">
+        </div>
+        <div class="config-field">
+          <label for="profile-matricula">Matrícula profesional</label>
+          <input type="text" id="profile-matricula" class="form-select" placeholder="Opcional">
+        </div>
+        <div class="config-field">
+          <label for="profile-rubro">Rubro habitual</label>
+          <input type="text" id="profile-rubro" class="form-select" placeholder="Ej: Obra nueva, Refacciones, Instalaciones">
+        </div>
+        <button type="submit" class="btn-computo" style="width: 100%; justify-content: center;" id="btn-submit-profile">
+          Guardar cambios
+        </button>
+      </form>
+
+      <div id="profile-become-provider-section" style="display:none; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border-light);">
+        <p style="font-size: 0.85rem; font-weight: 700; margin-bottom: 4px;">🏪 ¿Vendés materiales de construcción?</p>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Convertite en proveedor para cargar tu ubicación y tus precios, y aparecer en el mapa. Tu perfil sigue necesitando aprobación antes de mostrarse públicamente.</p>
+        <button type="button" class="btn-action-drawer btn-copy" style="width: 100%;" id="btn-become-provider">Convertirme en proveedor</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================= MODAL: ELEGIR ROL (solo tras 1er login con Google) ========================= -->
+  <div class="modal-backdrop" id="role-modal-backdrop"></div>
+  <div class="excel-modal" id="role-modal" role="dialog" aria-labelledby="modal-role-title" style="max-width: 420px;">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="modal-icon-badge">👋</div>
+        <div>
+          <h3 id="modal-role-title" style="font-size: 1.25rem; font-weight: 800; margin-bottom: 2px;">¡Bienvenido a NEXOBRA!</h3>
+          <p style="font-size: 0.8rem; color: var(--text-subtle);">Un último paso antes de arrancar</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <p id="role-error-msg" class="auth-error" style="display: none;"></p>
+      <form id="role-form" class="auth-form">
+        <div class="config-field">
+          <label>¿Cómo vas a usar NEXOBRA?</label>
+          <div class="auth-role-picker">
+            <label class="auth-role-option">
+              <input type="radio" name="onboarding-role" value="user" checked>
+              <div>
+                <strong>Soy profesional / particular</strong>
+                <span>Quiero comparar precios y armar presupuestos</span>
+              </div>
+            </label>
+            <label class="auth-role-option">
+              <input type="radio" name="onboarding-role" value="provider">
+              <div>
+                <strong>Soy proveedor / proveedor</strong>
+                <span>Quiero cargar mis precios y ganar visibilidad</span>
+              </div>
+            </label>
+          </div>
+        </div>
+        <button type="submit" class="btn-computo" style="width: 100%; justify-content: center;" id="btn-submit-role">
+          Continuar
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================= MODAL: ELEGIR PROVEEDOR PARA UN MATERIAL ========================= -->
+  <div class="modal-backdrop" id="offer-picker-modal-backdrop"></div>
+  <div class="excel-modal" id="offer-picker-modal" role="dialog" aria-labelledby="modal-offer-picker-title" style="max-width: 520px;">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-offer-picker-title" style="font-size: 1.15rem; font-weight: 800; margin-bottom: 2px;">Elegir proveedor</h3>
+        <p id="offer-picker-subtitle" style="font-size: 0.8rem; color: var(--text-subtle);"></p>
+      </div>
+      <button class="modal-close-btn" id="offer-picker-modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="offer-picker-results"></div>
+    </div>
+  </div>
+
+  <!-- ========================= MODAL: EVOLUCIÓN HISTÓRICA DE UN MATERIAL ========================= -->
+  <div class="modal-backdrop" id="material-history-modal-backdrop"></div>
+  <div class="excel-modal" id="material-history-modal" role="dialog" aria-labelledby="modal-material-history-title" style="max-width: 640px;">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-material-history-title" style="font-size: 1.15rem; font-weight: 800; margin-bottom: 2px;">📊 Evolución histórica</h3>
+        <p id="material-history-subtitle" style="font-size: 0.8rem; color: var(--text-subtle);"></p>
+      </div>
+      <button class="modal-close-btn" id="material-history-modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="material-history-status" style="font-size: 0.85rem; color: var(--text-muted); padding: 1rem 0;"></div>
+      <canvas id="material-history-chart" height="240" style="display:none;"></canvas>
+    </div>
+  </div>
+
+  <!-- ========================= MODAL: PROPONER/CREAR MATERIAL NUEVO (Fase G3) ========================= -->
+  <div class="modal-backdrop" id="new-material-modal-backdrop"></div>
+  <div class="excel-modal" id="new-material-modal" role="dialog" aria-labelledby="modal-new-material-title" style="max-width: 480px;">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-new-material-title" style="font-size: 1.15rem; font-weight: 800; margin-bottom: 2px;">Proponer material nuevo</h3>
+        <p style="font-size: 0.8rem; color: var(--text-subtle);">Para productos o servicios que todavía no están en el catálogo de NEXOBRA.</p>
+      </div>
+      <button class="modal-close-btn" id="new-material-modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="config-field">
+        <label for="new-material-nombre">Nombre</label>
+        <input type="text" id="new-material-nombre" class="form-select">
+      </div>
+      <div class="config-field">
+        <label for="new-material-rubro">Rubro</label>
+        <input type="text" id="new-material-rubro" class="form-select" placeholder="Ej: Servicios, Básicos, Aberturas...">
+      </div>
+      <div class="config-field">
+        <label for="new-material-unidad-venta">Unidad de compra</label>
+        <input type="text" id="new-material-unidad-venta" class="form-select" placeholder="Ej: Unidad, Bolsa, Hora, Viaje">
+      </div>
+      <div class="config-field">
+        <label for="new-material-unidad-computo">Unidad de cómputo (si es distinta a la de compra)</label>
+        <input type="text" id="new-material-unidad-computo" class="form-select" placeholder="Ej: kg, m2, ml — dejalo vacío si es igual">
+      </div>
+      <div class="config-field">
+        <label for="new-material-envase">Envase (cuántas unidades de cómputo trae 1 unidad de compra)</label>
+        <input type="number" id="new-material-envase" class="form-select" value="1" min="0.0001" step="0.0001">
+      </div>
+      <button class="btn-computo" id="btn-submit-new-material" type="button" style="width:100%; justify-content:center;">Crear material</button>
+    </div>
+  </div>
+
+  <!-- ================================================================================= -->
+  <div class="modal-backdrop" id="excel-modal-backdrop"></div>
+  <div class="excel-modal" id="excel-modal" role="dialog" aria-labelledby="modal-excel-title">
+    <div class="modal-header">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="modal-icon-badge">📊</div>
+        <div>
+          <h3 id="modal-excel-title" style="font-size: 1.25rem; font-weight: 800; margin-bottom: 2px;">Procesador Masivo de Cómputos en Excel</h3>
+          <p style="font-size: 0.8rem; color: var(--text-subtle);">Subí tu listado de materiales y descargá una cotización con base, fecha y factor de actualización informados</p>
+        </div>
+      </div>
+      <button class="modal-close-btn" id="excel-modal-close-btn">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- CONFIGURACIÓN DE FECHA & MODALIDAD -->
+      <div class="excel-config-grid">
+        <div class="config-field">
+          <label>Período de actualización de referencia:</label>
+          <div style="display:flex; gap:8px;">
+            <select id="excel-target-year" class="form-select" style="flex:1; min-width:0;"></select>
+            <select id="excel-target-month" class="form-select" style="flex:1.4; min-width:0;"></select>
+          </div>
+          <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-weight:400; font-size:0.8rem; cursor:pointer;">
+            <input type="checkbox" id="excel-use-custom-factor" style="width:auto;">
+            Usar un factor personalizado en vez del período de arriba
+          </label>
+        </div>
+
+        <div class="config-field" id="custom-factor-field" style="display: none;">
+          <label for="custom-factor-input">Factor personalizado (ej: 1,12):</label>
+          <input type="number" id="custom-factor-input" class="form-input" value="1.00" step="0.01" min="0.5">
+        </div>
+
+        <div class="config-field">
+          <label for="excel-pricing-mode">Tipo de Precio Preferido:</label>
+          <select id="excel-pricing-mode" class="form-select">
+            <option value="venta">Precio de Venta Comercial (Bolsa / Barra / Lata / Rollo)</option>
+            <option value="computo">Precio de Cómputo Métrico (m² / m³ / ml / kg)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- DROPZONE ARCHIVO -->
+      <div class="file-dropzone" id="excel-dropzone">
+        <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" style="display: none;">
+        <div class="dropzone-icon">📁</div>
+        <h4 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 6px;">Arrastrá tu archivo Excel (.xlsx) o hacé clic para seleccionar</h4>
+        <p style="font-size: 0.84rem; color: var(--text-muted); margin-bottom: 12px;">
+          Admite planillas con columnas: <em>"Material / Descripción"</em> y <em>"Cantidad"</em> (o Código de material).
+        </p>
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+          <button class="btn-computo" id="btn-browse-file" type="button">Seleccionar archivo Excel</button>
+          <button class="btn-action-drawer btn-copy" id="btn-download-template" type="button">Descargar Plantilla de Ejemplo (.xlsx)</button>
+        </div>
+      </div>
+
+      <!-- RESULTADOS DE PROCESAMIENTO -->
+      <div id="excel-results-container" style="display: none; margin-top: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <h4 style="font-size: 1rem; font-weight: 800;" id="excel-results-heading">Materiales cotizados con éxito</h4>
+            <span style="font-size: 0.8rem; color: var(--text-muted);" id="excel-stats-text"></span>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn-computo" id="btn-save-excel-to-computo" style="background-color: var(--brand-yellow); color: var(--brand-dark);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              </svg>
+              <span>Guardar en Mi Cómputo</span>
+            </button>
+            <button class="btn-computo" id="btn-download-processed-excel" style="background-color: var(--color-success); color: white;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Descargar Excel Cotizado (.xlsx)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-view-container" style="max-height: 320px; overflow-y: auto;">
+          <table class="materials-table">
+            <thead>
+              <tr>
+                <th>Estado</th>
+                <th>Material Solicitado</th>
+                <th>Material Asignado (NEXOBRA)</th>
+                <th>Cant.</th>
+                <th>Precio Unit. Actualizado</th>
+                <th style="text-align: right;">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody id="excel-preview-tbody">
+              <!-- Filas procesadas -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA 3: MANO DE OBRA (UOCRA Zona A)
+       ========================================================================= -->
+  <div id="labor-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Mano de Obra</h2>
+          <p class="catalog-subtitle">Jornales de referencia UOCRA, Zona A. Valores por hora sin cargas sociales (Sereno: valor mensual).</p>
+        </div>
+        <div class="price-month-picker">
+          <label for="labor-year-select">Ver jornales actualizados a:</label>
+          <select id="labor-year-select" class="sort-select"></select>
+          <select id="labor-month-select" class="sort-select"></select>
+        </div>
+      </div>
+
+      <div id="labor-grid" class="products-grid"><!-- se completa con loadLaborSeries() --></div>
+
+      <p class="pilar-text" style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted);">
+        Fuente: UOCRA. Los valores de Oficial Especializado, Oficial, Medio Oficial y Ayudante son jornales por hora, sin cargas sociales. El valor de Sereno corresponde al mensual convencional. Son valores orientativos, sin cargas sociales, impuestos ni flete incluidos: confirmá siempre el convenio vigente antes de presupuestar. Solo se muestran los meses en los que también hay dato de IPC cargado, para que el presupuesto de materiales y mano de obra quede siempre con la misma fecha de referencia.
+      </p>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA 4: CÓMO SE CALCULA EL VALOR (metodología completa de actualización)
+       ========================================================================= -->
+  <!-- =========================================================================
+       VISTA: QUIÉNES SOMOS (incluye "Cómo se calcula el valor" y "Cómo usar NEXOBRA")
+       ========================================================================= -->
+  <div id="about-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Quiénes Somos</h2>
+          <p class="catalog-subtitle">El puente digital entre el proyecto técnico, el costo real y la red regional de proveedores.</p>
+        </div>
+      </div>
+
+      <div class="about-origen-card">
+        <div class="hidear-badge" style="margin: 0;">
+          <span>Parte del ecosistema</span>
+          <a href="https://www.hidearconstrucciones.com.ar/" target="_blank" rel="noopener">
+            <img src="assets/hidear-logo.png" alt="HIDEAR Construcciones" class="hidear-logo-img">
+          </a>
+        </div>
+        <div class="about-origen-text">
+          <h3 class="pilar-title" style="font-size: 1.2rem; margin-bottom: 10px;">Un desarrollo nacido en la práctica profesional</h3>
+          <p class="pilar-text">
+            NEXOBRA nace como una iniciativa de innovación aplicada impulsada por <strong>HIDEAR Construcciones</strong>, una firma enfocada en la ingeniería, el diseño y la gestión eficiente de obras.
+          </p>
+          <p class="pilar-text">
+            En la práctica diaria de la construcción, detectamos una problemática recurrente: la enorme dispersión de precios, la disparidad en las denominaciones comerciales y el tiempo que insume transformar una lista de insumos en un cómputo métrico real.
+          </p>
+          <p class="pilar-text" style="margin-bottom: 0;">
+            Para resolver esta brecha, desarrollamos un entorno enfocado en normalizar y transparentar la información de costos de la construcción. NEXOBRA combina rigor de ingeniería, bases de datos parametrizadas y colaboración comunitaria para conectar a profesionales, constructores y corralones en una misma plataforma.
+          </p>
+        </div>
+      </div>
+
+      <div class="section-heading-center" style="margin-bottom: 1.5rem;">
+        <div class="subheading-accent">Nuestra Propuesta de Valor</div>
+        <h2 class="section-title">El núcleo de innovación de NEXOBRA</h2>
+        <p class="section-desc">Resolvemos el proceso analógico, lento y fragmentado de cotización de materiales en tres pilares fundamentales:</p>
+      </div>
+
+      <div class="pilares-grid">
+        <div class="pilar-card">
+          <div class="pilar-icon-box">🏷️</div>
+          <h3 class="pilar-title">1. Indexación Inteligente por Tags</h3>
+          <p class="pilar-text">
+            Eliminamos la disparidad entre nombres comerciales, marcas y nomenclaturas técnicas. Nuestro motor asocia términos coloquiales como <em>"durlock"</em>, <em>"ceresita"</em> o <em>"sintenax"</em> con el material técnico exacto de la base de datos.
+          </p>
+        </div>
+        <div class="pilar-card">
+          <div class="pilar-icon-box">📐</div>
+          <h3 class="pilar-title">2. Dualidad Venta vs. Cómputo</h3>
+          <p class="pilar-text">
+            Consultá tanto el precio comercial por bulto/envase (bolsa, lata, barra, rollo) como el valor por unidad de cómputo métrico (m², m³, ml, kg), agilizando el cálculo de rendimientos y presupuestos de obra.
+          </p>
+        </div>
+        <div class="pilar-card">
+          <div class="pilar-icon-box">🤝</div>
+          <h3 class="pilar-title">3. Red Colaborativa de Proveedores</h3>
+          <p class="pilar-text">
+            Construimos un mapa de precios transparente en tiempo real. Los corralones y proveedores regionales cargan sus listas actualizadas, permitiendo a los usuarios calcular valores promedio representativos, comparar alternativas y elegir la opción óptima para su obra.
+          </p>
+        </div>
+      </div>
+
+      <div class="pilares-grid" style="margin-top: 1.5rem;">
+        <div class="pilar-card">
+          <div class="pilar-icon-box">👷</div>
+          <h3 class="pilar-title">Para Profesionales y Constructores</h3>
+          <p class="pilar-text">
+            Subí tu cómputo en Excel, cotizá con precios promedio actualizados de tu zona o elegí proveedores específicos para armar presupuestos ejecutivos al instante.
+          </p>
+        </div>
+        <div class="pilar-card">
+          <div class="pilar-icon-box">🏪</div>
+          <h3 class="pilar-title">Para Corralones y Proveedores</h3>
+          <p class="pilar-text">
+            Digitalizá tu catálogo de precios, ganá visibilidad geográfica ante profesionales de tu región y conectá de forma directa con obras en ejecución.
+          </p>
+        </div>
+      </div>
+
+      <hr style="margin: 3rem 0; border: none; border-top: 1px solid var(--border-light, #eee);">
+
+      <!-- CÓMO SE CALCULA EL VALOR -->
+      <div class="section-heading-center" style="margin-bottom: 1.5rem;">
+        <div class="subheading-accent">Transparencia de datos</div>
+        <h2 class="section-title">Cómo se calcula el valor</h2>
+        <p class="section-desc">De dónde sale cada precio actualizado y qué fórmula usamos.</p>
+      </div>
+
+      <div class="pilares-grid" style="margin-bottom: 2rem;">
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🧾</div>
+          <h3 class="pilar-title">Precio de referencia NEXOBRA</h3>
+          <p class="pilar-text">Parte de un precio y mes base. Mostramos el factor acumulado y la fórmula: <strong>precio base × factor de actualización</strong>.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">📅</div>
+          <h3 class="pilar-title">Índices con vigencia visible</h3>
+          <p class="pilar-text">Los índices se cargan y validan mes a mes. Cada actualización queda identificada por su fuente, período y fecha de publicación.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🏪</div>
+          <h3 class="pilar-title">Ofertas de proveedores locales</h3>
+          <p class="pilar-text">Cuando estén disponibles, se mostrarán separadas del promedio, con proveedor, sucursal, fecha informada y disponibilidad a confirmar.</p>
+        </article>
+      </div>
+
+      <div class="ipc-explainer">
+        <div class="ipc-explainer-text">
+          <h3 class="pilar-title">El proceso, paso a paso</h3>
+          <p class="pilar-text">
+            Cada mes, NEXOBRA calcula el precio de referencia de cada material de dos maneras posibles, según qué dato haya disponible:
+          </p>
+          <p class="pilar-text">
+            <strong>1) Precio de mercado real:</strong> si <strong>3 o más proveedores distintos</strong> cargaron precio para ese material en el mes en cuestión, tomamos la <strong>mediana</strong> de esos valores — el precio que realmente está cobrando el mercado en tu zona de proveedores activos.
+          </p>
+          <p class="pilar-text">
+            <strong>2) Proyección por IPC:</strong> si no hay suficientes proveedores cargando ese material todavía, tomamos los índices de precios al consumidor que publica el INDEC para la <strong>Zona Noreste (NEA)</strong>, sacamos su promedio, y proyectamos el último precio real conocido (de mercado o el precio base original) con la fórmula:
+          </p>
+          <p class="pilar-text" style="font-weight: 600; padding: 10px 14px; background: rgba(245,176,0,0.12); border-radius: 8px; display: inline-block;">
+            precio actualizado = precio base × (índice del mes elegido ÷ índice del mes base)
+          </p>
+          <p class="pilar-text">
+            Con el tiempo, a medida que más proveedores reales carguen precios, cada vez más materiales van a depender del mercado real en vez de la proyección por IPC.
+          </p>
+          <p class="pilar-text">
+            La mano de obra funciona distinto: los jornales de UOCRA Zona A ya vienen expresados en pesos mes a mes, así que no hace falta ningún factor — se toma el valor directo del mes elegido.
+          </p>
+          <p class="pilar-text">Elegí un mes desde el catálogo o la sección de Mano de Obra, o hacé clic sobre un punto del gráfico para ver cómo cambia el índice.</p>
+        </div>
+        <div class="ipc-chart-wrapper">
+          <canvas id="ipc-evolution-chart" height="220"></canvas>
+        </div>
+      </div>
+
+      <div class="section-heading-center" style="margin: 2.5rem 0 1.5rem;">
+        <div class="subheading-accent">Ejemplos de aplicación</div>
+        <h2 class="section-title" style="font-size: 1.5rem;">Cómo se ve esto en la práctica</h2>
+      </div>
+
+      <div class="pilares-grid">
+        <article class="pilar-card">
+          <div class="pilar-icon-box">📊</div>
+          <h3 class="pilar-title">Ejemplo: precio de mercado</h3>
+          <p class="pilar-text">5 proveedores cargaron cemento este mes, con precios entre $17.000 y $18.500. Como son 3 o más, NEXOBRA muestra la <strong>mediana</strong> de esos valores como precio de referencia — no un promedio de NEXOBRA "inventado", sino lo que el mercado real está cobrando.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">📈</div>
+          <h3 class="pilar-title">Ejemplo: proyección por IPC</h3>
+          <p class="pilar-text">Un material puntual (ej: un caño de PVC de una medida poco común) todavía no tiene 3 proveedores cargándolo. NEXOBRA toma el último precio real conocido y lo ajusta según cuánto subió el IPC desde ese mes hasta hoy.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🏪</div>
+          <h3 class="pilar-title">Ejemplo: comparar un proveedor puntual</h3>
+          <p class="pilar-text">Un proveedor cerca tuyo tiene el hierro un 12% más barato que la referencia de la zona. Podés verlo en el catálogo (activando "Comparar con proveedores cercanos") o en el mapa, y elegirlo directamente para tu presupuesto.</p>
+        </article>
+      </div>
+
+      <p class="pilar-text" style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted);">
+        Fuente: INDEC (IPC, Zona Noreste), UOCRA (Zona A), y los precios reales cargados por proveedores verificados en NEXOBRA. Todos los valores son orientativos, no incluyen impuestos, cargas sociales ni flete. Confirmá siempre el precio final, la disponibilidad y las condiciones con el proveedor.
+      </p>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA: GUÍA DE USO
+       ========================================================================= -->
+  <div id="guide-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Guía de Uso</h2>
+          <p class="catalog-subtitle">Lo esencial para sacarle provecho a NEXOBRA, paso a paso.</p>
+        </div>
+      </div>
+
+      <div class="pilares-grid">
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🔎</div>
+          <h3 class="pilar-title">1. Buscá un material</h3>
+          <p class="pilar-text">Desde el home o el mapa, escribí lo que necesitás (aunque sea con el nombre comercial). Vas a ver el precio de referencia y, si activás la comparación, qué proveedores lo tienen cerca tuyo.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">📋</div>
+          <h3 class="pilar-title">2. Mirá la ficha técnica</h3>
+          <p class="pilar-text">Muchos materiales ya tienen marca, descripción técnica y rendimiento cargado (por ejemplo, cuántos m² cubre una bolsa). Y con "Ver evolución histórica" vas a ver cómo varió el precio mes a mes, no solo el valor de hoy.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🛒</div>
+          <h3 class="pilar-title">3. Armá tu cómputo</h3>
+          <p class="pilar-text">Sumá materiales y mano de obra a "Mi Cómputo" desde el catálogo. Podés elegir un proveedor específico para cada ítem, o dejarlo con el precio de referencia.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">📤</div>
+          <h3 class="pilar-title">4. Exportá o compartí</h3>
+          <p class="pilar-text">Descargá un <strong>Presupuesto de Referencia</strong> o una <strong>Lista de Compra</strong> agrupada por proveedor, lista para WhatsApp — o generá un <strong>link público</strong> para que tu cliente lo vea directo, sin abrir ningún archivo.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">📊</div>
+          <h3 class="pilar-title">5. ¿Ya tenés tu propio Excel?</h3>
+          <p class="pilar-text">Subilo desde "Cotizar con Excel" y NEXOBRA te lo devuelve cotizado, con la opción de buscar proveedores cercanos para cada material.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">⭐</div>
+          <h3 class="pilar-title">6. Calificá a los proveedores</h3>
+          <p class="pilar-text">Dejá una reseña con estrellas y un comentario corto sobre un proveedor con el que hayas tratado — ayuda a que el resto de la comunidad elija mejor.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🏪</div>
+          <h3 class="pilar-title">7. ¿Sos proveedor?</h3>
+          <p class="pilar-text">Registrate con cuenta de Proveedor, cargá tu ubicación y tus precios (individual o por Excel). Una vez aprobados, vas a aparecer en el mapa y en las búsquedas — y podés sugerir marca, descripción y rendimiento para los materiales de tu catálogo.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">📧</div>
+          <h3 class="pilar-title">8. Guardá lo que te sirve</h3>
+          <p class="pilar-text">Marcá proveedores favoritos y armá alertas de precio por material y zona — cuando baje, te llega un <strong>mail automático</strong>, no hace falta que entres a revisar.</p>
+        </article>
+      </div>
+
+      <hr style="margin: 3rem 0; border: none; border-top: 1px solid var(--border-light, #eee);">
+
+      <div class="section-heading-center" style="margin-bottom: 1.5rem;">
+        <div class="subheading-accent">¿Necesitás una cuenta?</div>
+        <h2 class="section-title" style="font-size: 1.5rem;">Sin registrarte vs. con una cuenta</h2>
+        <p class="section-desc">Podés usar buena parte de NEXOBRA sin crear una cuenta. Con cuenta, se guarda todo para la próxima vez.</p>
+      </div>
+
+      <div class="guide-compare-grid">
+        <div class="guide-compare-col">
+          <h3 class="pilar-title" style="margin-bottom: 12px;">👤 Sin registrarte</h3>
+          <ul class="guide-compare-list">
+            <li>Buscar materiales y ver el precio de referencia</li>
+            <li>Ver la ficha técnica y la evolución histórica de precio</li>
+            <li>Ver el mapa, comparar precios de proveedores cercanos y ver sus reseñas</li>
+            <li>Armar un cómputo/presupuesto y elegir proveedor por material</li>
+            <li>Exportar Presupuesto de Referencia o Lista de Compra</li>
+            <li>Subir tu Excel y cotizarlo</li>
+            <li>Contactar proveedores por WhatsApp</li>
+          </ul>
+        </div>
+        <div class="guide-compare-col highlight">
+          <h3 class="pilar-title" style="margin-bottom: 12px;">✅ Con una cuenta</h3>
+          <ul class="guide-compare-list">
+            <li>Todo lo anterior, ​y además:</li>
+            <li><strong>Guardar tus presupuestos</strong> en la nube, para verlos desde cualquier dispositivo</li>
+            <li><strong>Compartirlos por link público</strong>, para que un cliente los vea sin abrir ningún archivo</li>
+            <li><strong>Marcar proveedores favoritos</strong> y dejarles una reseña</li>
+            <li><strong>Armar alertas de precio</strong> por material y zona, con aviso automático por mail</li>
+            <li>Con cuenta de <strong>Proveedor</strong>: cargar tu propio catálogo de precios, aparecer en el mapa y sugerir datos técnicos de tus materiales</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA: DIRECTORIO DE PROVEEDORES
+       ========================================================================= -->
+  <div id="providers-directory-view" class="view-section" style="display: none;">
+    <div class="container" style="padding: 2rem 1.5rem 4rem;">
+      <h2 class="catalog-title">Proveedores</h2>
+      <p class="catalog-subtitle">Corralones, ferreterías y profesionales de la construcción cerca tuyo — con o sin precios de materiales cargados.</p>
+
+      <div class="catalog-search-box" style="margin-bottom: 1rem;">
+        <div style="display:flex; flex-wrap:wrap; gap: 10px; align-items:center;">
+          <button type="button" class="btn-computo" id="btn-directory-use-location">📍 Usar mi ubicación</button>
+          <label style="font-size:0.85rem; font-weight:600;">Radio:
+            <select id="directory-radius-select" class="sort-select">
+              <option value="10">10 km</option>
+              <option value="25">25 km</option>
+              <option value="50" selected>50 km</option>
+              <option value="100">100 km</option>
+              <option value="99999">Todo el país</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="category-filter-bar" id="directory-category-pills" style="margin-bottom: 1.5rem;"></div>
+
+      <div id="directory-status" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;"></div>
+      <div id="directory-cards-container" class="providers-directory-grid"></div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA: CONTACTO
+       ========================================================================= -->
+  <div id="contact-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Contacto</h2>
+          <p class="catalog-subtitle">¿Sugerencias, dudas o querés cargar tu negocio? Escribinos, te respondemos directo.</p>
+        </div>
+      </div>
+      <div class="contacto-home-card">
+        <div class="contacto-home-icon">✉️</div>
+        <div>
+          <h3 class="pilar-title" style="margin-bottom: 4px;">Escribinos a:</h3>
+          <a href="mailto:nexobra.info@gmail.com?subject=Sugerencia%20NEXOBRA" class="contacto-home-email">nexobra.info@gmail.com</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA 5: MIS PRESUPUESTOS (solo visible logueado)
+       ========================================================================= -->
+  <div id="my-computations-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Mis Presupuestos</h2>
+          <p class="catalog-subtitle">Tus obras y presupuestos guardados. Abrí uno para seguir editándolo.</p>
+        </div>
+        <button class="btn-computo" id="btn-new-computation">
+          + Nuevo presupuesto
+        </button>
+      </div>
+
+      <div id="my-computations-list" class="computations-list"><!-- se completa con loadMyComputations() --></div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA 6: MI CORRALÓN (Fase C, solo rol 'provider')
+       ========================================================================= -->
+  <div id="provider-view" class="view-section" style="display: none;">
+    <div class="container" style="max-width: 980px;">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Mi Proveedor</h2>
+          <p class="catalog-subtitle">Datos comerciales, catálogo propio y precios reportados a NEXOBRA.</p>
+        </div>
+      </div>
+
+      <!-- 1. DATOS COMERCIALES -->
+      <details class="provider-section" open>
+        <summary>📋 Datos comerciales</summary>
+        <div class="provider-section-body">
+          <div id="provider-verification-banner" style="display:none;"></div>
+
+          <div class="provider-logo-upload-row">
+            <div class="provider-logo-preview" id="provider-logo-preview">
+              <span id="provider-logo-placeholder">🏪</span>
+              <img id="provider-logo-img" style="display:none;" alt="Logo del negocio">
+            </div>
+            <div>
+              <label for="provider-logo-input" class="btn-action-drawer btn-copy" style="display:inline-flex; cursor:pointer;">Subir logo</label>
+              <input type="file" id="provider-logo-input" accept="image/png,image/jpeg,image/webp" style="display:none;">
+              <p style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">PNG, JPG o WEBP. Máximo 2 MB. Se muestra en el mapa y en tu ficha.</p>
+            </div>
+          </div>
+
+          <p id="provider-own-rating" style="margin-bottom: 8px;"></p>
+          <div id="provider-own-reviews-list" style="margin-bottom: 20px;"></div>
+
+          <form id="provider-profile-form">
+            <div class="excel-config-grid">
+              <div class="config-field">
+                <label for="prov-business-name">Razón social</label>
+                <input type="text" id="prov-business-name" class="form-select" required>
+              </div>
+              <div class="config-field">
+                <label for="prov-category">Rubro</label>
+                <select id="prov-category" class="form-select"></select>
+              </div>
+              <div class="config-field">
+                <label for="prov-tax-id">CUIT</label>
+                <input type="text" id="prov-tax-id" class="form-select" placeholder="30-12345678-9">
+              </div>
+              <div class="config-field">
+                <label for="prov-matricula">Matrícula profesional (si aplica)</label>
+                <input type="text" id="prov-matricula" class="form-select" placeholder="Ej: MP 1234, CPIM 5678">
+              </div>
+              <div class="config-field">
+                <label for="prov-website">Sitio web</label>
+                <input type="url" id="prov-website" class="form-select" placeholder="https://...">
+              </div>
+              <div class="config-field">
+                <label for="prov-contact-phone">Teléfono comercial</label>
+                <input type="tel" id="prov-contact-phone" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="prov-contact-email">Email comercial</label>
+                <input type="email" id="prov-contact-email" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="prov-description">Descripción breve</label>
+                <input type="text" id="prov-description" class="form-select" placeholder="Ej: Proveedor mayorista, 20 años en la zona">
+              </div>
+            </div>
+
+            <h4 class="provider-subsection-title">Sucursal principal</h4>
+            <div class="excel-config-grid">
+              <div class="config-field">
+                <label for="branch-name">Nombre de la sucursal</label>
+                <input type="text" id="branch-name" class="form-select" placeholder="Ej: Casa Central" required>
+              </div>
+              <div class="config-field">
+                <label for="branch-locality">Localidad</label>
+                <input type="text" id="branch-locality" class="form-select" placeholder="Ej: Oberá" required>
+              </div>
+              <div class="config-field">
+                <label for="branch-province">Provincia</label>
+                <input type="text" id="branch-province" class="form-select" placeholder="Ej: Misiones">
+              </div>
+              <div class="config-field" style="grid-column: 1 / -1;">
+                <label for="branch-address">Dirección</label>
+                <div style="display:flex; gap:8px;">
+                  <input type="text" id="branch-address" class="form-select" style="flex:1; min-width:0;" placeholder="Calle, número, localidad">
+                  <button type="button" class="btn-action-drawer btn-copy" id="btn-geocode-address" style="flex-shrink:0;">📍 Buscar en el mapa</button>
+                </div>
+              </div>
+              <div class="config-field" style="grid-column: 1 / -1;">
+                <label>Ubicación exacta (arrastrá el pin para ajustar)</label>
+                <div id="branch-location-map" style="height: 260px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-light);"></div>
+                <p id="branch-location-status" style="font-size: 0.75rem; color: var(--text-subtle); margin-top: 6px;">Buscá tu dirección arriba, o hacé clic directo en el mapa para marcar el lugar.</p>
+              </div>
+              <div class="config-field">
+                <label for="branch-whatsapp">WhatsApp de la sucursal</label>
+                <input type="tel" id="branch-whatsapp" class="form-select" placeholder="Con código de país, ej: 5493755...">
+              </div>
+              <div class="config-field">
+                <label for="branch-delivery-radius">Radio de entrega (km)</label>
+                <input type="number" id="branch-delivery-radius" class="form-select" min="0" step="1">
+              </div>
+              <div class="config-field">
+                <label for="branch-lat">Latitud</label>
+                <input type="text" id="branch-lat" class="form-select" readonly style="opacity:0.7;" placeholder="Se completa solo">
+              </div>
+              <div class="config-field">
+                <label for="branch-lng">Longitud</label>
+                <input type="text" id="branch-lng" class="form-select" readonly style="opacity:0.7;" placeholder="Se completa solo">
+              </div>
+            </div>
+
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; margin-bottom: 16px;">
+              <input type="checkbox" id="branch-delivery-available" style="width: auto;">
+              Ofrezco flete/entrega a domicilio
+            </label>
+
+            <button type="submit" class="btn-computo" id="btn-save-provider-profile">Guardar datos comerciales</button>
+            <span id="provider-profile-status" style="margin-left: 10px; font-size: 0.85rem; color: var(--text-muted);"></span>
+          </form>
+        </div>
+      </details>
+
+      <!-- 2. AGREGAR MATERIAL INDIVIDUAL -->
+      <details class="provider-section">
+        <summary>➕ Agregar un material a mi catálogo</summary>
+        <div class="provider-section-body">
+          <div class="config-field" style="margin-bottom: 12px;">
+            <label for="provider-add-search">Buscar material NEXOBRA</label>
+            <input type="text" id="provider-add-search" class="form-select" placeholder="Ej: cemento portland, ladrillo hueco...">
+          </div>
+          <div id="provider-add-results" class="provider-search-results"></div>
+        </div>
+      </details>
+
+      <!-- 3. CARGA MASIVA POR EXCEL -->
+      <details class="provider-section">
+        <summary>📊 Carga masiva desde Excel/CSV</summary>
+        <div class="provider-section-body">
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+            Subí un archivo con columnas: <strong>SKU</strong> (tu código propio, opcional), <strong>Nombre</strong> (descripción de tu producto), <strong>Precio</strong>, <strong>Unidad</strong> (opcional — decinos si tu precio es por unidad de compra, ej. "Bolsa", o por unidad de cómputo, ej. "kg"; si no la ponés, asumimos unidad de compra) y opcionalmente <strong>Stock</strong> (en stock / a pedido / agotado). Vamos a intentar emparejar cada fila con el catálogo de NEXOBRA — revisá los resultados antes de confirmar.
+          </p>
+          <button class="btn-action-drawer btn-copy" id="btn-download-provider-template" type="button" style="margin-bottom: 12px;">
+            ⬇ Descargar plantilla de ejemplo
+          </button>
+          <input type="file" id="provider-excel-input" accept=".xlsx,.xls,.csv" style="margin-bottom: 12px; display:block;">
+          <div id="provider-excel-preview"></div>
+          <button class="btn-computo" id="btn-confirm-provider-excel" style="display: none; margin-top: 12px;">Confirmar y cargar al catálogo</button>
+        </div>
+      </details>
+
+      <!-- 4. MI CATÁLOGO -->
+      <details class="provider-section" open>
+        <summary>🗂️ Mi catálogo cargado</summary>
+        <div class="provider-section-body">
+          <div class="provider-bulk-edit">
+            <label for="provider-bulk-percent">Ajuste rápido:</label>
+            <input type="number" id="provider-bulk-percent" class="form-select" placeholder="Ej: 3 ó -5" style="width: 90px;">
+            <span>%</span>
+            <button class="btn-computo" id="btn-apply-bulk-percent" style="padding: 8px 14px;">Aplicar a todo mi catálogo</button>
+          </div>
+          <div id="provider-catalog-list" class="provider-catalog-list"><!-- se completa con loadProviderCatalog() --></div>
+        </div>
+      </details>
+
+      <!-- 5. DASHBOARD DE COMPETITIVIDAD -->
+      <details class="provider-section">
+        <summary>📊 Cómo te comparás en tu zona</summary>
+        <div class="provider-section-body">
+          <div class="provider-bulk-edit">
+            <label for="provider-dashboard-radius">Radio de comparación:</label>
+            <select id="provider-dashboard-radius" class="sort-select">
+              <option value="10">10 km</option>
+              <option value="25" selected>25 km</option>
+              <option value="50">50 km</option>
+              <option value="100">100 km</option>
+            </select>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+            Por cada material que tenés cargado, así se compara tu precio contra la mediana de otros proveedores en el radio elegido. No mostramos precios individuales de la competencia, solo la mediana de la zona.
+          </p>
+          <div id="provider-dashboard-results"><!-- se completa con loadProviderDashboard() --></div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA 7: MAPA DE PROVEEDORES (Fase D)
+       ========================================================================= -->
+  <!-- =========================================================================
+       VISTA 8: MIS FAVORITOS (Fase E)
+       ========================================================================= -->
+  <div id="favorites-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Mis Favoritos</h2>
+          <p class="catalog-subtitle">Proveedores que guardaste para contactar rápido.</p>
+        </div>
+      </div>
+      <div id="favorites-list" class="computations-list"><!-- se completa con loadFavorites() --></div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA 9: MIS ALERTAS DE PRECIO (Fase E)
+       ========================================================================= -->
+  <div id="alerts-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Mis Alertas de Precio</h2>
+          <p class="catalog-subtitle">Materiales que estás siguiendo. Comparamos el precio actual contra el que tenía cuando armaste la alerta.</p>
+        </div>
+      </div>
+      <div id="alerts-list" class="computations-list"><!-- se completa con loadAlerts() --></div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       VISTA 10: PANEL DE ADMINISTRACIÓN (Fase F, solo role='admin')
+       ========================================================================= -->
+  <div id="admin-view" class="view-section" style="display: none;">
+    <div class="container" style="max-width: 1000px;">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Panel de Administración</h2>
+          <p class="catalog-subtitle">Editor de materiales, aprobación de proveedores y precios pendientes.</p>
+        </div>
+      </div>
+
+      <!-- F2: EDITOR DE MATERIALES -->
+      <details class="provider-section" open>
+        <summary>🧱 Editor de materiales</summary>
+        <div class="provider-section-body">
+          <button class="btn-choose-provider" id="btn-open-new-material-admin" type="button" style="margin: 0 0 14px;">
+            ➕ Crear material nuevo
+          </button>
+          <div class="config-field" style="margin-bottom: 12px;">
+            <label for="admin-material-search">Buscar material a corregir</label>
+            <input type="text" id="admin-material-search" class="form-select" placeholder="Ej: cemento portland, ladrillo hueco...">
+          </div>
+          <div id="admin-material-results" class="provider-search-results"></div>
+
+          <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-light, #eee);">
+            <h4 style="margin-bottom: 10px; font-size: 0.9rem;">O navegá el listado completo</h4>
+            <div class="provider-bulk-edit" style="margin-bottom: 14px;">
+              <label for="admin-material-date-filter">Modificados desde:</label>
+              <input type="date" id="admin-material-date-filter" class="form-select" style="width: auto;">
+              <label for="admin-material-sort">Ordenar por:</label>
+              <select id="admin-material-sort" class="sort-select">
+                <option value="updated_desc" selected>Más recientes primero</option>
+                <option value="updated_asc">Más antiguos primero</option>
+                <option value="name_asc">Nombre A-Z</option>
+              </select>
+            </div>
+            <div id="admin-material-list" class="provider-search-results"></div>
+            <button class="btn-action-drawer" id="btn-load-more-materials" type="button" style="display:none; margin-top: 10px;">Cargar más</button>
+          </div>
+
+          <div id="admin-material-editor" style="display:none; margin-top: 18px; border-top: 2px solid var(--brand-yellow); padding-top: 16px;">
+            <h4 style="margin-bottom: 12px;">Editando: <code id="admin-edit-id"></code></h4>
+            <div class="excel-config-grid">
+              <div class="config-field">
+                <label for="admin-edit-denominacion">Denominación</label>
+                <input type="text" id="admin-edit-denominacion" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-rubro">Rubro</label>
+                <input type="text" id="admin-edit-rubro" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-categoria">Categoría</label>
+                <input type="text" id="admin-edit-categoria" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-subcategoria">Subcategoría</label>
+                <input type="text" id="admin-edit-subcategoria" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-unidad-venta">Unidad de venta</label>
+                <input type="text" id="admin-edit-unidad-venta" class="form-select" placeholder="Ej: Bolsa">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-unidad-computo">Unidad de cómputo</label>
+                <input type="text" id="admin-edit-unidad-computo" class="form-select" placeholder="Ej: kg">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-envase">Envase (cuántas unidades de cómputo por unidad de venta)</label>
+                <input type="number" id="admin-edit-envase" class="form-select" min="0.0001" step="0.0001">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-mes-base">Mes base (formato: abr-25)</label>
+                <input type="text" id="admin-edit-mes-base" class="form-select" placeholder="abr-25">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-precio-venta">Precio base — venta</label>
+                <input type="number" id="admin-edit-precio-venta" class="form-select" min="0" step="0.01">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-precio-computo">
+                  Precio base — cómputo
+                  <button type="button" id="btn-recalc-precio-computo" style="font-size:0.7rem; margin-left:6px; padding:2px 6px;">↻ Calcular (venta ÷ envase)</button>
+                </label>
+                <input type="number" id="admin-edit-precio-computo" class="form-select" min="0" step="0.01">
+              </div>
+            </div>
+            <div class="config-field" style="margin-bottom: 12px;">
+              <label for="admin-edit-tags">Tags / sinónimos (separados por coma)</label>
+              <input type="text" id="admin-edit-tags" class="form-select" placeholder="cemento, portland, loma negra, 50kg">
+            </div>
+
+            <h5 style="margin: 16px 0 10px; font-size:0.85rem;">🔧 Ficha técnica (opcional)</h5>
+            <div class="excel-config-grid" style="margin-bottom: 12px;">
+              <div class="config-field">
+                <label for="admin-edit-brand">Marca</label>
+                <input type="text" id="admin-edit-brand" class="form-select">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-yield-value">Rendimiento</label>
+                <input type="number" id="admin-edit-yield-value" class="form-select" min="0" step="0.01" placeholder="Ej: 5">
+              </div>
+              <div class="config-field">
+                <label for="admin-edit-yield-unit">Unidad del rendimiento</label>
+                <input type="text" id="admin-edit-yield-unit" class="form-select" placeholder="Ej: m²/bolsa">
+              </div>
+            </div>
+            <div class="config-field" style="margin-bottom: 12px;">
+              <label for="admin-edit-technical-description">Descripción técnica</label>
+              <textarea id="admin-edit-technical-description" class="form-select" rows="2" style="width:100%; resize:vertical;"></textarea>
+            </div>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; font-weight:600; margin-bottom:14px;">
+              <input type="checkbox" id="admin-edit-active" style="width:auto;"> Material activo (visible en el catálogo)
+            </label>
+            <div style="display:flex; gap:8px;">
+              <button class="btn-computo" id="btn-save-material-edit">Guardar cambios</button>
+              <button class="btn-action-drawer" id="btn-close-material-editor" type="button">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- CARGA MASIVA DE PRECIOS BASE (REVISTA) -->
+      <details class="provider-section">
+        <summary>📥 Actualizar precios base desde Excel (revista)</summary>
+        <div class="provider-section-body">
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">
+            Para cuando salga una edición nueva de la revista de precios. El Excel tiene que tener las columnas <strong>Código</strong>, <strong>Precio Venta</strong> y, opcional, <strong>Precio Cómputo</strong>. Por cada material, el precio base anterior queda guardado como historial (no se borra) y este pasa a ser el activo.
+          </p>
+          <div class="excel-config-grid" style="margin-bottom:14px;">
+            <div class="config-field">
+              <label for="admin-bulk-base-month">Mes base de estos precios</label>
+              <input type="month" id="admin-bulk-base-month" class="form-select">
+            </div>
+            <div class="config-field">
+              <label for="admin-bulk-source-name">Fuente (ej: "Revista Noviembre 2026")</label>
+              <input type="text" id="admin-bulk-source-name" class="form-select" placeholder="Revista Construir, edición N°...">
+            </div>
+          </div>
+          <input type="file" id="admin-bulk-price-file" accept=".xlsx,.xls,.csv" style="display:none;">
+          <label for="admin-bulk-price-file" class="btn-action-drawer btn-copy" style="display:inline-flex; cursor:pointer;">Elegir archivo Excel</label>
+          <span id="admin-bulk-price-filename" style="font-size:0.8rem; color:var(--text-muted); margin-left:8px;"></span>
+          <div id="admin-bulk-price-preview" style="margin-top:14px;"></div>
+        </div>
+      </details>
+
+      <!-- SUGERENCIAS TÉCNICAS DE PROVEEDORES -->
+      <details class="provider-section">
+        <summary>🔧 Sugerencias técnicas pendientes</summary>
+        <div class="provider-section-body">
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">
+            Marca, descripción técnica y rendimiento que sugirieron proveedores para materiales de su catálogo. Se aplican al material recién cuando las aprobás.
+          </p>
+          <div id="admin-tech-suggestions-list"></div>
+        </div>
+      </details>
+
+      <!-- ANALÍTICA DE BÚSQUEDAS -->
+      <details class="provider-section">
+        <summary>📊 Analítica de búsquedas</summary>
+        <div class="provider-section-body">
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">
+            Qué busca la gente en el catálogo y en el mapa. Las búsquedas con <strong>0 resultados</strong> son las más valiosas: es literalmente lo que alguien quiso encontrar y no está en NEXOBRA todavía (ni en el catálogo, ni con proveedores cerca).
+          </p>
+          <div style="display:flex; gap:10px; margin-bottom:16px;">
+            <button class="btn-computo" id="btn-analytics-zero-results">Sin resultados</button>
+            <button class="btn-action-drawer" id="btn-analytics-top-searches">Más buscado en general</button>
+          </div>
+          <div id="admin-analytics-results"></div>
+        </div>
+      </details>
+
+      <!-- ÍNDICES: IPC Y MANO DE OBRA -->
+      <details class="provider-section" open>
+        <summary>📈 Índices (IPC y Mano de Obra)</summary>
+        <div class="provider-section-body">
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">
+            Cargá acá el valor de cada mes para el IPC (materiales) o para cualquiera de los roles de UOCRA (mano de obra). Si volvés a cargar un mes que ya existía, se actualiza el valor (no se duplica).
+          </p>
+          <div class="excel-config-grid" style="margin-bottom:14px;">
+            <div class="config-field">
+              <label for="admin-index-series-select">Serie</label>
+              <select id="admin-index-series-select" class="form-select"></select>
+            </div>
+            <div class="config-field">
+              <label for="admin-index-month">Mes</label>
+              <input type="month" id="admin-index-month" class="form-select">
+            </div>
+            <div class="config-field">
+              <label for="admin-index-value">Valor</label>
+              <input type="number" id="admin-index-value" class="form-select" step="0.0001" min="0">
+            </div>
+          </div>
+          <button class="btn-computo" id="btn-save-index-value" type="button" style="margin-bottom:16px;">Guardar valor</button>
+
+          <h4 style="font-size:0.85rem; margin-bottom:8px;">Últimos valores cargados de esta serie</h4>
+          <div id="admin-index-recent-values" class="provider-search-results"></div>
+        </div>
+      </details>
+
+      <!-- F3: CORRALONES PENDIENTES -->
+      <details class="provider-section" open>
+        <summary>🏪 Proveedores pendientes de aprobación</summary>
+        <div class="provider-section-body">
+          <div id="admin-pending-providers" class="computations-list"></div>
+          <div id="admin-provider-review" style="display:none; margin-top: 16px; border-top: 2px solid var(--brand-yellow); padding-top: 14px;"></div>
+        </div>
+      </details>
+
+      <!-- F4: AGENDA DE PRECIOS PENDIENTES -->
+      <details class="provider-section" open>
+        <summary>💲 Precios pendientes de aprobación</summary>
+        <div class="provider-section-body">
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">Materiales nuevos y cambios de precio que cargaron los proveedores. El stock se refleja al instante y no aparece acá.</p>
+          <div id="admin-pending-offers"></div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="brand-name" style="margin-bottom: 8px;">NEX<span class="accent">OBRA</span></div>
+          <p>
+            Comparador técnico de materiales y cómputos para la construcción en Argentina. Valores de referencia trazables y ofertas de proveedores locales, sin intermediación en la compra.
+          </p>
+          <p style="margin-top: 10px; font-size: 0.72rem; font-weight:700; text-transform:uppercase; width: 160px; text-align: justify; text-align-last: justify;">
+            Parte del ecosistema
+          </p>
+          <a href="https://www.hidearconstrucciones.com.ar/" target="_blank" rel="noopener" style="display:inline-block; margin-top: 6px;">
+            <img src="assets/hidear-logo.png" alt="HIDEAR Construcciones" style="width: 160px; height: auto; filter: brightness(0) invert(1);">
+          </a>
+        </div>
+        <div class="footer-col">
+          <h5>Transparencia</h5>
+          <ul>
+            <li>• Precio, mes y fuente base</li>
+            <li>• Factor y fórmula visibles</li>
+            <li>• UOCRA solo para mano de obra</li>
+            <li>• Fecha de actualización informada</li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h5>Contacto</h5>
+          <ul>
+            <li>• Sugerencias y consultas:</li>
+            <li><a href="mailto:nexobra.info@gmail.com" style="color: inherit; text-decoration: underline;">nexobra.info@gmail.com</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        &copy; 2026 NEXOBRA • Todos los derechos reservados. Desarrollado para profesionales y constructores.
+        <br>
+        <a href="privacidad.html" style="color: inherit; text-decoration: underline;">Política de Privacidad</a>
+        &nbsp;·&nbsp;
+        <a href="terminos.html" style="color: inherit; text-decoration: underline;">Términos y Condiciones</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <!-- Cliente y configuración pública: sin claves secretas. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  <script src="supabase-config.js" defer></script>
+  <script src="data.js" defer></script>
+  <!-- ========================= VISTA: PRESUPUESTO COMPARTIDO (link público) ========================= -->
+  <div id="shared-computation-view" style="display:none;">
+    <header class="header">
+      <div class="container header-container" style="justify-content: center;">
+        <a href="/" class="brand-wrapper">
+          <div class="brand-logo-icon">
+            <img src="assets/nexobra-icon.png" alt="NEXOBRA" width="36" height="36" style="display:block; object-fit: contain;">
+          </div>
+          <div class="brand-title-group">
+            <div class="brand-name">NEX<span class="accent">OBRA</span></div>
+            <span class="brand-badge-tag">COMPARADOR TÉCNICO</span>
+          </div>
+        </a>
+      </div>
+    </header>
+    <main class="container" style="padding: 2rem 1.5rem 4rem; max-width: 800px;">
+      <div id="shared-computation-body">
+        <p style="text-align:center; color:var(--text-muted); padding: 3rem 0;">Cargando presupuesto...</p>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
