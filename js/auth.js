@@ -77,6 +77,7 @@ import * as ST from './state.js';
       Admin.updateAdminNavVisibility();
       MapModule.loadFavoriteIds();
       MapModule.loadAlertIds();
+      MapModule.loadOfferSubscriptionIds();
 
       if (profile && profile.role_confirmed === false) {
         openRoleModal();

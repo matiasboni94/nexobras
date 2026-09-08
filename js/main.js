@@ -145,6 +145,7 @@ import * as ST from './state.js';
         if (favoritesViewEl) favoritesViewEl.style.display = 'none';
       } else {
         MapModule.loadFavorites();
+        MapModule.loadOfferSubscriptions();
       }
     }
     if (viewName === 'alerts') {
@@ -544,6 +545,9 @@ openOfferPicker: MapModule.openOfferPicker,
 chooseProviderOffer: MapModule.chooseProviderOffer,
 toggleFavorite: MapModule.toggleFavorite,
 removeFavorite: MapModule.removeFavorite,
+toggleOfferSubscription: MapModule.toggleOfferSubscription,
+removeOfferSubscription: MapModule.removeOfferSubscription,
+sendProviderOfferBroadcast: Provider.sendProviderOfferBroadcast,
 toggleMaterialAlert: MapModule.toggleMaterialAlert,
     removeAlert: MapModule.removeAlert,
     toggleCategoryAlert: MapModule.toggleCategoryAlert,

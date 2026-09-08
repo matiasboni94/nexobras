@@ -209,7 +209,10 @@ import * as ST from './state.js';
           ${offer.logo_url ? `<img src="${ST.escapeHtml(offer.logo_url)}" class="provider-logo-mini" alt="">` : ''}
           <h3 style="margin-bottom:2px;">${ST.escapeHtml(offer.business_name)}</h3>
         </div>
-        <button class="btn-favorite-toggle ${esFavorito ? 'active' : ''}" onclick='window.nexoBraApp.toggleFavorite(${ST.escAttr(offer.branch_id)}, ${ST.escAttr(offer.business_name)})'>★</button>
+        <div style="display:flex; gap:4px;">
+          <button class="btn-favorite-toggle ${esFavorito ? 'active' : ''}" onclick='window.nexoBraApp.toggleFavorite(${ST.escAttr(offer.branch_id)}, ${ST.escAttr(offer.business_name)})' title="Guardar en favoritos">★</button>
+          <button class="btn-favorite-toggle ${ST.offerSubscriptionsState.ids.has(offer.branch_id) ? 'active' : ''}" onclick='window.nexoBraApp.toggleOfferSubscription(${ST.escAttr(offer.branch_id)}, ${ST.escAttr(offer.provider_id)}, ${ST.escAttr(offer.business_name)})' title="Recibir sus ofertas por mail">📧</button>
+        </div>
       </div>
       <div class="branch-meta">${ST.escapeHtml(offer.branch_name)} · ${ST.escapeHtml(offer.locality || '')} · ${offer.distance_km.toFixed(1)} km de tu ubicación</div>
       <div style="margin: 4px 0 10px;">${renderStarRating(offer.avg_rating, offer.review_count)}</div>
@@ -318,6 +321,12 @@ import * as ST from './state.js';
         ${esFavorito ? '★ En favoritos' : '☆ Guardar favorito'}
       </button>
     `;
+    const esSuscripto = ST.offerSubscriptionsState.ids.has(branchId);
+    const subBtn = `
+      <button class="btn-favorite-toggle ${esSuscripto ? 'active' : ''}" onclick='window.nexoBraApp.toggleOfferSubscription(${ST.escAttr(branchId)}, ${ST.escAttr(branchInfo.provider_id)}, ${ST.escAttr(branchInfo.business_name)})'>
+        ${esSuscripto ? '📧 Recibiendo sus ofertas' : '📧 Recibir sus ofertas por mail'}
+      </button>
+    `;
 
     const filas = (data || []).map(row => {
       const cls = row.variation_pct === null ? 'equal' : row.variation_pct < -1 ? 'below' : row.variation_pct > 1 ? 'above' : 'equal';
@@ -340,7 +349,7 @@ import * as ST from './state.js';
       </div>
       <div class="branch-meta">${ST.escapeHtml(branchInfo.branch_name)} · ${ST.escapeHtml(branchInfo.locality)} · ${branchInfo.distance_km.toFixed(1)} km de tu ubicación</div>
       <div style="margin: 4px 0 10px;">${renderStarRating(branchInfo.avg_rating, branchInfo.review_count)}</div>
-      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;">${whatsappLink}${favBtn}</div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;">${whatsappLink}${favBtn}${subBtn}</div>
       <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">Variación de precio vs. la mediana de proveedores en ${ST.mapState.radiusKm} km a la redonda:</p>
       ${filas || '<p style="font-size:0.8rem; color:var(--text-muted);">Sin materiales cargados todavía.</p>'}
 
@@ -839,6 +848,93 @@ import * as ST from './state.js';
     ST.favoritesState.ids.delete(branchId);
     ST.showToast('Sacado de favoritos.');
     loadFavorites();
+  }
+
+  // --- SUSCRIPCIÓN A OFERTAS POR MAIL (separado de favoritos a propósito) ---
+  export async function loadOfferSubscriptionIds() {
+    if (!ST.supabaseClient || !ST.authState.user) return;
+    const { data, error } = await ST.supabaseClient
+      .from('provider_offer_subscriptions')
+      .select('branch_id')
+      .eq('user_id', ST.authState.user.id);
+    if (!error) {
+      ST.offerSubscriptionsState.ids = new Set((data || []).map(r => r.branch_id));
+      ST.offerSubscriptionsState.loaded = true;
+    }
+  }
+
+  export async function toggleOfferSubscription(branchId, providerId, businessName) {
+    if (!ST.authState.user) {
+      ST.showToast('Iniciá sesión para suscribirte a las ofertas de un proveedor.');
+      Auth.showAuthTab('login');
+      Auth.openAuthModal();
+      return;
+    }
+    const suscripto = ST.offerSubscriptionsState.ids.has(branchId);
+    if (suscripto) {
+      const { error } = await ST.supabaseClient.from('provider_offer_subscriptions').delete().eq('user_id', ST.authState.user.id).eq('branch_id', branchId);
+      if (error) {
+        ST.showToast('No se pudo dar de baja la suscripción: ' + error.message);
+        return;
+      }
+      ST.offerSubscriptionsState.ids.delete(branchId);
+      ST.showToast('No vas a recibir más las ofertas de este proveedor.');
+    } else {
+      const { error } = await ST.supabaseClient.from('provider_offer_subscriptions').insert({ user_id: ST.authState.user.id, branch_id: branchId, provider_id: providerId });
+      if (error) {
+        ST.showToast('No se pudo suscribir: ' + error.message);
+        return;
+      }
+      ST.offerSubscriptionsState.ids.add(branchId);
+      ST.showToast(`Listo, vas a recibir por mail las ofertas de ${businessName}.`);
+    }
+    // Si la ficha del mapa está abierta, refresca el botón para mostrar el nuevo estado.
+    if (ST.mapState.lastSelectedBranch && ST.mapState.lastSelectedBranch.branch_id === branchId) {
+      showBranchDetail(branchId, ST.mapState.lastSelectedBranch);
+    }
+  }
+
+  export async function loadOfferSubscriptions() {
+    const list = document.getElementById('offer-subscriptions-list');
+    if (!list || !ST.authState.user) return;
+    list.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando...</p>';
+
+    const { data, error } = await ST.supabaseClient
+      .from('provider_offer_subscriptions')
+      .select('id, branch_id, provider_branches(name, locality, providers(business_name))')
+      .eq('user_id', ST.authState.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      list.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, "cargar tus suscripciones")}</p>`;
+      return;
+    }
+    if (!data || data.length === 0) {
+      list.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Todavía no te suscribiste a las ofertas de ningún proveedor. Desde la ficha de un proveedor en el mapa, usá el botón "📧 Recibir sus ofertas por mail".</p>';
+      return;
+    }
+
+    list.innerHTML = data.map(sub => {
+      const branch = sub.provider_branches;
+      return `
+        <div class="computation-row">
+          <div class="computation-row-info">
+            <h4>${ST.escapeHtml(branch?.providers?.business_name) || '(proveedor eliminado)'}</h4>
+            <span>${ST.escapeHtml(branch?.name || '')} · ${ST.escapeHtml(branch?.locality || '')}</span>
+          </div>
+          <div class="computation-row-actions">
+            <button class="danger" onclick="window.nexoBraApp.removeOfferSubscription('${sub.branch_id}')">Dar de baja</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  export async function removeOfferSubscription(branchId) {
+    await ST.supabaseClient.from('provider_offer_subscriptions').delete().eq('user_id', ST.authState.user.id).eq('branch_id', branchId);
+    ST.offerSubscriptionsState.ids.delete(branchId);
+    ST.showToast('Suscripción dada de baja.');
+    loadOfferSubscriptions();
   }
 
   // --- FASE E, PARTE 3: Alertas de precio ---

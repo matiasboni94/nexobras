@@ -81,6 +81,7 @@ import * as ST from './state.js';
     await loadProviderCatalog();
     await loadProviderDashboard();
     await loadProviderInteractionStats();
+    await loadProviderBroadcastStatus();
   }
 
   let branchLocationMap = null;
@@ -1079,4 +1080,67 @@ import * as ST from './state.js';
     `;
   }
 
-  // --- FASE E, PARTE 2: Favoritos ---
+  // --- OFERTAS POR MAIL A SUSCRIPTORES (broadcast manual del proveedor) ---
+  function formatFechaHora(iso) {
+    return new Date(iso).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+
+  export async function loadProviderBroadcastStatus() {
+    const el = document.getElementById('provider-broadcast-status');
+    if (!el || !ST.providerState.branch) return;
+    el.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando...</p>';
+
+    const { data, error } = await ST.supabaseClient.rpc('get_provider_broadcast_status', {
+      p_branch_id: ST.providerState.branch.id
+    });
+
+    if (error) {
+      el.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, 'cargar el estado de tus suscriptores')}</p>`;
+      return;
+    }
+
+    const status = data || {};
+    const count = status.subscriber_count || 0;
+    const lastSent = status.last_sent_at ? new Date(status.last_sent_at) : null;
+    const horasDesdeUltimo = lastSent ? (Date.now() - lastSent.getTime()) / 3_600_000 : null;
+    const bloqueado = horasDesdeUltimo !== null && horasDesdeUltimo < 24;
+    const horasRestantes = bloqueado ? Math.ceil(24 - horasDesdeUltimo) : 0;
+
+    el.innerHTML = `
+      <p style="font-size:0.85rem; margin-bottom:10px;">
+        <strong>${count}</strong> persona${count === 1 ? '' : 's'} suscripta${count === 1 ? '' : 's'} a tus ofertas
+        ${lastSent ? `· último envío: ${formatFechaHora(status.last_sent_at)}` : '· todavía no mandaste ninguna oferta por mail'}
+      </p>
+      <button class="btn-computo" id="btn-send-offer-broadcast" ${count === 0 || bloqueado ? 'disabled' : ''} onclick="window.nexoBraApp.sendProviderOfferBroadcast()">
+        ${bloqueado ? `Podés volver a mandar en ${horasRestantes}hs` : 'Enviar mis ofertas a mis suscriptores'}
+      </button>
+      ${count === 0 ? '<p style="font-size:0.78rem; color:var(--text-muted); margin-top:8px;">Todavía no tenés suscriptores -- este botón se activa en cuanto alguien se suscriba a tus ofertas desde el mapa.</p>' : ''}
+    `;
+  }
+
+  export async function sendProviderOfferBroadcast() {
+    if (!ST.providerState.branch) return;
+    const btn = document.getElementById('btn-send-offer-broadcast');
+    if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+
+    const { data, error } = await ST.supabaseClient.functions.invoke('send-provider-offer-broadcast', {
+      body: { branch_id: ST.providerState.branch.id }
+    });
+
+    // supabase-js no siempre pone el error de la función en `error` cuando la
+    // función responde con un status distinto de 2xx -- por eso también se
+    // revisa `data.error` (mismo patrón de respuesta que el resto de las
+    // Edge Functions de NEXOBRA).
+    if (error || data?.error) {
+      ST.showToast('No se pudo enviar: ' + (data?.error || error.message));
+      loadProviderBroadcastStatus();
+      return;
+    }
+
+    if (data.recipient_count === 0 && data.message) {
+      ST.showToast(data.message);
+    } else {
+      ST.showToast(`✓ Ofertas enviadas a ${data.recipient_count} suscriptor${data.recipient_count === 1 ? '' : 'es'}.`);
+    }
+    loadProviderBroadcastStatus();
+  }
