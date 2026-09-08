@@ -571,3 +571,39 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
 
 
 document.addEventListener('DOMContentLoaded', init);
+
+// --- MODO OFFLINE / PWA -----------------------------------------------
+// Registra el service worker (sw.js) que deja instalar NEXOBRA como app y
+// cachea lo necesario para que abra sin conexión. Si algo falla acá (ej.
+// un navegador viejo sin soporte), no debe romper el resto de la app --
+// por eso todo queda envuelto en el if de arriba y en try/catch.
+function actualizarBannerConexion() {
+  const banner = document.getElementById('offline-banner');
+  if (!banner) return;
+  banner.hidden = navigator.onLine;
+}
+window.addEventListener('online', actualizarBannerConexion);
+window.addEventListener('offline', actualizarBannerConexion);
+document.addEventListener('DOMContentLoaded', actualizarBannerConexion);
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then((reg) => {
+      // Si ya había un service worker activo y se instaló uno nuevo
+      // (subiste una versión nueva de sw.js), avisamos con un toast en
+      // vez de recargar solos -- para no interrumpir a alguien que está
+      // en medio de un cómputo.
+      reg.addEventListener('updatefound', () => {
+        const nuevoWorker = reg.installing;
+        if (!nuevoWorker) return;
+        nuevoWorker.addEventListener('statechange', () => {
+          if (nuevoWorker.state === 'activated' && navigator.serviceWorker.controller) {
+            ST.showToast('Hay una versión nueva de NEXOBRA. Recargá la página para actualizar.');
+          }
+        });
+      });
+    }).catch((err) => {
+      console.warn('No se pudo registrar el service worker (modo offline no disponible):', err);
+    });
+  });
+}
