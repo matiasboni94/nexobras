@@ -896,3 +896,109 @@ import * as ST from './state.js';
       Main.switchView('alerts');
     });
   }
+
+  // ============================================================
+  // Directorio de Proveedores (fichas por distancia + rubro)
+  // ============================================================
+
+  export async function loadDirectoryCategories() {
+    const container = document.getElementById('directory-category-pills');
+    if (!container || !ST.supabaseClient) return;
+
+    if (ST.directoryState.categories.length === 0) {
+      const { data } = await ST.supabaseClient
+        .from('provider_categories')
+        .select('id, name, kind')
+        .eq('active', true)
+        .order('name');
+      ST.directoryState.categories = data || [];
+    }
+
+    const pill = (id, label) => `
+      <button class="cat-btn ${ST.directoryState.categoryId === id ? 'active' : ''}" data-cat-id="${id === null ? '' : id}">
+        <span>${ST.escapeHtml(label)}</span>
+      </button>
+    `;
+
+    container.innerHTML = pill(null, 'Todos') + ST.directoryState.categories.map(c => pill(c.id, c.name)).join('');
+
+    container.querySelectorAll('button[data-cat-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        ST.directoryState.categoryId = btn.dataset.catId || null;
+        loadDirectoryCategories();
+        loadProvidersDirectory();
+      });
+    });
+  }
+
+  export async function loadProvidersDirectory() {
+    const status = document.getElementById('directory-status');
+    const container = document.getElementById('directory-cards-container');
+    if (!container || !ST.supabaseClient) return;
+    status.textContent = 'Buscando proveedores...';
+
+    const { data, error } = await ST.supabaseClient.rpc('nearby_providers_directory', {
+      center_lat: ST.directoryState.center.lat,
+      center_lng: ST.directoryState.center.lng,
+      radius_km: ST.directoryState.radiusKm,
+      p_category_id: ST.directoryState.categoryId
+    });
+
+    if (error) {
+      status.textContent = ST.friendlyError(error, 'cargar el directorio de proveedores');
+      container.innerHTML = '';
+      return;
+    }
+    if (!data || data.length === 0) {
+      status.textContent = 'No hay proveedores cargados en esta zona/rubro todavía.';
+      container.innerHTML = '';
+      return;
+    }
+
+    status.textContent = `${data.length} proveedor${data.length === 1 ? '' : 'es'} encontrado${data.length === 1 ? '' : 's'}.`;
+
+    container.innerHTML = data.map(p => {
+      const whatsappDigits = p.whatsapp_phone ? p.whatsapp_phone.replace(/\D/g, '') : null;
+      return `
+        <div class="provider-directory-card">
+          <div class="provider-directory-card-header">
+            ${p.logo_url ? `<img src="${ST.escapeHtml(p.logo_url)}" alt="">` : ''}
+            <div>
+              <h4 style="margin-bottom:2px;">${ST.escapeHtml(p.business_name)}</h4>
+              <span style="font-size:0.75rem; color:var(--text-subtle);">${ST.escapeHtml(p.locality || '')} · ${p.distance_km.toFixed(1)} km</span>
+            </div>
+          </div>
+          ${p.category_name ? `<span class="provider-directory-category-badge">${p.category_kind === 'services' ? '🛠️' : '📦'} ${ST.escapeHtml(p.category_name)}</span>` : ''}
+          <div>${renderStarRating(p.avg_rating, p.review_count)}</div>
+          ${p.matricula ? `<p style="font-size:0.78rem; color:var(--text-muted);"><strong>Matrícula:</strong> ${ST.escapeHtml(p.matricula)}</p>` : ''}
+          ${p.description ? `<p style="font-size:0.85rem; color:var(--text-muted);">${ST.escapeHtml(p.description)}</p>` : ''}
+          <div class="provider-directory-actions">
+            ${whatsappDigits ? `<a href="https://wa.me/${whatsappDigits}" target="_blank" rel="noopener" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;">💬 WhatsApp</a>` : ''}
+            ${p.contact_phone ? `<a href="tel:${ST.escapeHtml(p.contact_phone)}" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;">📞 Llamar</a>` : ''}
+            ${p.website_url ? `<a href="${ST.escapeHtml(p.website_url)}" target="_blank" rel="noopener" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;">🌐 Sitio web</a>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  export function requestDirectoryUserLocation() {
+    if (!navigator.geolocation) {
+      ST.showToast('Tu navegador no soporta geolocalización.');
+      loadProvidersDirectory();
+      return;
+    }
+    const status = document.getElementById('directory-status');
+    if (status) status.textContent = 'Buscando tu ubicación...';
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        ST.directoryState.center = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        loadProvidersDirectory();
+      },
+      () => {
+        ST.showToast('No se pudo acceder a tu ubicación. Mostrando la zona por defecto.');
+        loadProvidersDirectory();
+      },
+      { timeout: 8000 }
+    );
+  }
