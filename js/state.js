@@ -304,6 +304,7 @@
   export const providerState = { provider: null, branch: null, offers: [], excelPending: [] };
   export const DEFAULT_MAP_CENTER = { lat: -27.4864, lng: -55.1199 };
   export const mapState = { map: null, markers: [], center: { ...DEFAULT_MAP_CENTER }, radiusKm: 25, initialized: false, filterMaterialId: null, filterMaterialName: null, offerPickerCartIndex: null };
+  export const directoryState = { center: { ...DEFAULT_MAP_CENTER }, radiusKm: 50, categoryId: null, categories: [] };
   export const providerPricesState = { loaded: false, byMaterial: {} };
   export const favoritesState = { ids: new Set(), loaded: false };
   export const alertsState = { byMaterial: {}, loaded: false };
