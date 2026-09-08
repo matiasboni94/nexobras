@@ -40,9 +40,13 @@ import * as ST from './state.js';
       }
     }
 
+    await loadProviderCategoryOptions();
+
     if (provider) {
       document.getElementById('prov-business-name').value = provider.business_name || '';
+      document.getElementById('prov-category').value = provider.category_id || '';
       document.getElementById('prov-tax-id').value = provider.tax_id || '';
+      document.getElementById('prov-matricula').value = provider.matricula || '';
       document.getElementById('prov-website').value = provider.website_url || '';
       document.getElementById('prov-contact-phone').value = provider.contact_phone || '';
       document.getElementById('prov-contact-email').value = provider.contact_email || '';
@@ -167,6 +171,34 @@ import * as ST from './state.js';
     } catch (err) {
       statusEl.textContent = 'No se pudo buscar en este momento. Marcá el lugar directo en el mapa de abajo.';
     }
+  }
+
+  let categoryOptionsCache = null;
+
+  async function loadProviderCategoryOptions() {
+    const select = document.getElementById('prov-category');
+    if (!select) return;
+    if (!categoryOptionsCache) {
+      const { data } = await ST.supabaseClient
+        .from('provider_categories')
+        .select('id, name, kind')
+        .eq('active', true)
+        .order('name');
+      categoryOptionsCache = data || [];
+    }
+
+    const materiales = categoryOptionsCache.filter(c => c.kind === 'materials');
+    const servicios = categoryOptionsCache.filter(c => c.kind === 'services');
+
+    select.innerHTML = `
+      <option value="">Elegí tu rubro...</option>
+      <optgroup label="Vendo materiales">
+        ${materiales.map(c => `<option value="${c.id}">${ST.escapeHtml(c.name)}</option>`).join('')}
+      </optgroup>
+      <optgroup label="Ofrezco un servicio profesional">
+        ${servicios.map(c => `<option value="${c.id}">${ST.escapeHtml(c.name)}</option>`).join('')}
+      </optgroup>
+    `;
   }
 
   function updateLogoPreview(url) {
@@ -333,7 +365,9 @@ import * as ST from './state.js';
       const providerPayload = {
         owner_id: ST.authState.user.id,
         business_name: document.getElementById('prov-business-name').value.trim(),
+        category_id: document.getElementById('prov-category').value || null,
         tax_id: document.getElementById('prov-tax-id').value.trim() || null,
+        matricula: document.getElementById('prov-matricula').value.trim() || null,
         website_url: document.getElementById('prov-website').value.trim() || null,
         contact_phone: document.getElementById('prov-contact-phone').value.trim() || null,
         contact_email: document.getElementById('prov-contact-email').value.trim() || null,
