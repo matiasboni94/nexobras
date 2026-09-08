@@ -25,7 +25,7 @@
 // este archivo TAMBIÉN y cambiá el número de acá abajo (SW_VERSION) --
 // alcanza con sumarle 1. Eso hace que el Service Worker se reinstale solo y
 // tire a la basura la caché anterior.
-const SW_VERSION = 'v1';
+const SW_VERSION = 'v2';
 
 const SHELL_CACHE = `nexobra-shell-${SW_VERSION}`;
 const DATA_CACHE = `nexobra-data-${SW_VERSION}`;
