@@ -475,18 +475,42 @@ import * as ST from './state.js';
     ST.btnDownloadProcessedExcel.addEventListener('click', Excel.exportProcessedExcel);
 
     const contactForm = document.getElementById('contact-form');
-    if (contactForm) contactForm.addEventListener('submit', (e) => {
+    // FIX 2026-09-08: antes esto solo armaba un link "mailto:" y mostraba
+    // "enviado con éxito" sin haber mandado nada en realidad — dependía de que
+    // el visitante tuviera un cliente de correo configurado en el navegador y
+    // ADEMÁS apretara "Enviar" ahí, algo que casi nunca pasa. Ahora se manda
+    // de verdad a través de la Edge Function "contact-form" (Resend), igual que
+    // ya hacen notify-admin/notify-price-alert.
+    if (contactForm) contactForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const name = document.getElementById('contact-form-name').value.trim();
       const email = document.getElementById('contact-form-email').value.trim();
       const message = document.getElementById('contact-form-message').value.trim();
-      const subject = encodeURIComponent(`Consulta de ${name} — NEXOBRA`);
-      const body = encodeURIComponent(`${message}\n\n---\nNombre: ${name}\nEmail: ${email}`);
-      window.location.href = `mailto:nexobra.info@gmail.com?subject=${subject}&body=${body}`;
-
       const status = document.getElementById('contact-form-status');
-      status.style.display = 'block';
-      contactForm.reset();
+      const submitBtn = contactForm.querySelector('button[type="submit"]');
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Enviando...';
+      status.style.display = 'none';
+
+      try {
+        const { error } = await ST.supabaseClient.functions.invoke('contact-form', {
+          body: { name, email, message }
+        });
+        if (error) throw error;
+
+        status.textContent = 'Mensaje enviado con éxito ✅';
+        status.style.color = '#15803d';
+        status.style.display = 'block';
+        contactForm.reset();
+      } catch (err) {
+        status.textContent = 'No se pudo enviar el mensaje. Probá de nuevo o escribinos directo a nexobra.info@gmail.com.';
+        status.style.color = '#dc2626';
+        status.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Enviar';
+      }
     });
     if (ST.btnSaveExcelToComputo) ST.btnSaveExcelToComputo.addEventListener('click', Excel.saveExcelToComputo);
 
