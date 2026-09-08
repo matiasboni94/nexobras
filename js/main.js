@@ -73,6 +73,12 @@ import * as ST from './state.js';
     if (guideViewEl) guideViewEl.style.display = viewName === 'guide' ? 'block' : 'none';
     const contactViewEl = document.getElementById('contact-view');
     if (contactViewEl) contactViewEl.style.display = viewName === 'contact' ? 'block' : 'none';
+    const directoryViewEl = document.getElementById('providers-directory-view');
+    if (directoryViewEl) directoryViewEl.style.display = viewName === 'providers-directory' ? 'block' : 'none';
+    if (viewName === 'providers-directory') {
+      MapModule.loadDirectoryCategories();
+      MapModule.loadProvidersDirectory();
+    }
 
     ST.navBtnCatalogo.classList.toggle('active', viewName === 'catalog');
     if (ST.navBtnManoObra) ST.navBtnManoObra.classList.toggle('active', viewName === 'labor');
@@ -82,6 +88,8 @@ import * as ST from './state.js';
     if (navBtnGuiaEl) navBtnGuiaEl.classList.toggle('active', viewName === 'guide');
     const navBtnContactoEl = document.getElementById('nav-btn-contacto');
     if (navBtnContactoEl) navBtnContactoEl.classList.toggle('active', viewName === 'contact');
+    const navBtnProveedoresEl = document.getElementById('nav-btn-proveedores');
+    if (navBtnProveedoresEl) navBtnProveedoresEl.classList.toggle('active', viewName === 'providers-directory');
 
     const mHome = document.getElementById('mobile-nav-btn-home');
     const mCatalogo = document.getElementById('mobile-nav-btn-catalogo');
@@ -235,6 +243,18 @@ import * as ST from './state.js';
 
     ST.navBtnCatalogo.addEventListener('click', () => switchView('catalog', 'Todos', ''));
     if (ST.navBtnManoObra) ST.navBtnManoObra.addEventListener('click', () => switchView('labor'));
+    const navBtnProveedores = document.getElementById('nav-btn-proveedores');
+    if (navBtnProveedores) navBtnProveedores.addEventListener('click', () => switchView('providers-directory'));
+    const mobileNavBtnProveedores = document.getElementById('mobile-nav-btn-proveedores');
+    if (mobileNavBtnProveedores) mobileNavBtnProveedores.addEventListener('click', () => switchView('providers-directory'));
+
+    const btnDirectoryUseLocation = document.getElementById('btn-directory-use-location');
+    if (btnDirectoryUseLocation) btnDirectoryUseLocation.addEventListener('click', MapModule.requestDirectoryUserLocation);
+    const directoryRadiusSelect = document.getElementById('directory-radius-select');
+    if (directoryRadiusSelect) directoryRadiusSelect.addEventListener('change', (e) => {
+      ST.directoryState.radiusKm = parseInt(e.target.value, 10);
+      MapModule.loadProvidersDirectory();
+    });
 
     const btnMethodologyCatalog = document.getElementById('btn-open-methodology-catalog');
     if (btnMethodologyCatalog) btnMethodologyCatalog.addEventListener('click', () => switchView('about'));
