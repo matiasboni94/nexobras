@@ -1209,21 +1209,6 @@
           </ul>
         </div>
       </div>
-
-      <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border-light);">
-        <h3 class="pilar-title" style="margin-bottom: 12px;">📜 Normas de convivencia</h3>
-        <p class="pilar-text" style="margin-bottom: 14px;">
-          NEXOBRA depende de que la información que compartís (precios, reseñas, datos de contacto) sea real y de buena fe. Estas pocas reglas mantienen eso:
-        </p>
-        <ul class="guide-compare-list">
-          <li><strong>Las reseñas son de tu experiencia real</strong> con ese proveedor — no las uses para promocionar tu propio negocio ni para perjudicar a un competidor.</li>
-          <li><strong>Sin insultos, discriminación ni datos personales de terceros</strong> en comentarios o descripciones.</li>
-          <li><strong>Los comentarios tienen un límite de 300 caracteres</strong> — para mantenerlos concretos y legibles.</li>
-          <li><strong>Un proveedor puede responder públicamente</strong> a una reseña que recibió, pero no puede editarla ni borrarla.</li>
-          <li><strong>Cualquiera puede reportar</strong> una reseña que le parezca injusta o inapropiada — un administrador la revisa antes de tomar cualquier acción.</li>
-          <li><strong>Los precios y datos que cargás como proveedor</strong> deben corresponder a tu negocio real — cargar información falsa puede derivar en la suspensión de tu cuenta.</li>
-        </ul>
-      </div>
     </div>
   </div>
 
@@ -1268,11 +1253,34 @@
           <p class="catalog-subtitle">¿Sugerencias, dudas o querés cargar tu negocio? Escribinos, te respondemos directo.</p>
         </div>
       </div>
-      <div class="contacto-home-card">
-        <div class="contacto-home-icon">✉️</div>
-        <div>
-          <h3 class="pilar-title" style="margin-bottom: 4px;">Escribinos a:</h3>
-          <a href="mailto:nexobra.info@gmail.com?subject=Sugerencia%20NEXOBRA" class="contacto-home-email">nexobra.info@gmail.com</a>
+
+      <div class="contact-split-card">
+        <div class="contact-split-side">
+          <div class="contact-info-item">
+            <div class="contact-info-icon">📍</div>
+            <div>
+              <h4>Ubicación</h4>
+              <p>Oberá, Misiones<br>Argentina</p>
+            </div>
+          </div>
+          <div class="contact-info-item">
+            <div class="contact-info-icon">✉️</div>
+            <div>
+              <h4>Contacto</h4>
+              <p>Email: <a href="mailto:nexobra.info@gmail.com">nexobra.info@gmail.com</a></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="contact-split-form">
+          <h3 class="pilar-title" style="margin-bottom: 16px;">Dejanos tu consulta</h3>
+          <form id="contact-form">
+            <input type="text" id="contact-form-name" class="form-select" placeholder="Nombre" required style="margin-bottom: 12px;">
+            <input type="email" id="contact-form-email" class="form-select" placeholder="Email" required style="margin-bottom: 12px;">
+            <textarea id="contact-form-message" class="form-select" placeholder="Escribí tu mensaje..." rows="5" required style="margin-bottom: 14px; resize: vertical;"></textarea>
+            <button type="submit" class="btn-computo" style="width: 100%; justify-content: center;">Enviar</button>
+            <p id="contact-form-status" style="margin-top: 10px; font-size: 0.85rem; color: #15803d; display: none;">Formulario enviado con éxito ✅</p>
+          </form>
         </div>
       </div>
     </div>
@@ -1673,17 +1681,6 @@
             Marca, descripción técnica y rendimiento que sugirieron proveedores para materiales de su catálogo. Se aplican al material recién cuando las aprobás.
           </p>
           <div id="admin-tech-suggestions-list"></div>
-        </div>
-      </details>
-
-      <!-- RESEÑAS REPORTADAS -->
-      <details class="provider-section">
-        <summary>🚩 Reseñas reportadas</summary>
-        <div class="provider-section-body">
-          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">
-            Reseñas que algún usuario marcó como problemáticas. Revisá el contenido y decidí si eliminarla o descartar el reporte.
-          </p>
-          <div id="admin-reported-reviews-list"></div>
         </div>
       </details>
 
