@@ -838,4 +838,67 @@ export function loadAdminPanel() {
   loadPendingOffers();
   loadIndexSeriesOptions();
   loadTechSuggestions();
+  loadReportedReviews();
+}
+
+// ============================================================
+// Reseñas reportadas
+// ============================================================
+
+export async function loadReportedReviews() {
+  const container = document.getElementById('admin-reported-reviews-list');
+  if (!container) return;
+  container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando...</p>';
+
+  const { data, error } = await ST.supabaseClient
+    .from('review_reports')
+    .select('id, reason, created_at, provider_reviews(id, rating, comment, provider_id, providers(business_name))')
+    .eq('status', 'pending')
+    .order('created_at');
+
+  if (error) {
+    container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+    return;
+  }
+  if (!data || data.length === 0) {
+    container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">No hay reportes pendientes.</p>';
+    return;
+  }
+
+  container.innerHTML = data.map(r => {
+    const review = r.provider_reviews;
+    if (!review) return ''; // la reseña ya fue borrada por otro medio
+    return `
+      <div class="provider-catalog-row">
+        <div class="provider-catalog-row-info">
+          <h5>${ST.escapeHtml(review.providers?.business_name) || '(proveedor eliminado)'}</h5>
+          <span style="display:block;">
+            <strong>${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</strong>
+            ${review.comment ? `<br>"${ST.escapeHtml(review.comment)}"` : ''}
+            <br><span style="color:var(--text-muted); font-size:0.75rem;">Reportada ${formatDateTime(r.created_at)}${r.reason ? ` · Motivo: ${ST.escapeHtml(r.reason)}` : ''}</span>
+          </span>
+        </div>
+        <div class="provider-catalog-row-controls">
+          <button class="btn-remove-item" title="Eliminar la reseña" onclick="window.nexoBraApp.deleteReportedReview(${ST.escAttr(review.id)}, ${ST.escAttr(r.id)})">🗑️ Eliminar reseña</button>
+          <button class="btn-action-drawer btn-copy" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.dismissReviewReport(${ST.escAttr(r.id)})">Descartar reporte</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+export async function deleteReportedReview(reviewId, reportId) {
+  if (!confirm('¿Eliminar esta reseña? No se puede deshacer.')) return;
+  const { error } = await ST.supabaseClient.from('provider_reviews').delete().eq('id', reviewId);
+  if (error) { ST.showToast('No se pudo eliminar: ' + error.message); return; }
+  await ST.supabaseClient.from('review_reports').update({ status: 'reviewed' }).eq('id', reportId);
+  ST.showToast('Reseña eliminada.');
+  loadReportedReviews();
+}
+
+export async function dismissReviewReport(reportId) {
+  const { error } = await ST.supabaseClient.from('review_reports').update({ status: 'reviewed' }).eq('id', reportId);
+  if (error) { ST.showToast('No se pudo descartar: ' + error.message); return; }
+  ST.showToast('Reporte descartado.');
+  loadReportedReviews();
 }
