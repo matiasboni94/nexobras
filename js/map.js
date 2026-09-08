@@ -27,7 +27,7 @@ import * as ST from './state.js';
   // FASE G5 — Buscar un material y ver sus ofertas georeferenciadas
   // en el mapa (como Booking: buscás y el mapa se filtra a eso).
   // ============================================================
-  export function searchMaterialOnMap() {
+  export async function searchMaterialOnMap() {
     const input = document.getElementById('home-map-material-search');
     const query = input.value.trim();
     const container = document.getElementById('home-map-material-results');
@@ -37,6 +37,23 @@ import * as ST from './state.js';
     }
     const results = Provider.searchMaterialsSimple(query, 8);
     if (results.length === 0) {
+      // No es un material -- probamos si coincide con algún rubro de
+      // servicio profesional (cálculo estructural, arquitectura, etc.)
+      // antes de decir que no se encontró nada. Así el usuario no tiene
+      // que saber de antemano si lo que busca es un material o un servicio.
+      const categoriaEncontrada = await buscarRubroDeServicio(query);
+      if (categoriaEncontrada) {
+        container.innerHTML = `
+          <div class="provider-search-row">
+            <div class="provider-search-row-info">
+              <strong>No encontramos ese material</strong><br>
+              <span style="color:var(--text-muted); font-size:0.75rem;">Pero sí hay proveedores en "${ST.escapeHtml(categoriaEncontrada.name)}" cerca tuyo</span>
+            </div>
+            <button class="btn-computo" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.goToProvidersDirectoryWithCategory(${ST.escAttr(categoriaEncontrada.id)})">Ver proveedores</button>
+          </div>
+        `;
+        return;
+      }
       container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted); padding: 8px 0;">Sin resultados.</p>';
       return;
     }
@@ -49,6 +66,32 @@ import * as ST from './state.js';
         <button class="btn-computo" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.selectMaterialOnMap(${ST.escAttr(item.id)}, ${ST.escAttr(item.denominacion)})">Ver en mapa</button>
       </div>
     `).join('');
+  }
+
+  /**
+   * Busca si el texto coincide con el NOMBRE de algún rubro de servicio
+   * (ej: escribir "estructural" encuentra "Cálculo Estructural"). Se usa
+   * como respaldo cuando la búsqueda de materiales no encontró nada -- así
+   * el buscador del home entiende solo si la persona busca un material o
+   * un servicio, sin que tenga que elegir de antemano.
+   */
+  async function buscarRubroDeServicio(query) {
+    if (!ST.supabaseClient) return null;
+    if (ST.directoryState.categories.length === 0) {
+      const { data } = await ST.supabaseClient
+        .from('provider_categories')
+        .select('id, name, kind')
+        .eq('active', true)
+        .order('name');
+      ST.directoryState.categories = data || [];
+    }
+    const normalizada = ST.normalizeText(query);
+    return ST.directoryState.categories.find(c => ST.normalizeText(c.name).includes(normalizada)) || null;
+  }
+
+  export function goToProvidersDirectoryWithCategory(categoryId) {
+    ST.directoryState.categoryId = categoryId;
+    Main.switchView('providers-directory');
   }
 
   export async function selectMaterialOnMap(materialId, materialName) {
