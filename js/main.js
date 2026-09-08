@@ -200,6 +200,11 @@ import * as ST from './state.js';
       return;
     }
 
+    // Enlace directo a una vista puntual desde afuera del sitio (ej. desde
+    // los links de navegación de las páginas legales, que no tienen toda
+    // la app cargada). Se resuelve DESPUÉS del resto de init(), ver más abajo.
+    const deepLinkView = new URLSearchParams(window.location.search).get('view');
+
     Catalog.renderHomeSubareas();
     Catalog.renderRubroPills();
     Catalog.renderProducts();
@@ -469,6 +474,9 @@ import * as ST from './state.js';
     ST.btnDownloadTemplate.addEventListener('click', Excel.generateTemplateExcel);
     ST.btnDownloadProcessedExcel.addEventListener('click', Excel.exportProcessedExcel);
     if (ST.btnSaveExcelToComputo) ST.btnSaveExcelToComputo.addEventListener('click', Excel.saveExcelToComputo);
+
+    // Resuelve el enlace directo, si vino uno (ver chequeo al principio de init())
+    if (deepLinkView) switchView(deepLinkView);
   }
 
   // --- RENDER SUBAREAS EN EL HOME ---
