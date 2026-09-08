@@ -353,7 +353,7 @@ import * as ST from './state.js';
 
     const { data: reviews, error } = await ST.supabaseClient
       .from('provider_reviews')
-      .select('user_id, rating, comment, created_at')
+      .select('id, user_id, rating, comment, created_at, reply, replied_at')
       .eq('provider_id', providerId)
       .order('created_at', { ascending: false })
       .limit(10);
@@ -384,6 +384,13 @@ import * as ST from './state.js';
               <span style="font-size:0.72rem; color:var(--text-subtle);">${ST.escapeHtml(displayNames[r.user_id]) || 'Usuario de NEXOBRA'} · ${new Date(r.created_at).toLocaleDateString('es-AR')}</span>
             </div>
             ${r.comment ? `<p class="review-row-comment">${ST.escapeHtml(r.comment)}</p>` : ''}
+            ${r.reply ? `
+              <div class="review-reply-box">
+                <strong style="font-size:0.75rem;">Respuesta del proveedor:</strong>
+                <p style="font-size:0.8rem; margin-top:2px;">${ST.escapeHtml(r.reply)}</p>
+              </div>
+            ` : ''}
+            ${ST.authState.user ? `<button class="review-report-link" onclick="window.nexoBraApp.reportReview(${ST.escAttr(r.id)})">Reportar</button>` : ''}
           </div>
         `).join('');
 
@@ -395,7 +402,8 @@ import * as ST from './state.js';
         <div class="review-star-picker" id="review-star-picker" data-value="0">
           ${[1,2,3,4,5].map(n => `<span class="review-star-option" data-star="${n}" onclick="window.nexoBraApp.setReviewStars(${n})">☆</span>`).join('')}
         </div>
-        <textarea id="review-comment-input" class="form-select" placeholder="Comentario corto (opcional)" rows="2" style="width:100%; margin-top:8px; resize:vertical;"></textarea>
+        <textarea id="review-comment-input" class="form-select" placeholder="Comentario corto (opcional)" rows="2" maxlength="300" style="width:100%; margin-top:8px; resize:vertical;" oninput="document.getElementById('review-char-count').textContent = this.value.length"></textarea>
+        <span id="review-char-count" style="font-size:0.7rem; color:var(--text-subtle); float:right;">0</span>/300
         <button class="btn-computo" style="margin-top:8px; width:100%; justify-content:center;" onclick="window.nexoBraApp.submitReview(${ST.escAttr(providerId)}, ${ST.escAttr(branchId)})">Publicar reseña</button>
       </div>
     `;
@@ -435,6 +443,27 @@ import * as ST from './state.js';
     }
     ST.showToast('¡Gracias por tu reseña!');
     loadBranchReviews(branchId, providerId);
+  }
+
+  export async function reportReview(reviewId) {
+    if (!ST.authState.user) {
+      ST.showToast('Iniciá sesión para reportar una reseña.');
+      return;
+    }
+    const motivo = prompt('¿Por qué querés reportar esta reseña? (opcional)');
+    if (motivo === null) return; // canceló
+
+    const { error } = await ST.supabaseClient.from('review_reports').insert({
+      review_id: reviewId,
+      reporter_user_id: ST.authState.user.id,
+      reason: motivo || null
+    });
+
+    if (error) {
+      ST.showToast('No se pudo enviar el reporte: ' + error.message);
+      return;
+    }
+    ST.showToast('Gracias, un administrador va a revisarlo.');
   }
 
   export function requestUserLocation() {
