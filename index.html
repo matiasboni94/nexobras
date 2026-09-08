@@ -1243,6 +1243,7 @@
               <option value="99999">Todo el país</option>
             </select>
           </label>
+          <button type="button" class="btn-favorite-toggle" id="btn-directory-create-alert" title="Te avisamos por mail si aparece un proveedor nuevo de este rubro en tu zona">🔔 Elegí un rubro para avisarte</button>
         </div>
       </div>
 
@@ -1534,6 +1535,14 @@
         </div>
       </div>
       <div id="alerts-list" class="computations-list"><!-- se completa con loadAlerts() --></div>
+
+      <div class="catalog-header-banner" style="margin-top: 2.5rem;">
+        <div>
+          <h2 class="catalog-title" style="font-size: 1.4rem;">Alertas de Rubro</h2>
+          <p class="catalog-subtitle">Avisos por mail cuando aparece un proveedor nuevo de un rubro puntual cerca tuyo. Se crean desde el Directorio de Proveedores.</p>
+        </div>
+      </div>
+      <div id="category-alerts-list" class="computations-list"><!-- se completa con loadCategoryAlerts() --></div>
     </div>
   </div>
 
