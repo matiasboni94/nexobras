@@ -473,6 +473,21 @@ import * as ST from './state.js';
 
     ST.btnDownloadTemplate.addEventListener('click', Excel.generateTemplateExcel);
     ST.btnDownloadProcessedExcel.addEventListener('click', Excel.exportProcessedExcel);
+
+    const contactForm = document.getElementById('contact-form');
+    if (contactForm) contactForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('contact-form-name').value.trim();
+      const email = document.getElementById('contact-form-email').value.trim();
+      const message = document.getElementById('contact-form-message').value.trim();
+      const subject = encodeURIComponent(`Consulta de ${name} — NEXOBRA`);
+      const body = encodeURIComponent(`${message}\n\n---\nNombre: ${name}\nEmail: ${email}`);
+      window.location.href = `mailto:nexobra.info@gmail.com?subject=${subject}&body=${body}`;
+
+      const status = document.getElementById('contact-form-status');
+      status.style.display = 'block';
+      contactForm.reset();
+    });
     if (ST.btnSaveExcelToComputo) ST.btnSaveExcelToComputo.addEventListener('click', Excel.saveExcelToComputo);
 
     // Resuelve el enlace directo, si vino uno (ver chequeo al principio de init())
