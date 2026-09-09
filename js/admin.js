@@ -34,20 +34,22 @@ export function updateAdminNavVisibility() {
 }
 
 /**
- * Insignia roja en "Panel de Admin" con la cantidad de proveedores y ofertas
- * pendientes de revisión -- se ve apenas entrás al sitio logueado como
- * admin, sin tener que abrir el panel para saber si hay algo nuevo.
+ * Insignia roja en "Panel de Admin" con la cantidad de proveedores, ofertas
+ * y reseñas reportadas pendientes de revisión -- se ve apenas entrás al
+ * sitio logueado como admin, sin tener que abrir el panel para saber si hay
+ * algo nuevo.
  */
 export async function loadPendingCount() {
   const badge = document.getElementById('admin-pending-badge');
   if (!badge || !ST.supabaseClient) return;
 
-  const [{ count: providersCount }, { count: offersCount }] = await Promise.all([
+  const [{ count: providersCount }, { count: offersCount }, { count: reportsCount }] = await Promise.all([
     ST.supabaseClient.from('providers').select('id', { count: 'exact', head: true }).eq('verification_status', 'pending'),
-    ST.supabaseClient.from('provider_offers').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+    ST.supabaseClient.from('provider_offers').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    ST.supabaseClient.from('review_reports').select('id', { count: 'exact', head: true }).eq('status', 'pending')
   ]);
 
-  const total = (providersCount || 0) + (offersCount || 0);
+  const total = (providersCount || 0) + (offersCount || 0) + (reportsCount || 0);
   if (total > 0) {
     badge.textContent = total;
     badge.style.display = 'inline-block';
@@ -894,6 +896,7 @@ export async function deleteReportedReview(reviewId, reportId) {
   await ST.supabaseClient.from('review_reports').update({ status: 'reviewed' }).eq('id', reportId);
   ST.showToast('Reseña eliminada.');
   loadReportedReviews();
+  loadPendingCount();
 }
 
 export async function dismissReviewReport(reportId) {
@@ -901,4 +904,5 @@ export async function dismissReviewReport(reportId) {
   if (error) { ST.showToast('No se pudo descartar: ' + error.message); return; }
   ST.showToast('Reporte descartado.');
   loadReportedReviews();
+  loadPendingCount();
 }
