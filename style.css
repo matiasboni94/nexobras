@@ -67,3 +67,24 @@
   .price-month-picker{flex-wrap:wrap;row-gap:6px}
   .view-sort-controls{flex-wrap:wrap;row-gap:8px}
 }
+
+/* FIX MOBILE 2026-09-09: en "Mi Cómputo" (el drawer), el encabezado (título +
+   nombre + datos de la obra + selector de mes) y el pie (totales + 5 botones
+   de acción) son fijos y entre los dos se comían casi toda la pantalla en
+   celulares reales -- medido en vivo con getBoundingClientRect() a 375x812:
+   el body (la lista de materiales) quedaba con appena 53px de alto, contra
+   436px del footer solo. Con estos cambios el body pasa a ~283px (5x más) y
+   el footer queda con scroll propio si no entra entero -- el resumen y el
+   Total Estimado siguen visibles sin scrollear, verificado con la misma
+   medición antes de escribir esto. Solo aplica en mobile: en desktop el
+   drawer nunca tuvo este problema (la pantalla es más alta que todo el
+   contenido junto). */
+@media (max-width:560px){
+  .drawer-computo-month-hint{display:none}
+  .drawer-header{padding:.85rem 1.5rem}
+  .drawer-computation-name{padding:8px 20px}
+  .drawer-computo-month-row{padding:8px 20px 4px}
+  .drawer-obra-data{margin:6px 0}
+  .drawer-footer{max-height:34vh;overflow-y:auto}
+  #drawer-body{min-height:160px}
+}
