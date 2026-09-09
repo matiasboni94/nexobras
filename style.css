@@ -88,3 +88,9 @@
   .drawer-footer{max-height:34vh;overflow-y:auto}
   #drawer-body{min-height:160px}
 }
+
+/* FIX 2026-09-09: la insignia roja de "Panel de Admin" (cantidad de
+   proveedores/ofertas/reseñas pendientes de revisión) tenía el JS ya escrito
+   (admin.js -> loadPendingCount) pero nunca tuvo estilos propios -- faltaba
+   esta clase por completo. */
+.admin-pending-badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;margin-left:6px;background-color:#ef4444;color:#fff;font-size:.72rem;font-weight:800;border-radius:var(--radius-full);vertical-align:middle}

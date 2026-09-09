@@ -120,7 +120,7 @@
             <button type="button" id="btn-open-favorites">Mis Favoritos</button>
             <button type="button" id="btn-open-alerts">Mis Alertas de Precio</button>
             <button type="button" id="btn-open-my-provider" style="display: none;">Mi Proveedor</button>
-            <button type="button" id="btn-open-admin" style="display: none;">Panel de Admin</button>
+            <button type="button" id="btn-open-admin" style="display: none;">Panel de Admin <span id="admin-pending-badge" class="admin-pending-badge" style="display:none;"></span></button>
             <button type="button" id="btn-open-profile">Mi Perfil</button>
             <button type="button" id="btn-logout" class="danger">Cerrar sesión</button>
           </div>
@@ -1789,6 +1789,17 @@
         <div class="provider-section-body">
           <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">Materiales nuevos y cambios de precio que cargaron los proveedores. El stock se refleja al instante y no aparece acá.</p>
           <div id="admin-pending-offers"></div>
+        </div>
+      </details>
+
+      <!-- RESEÑAS REPORTADAS -->
+      <details class="provider-section" open>
+        <summary>🚩 Reseñas reportadas</summary>
+        <div class="provider-section-body">
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">
+            Reseñas que algún usuario marcó como inapropiadas. Podés eliminar la reseña (no se puede deshacer) o descartar el reporte si te parece que está bien como está.
+          </p>
+          <div id="admin-reported-reviews-list"></div>
         </div>
       </details>
     </div>
