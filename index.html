@@ -208,6 +208,10 @@
           </div>
         </div>
 
+        <!-- Barra del comparador: vive fuera de #map-branch-panel para no perderse
+             cada vez que se pinta la ficha de un proveedor distinto. -->
+        <div id="compare-bar" class="compare-bar" style="display:none;"></div>
+
         <div style="display:flex; justify-content:center; gap:10px; margin-top: 1.5rem; flex-wrap:wrap;">
           <button class="btn-action-drawer btn-copy" id="btn-catalog-from-map" type="button">
             Ver catálogo completo &rarr;
@@ -295,6 +299,9 @@
           <input type="text" id="catalog-search-input" class="search-input" placeholder="Buscá un material (aunque sea coloquial, como &quot;durlock&quot; o &quot;sika&quot;)...">
         </div>
       </div>
+
+      <!-- Si lo que se busca matchea una palabra clave de algún proveedor, se sugiere acá -->
+      <div id="catalog-provider-suggestion" class="catalog-provider-suggestion" style="display:none;"></div>
 
       <!-- CONTROLS CARD: DUAL PRICING & CATEGORIES -->
       <section class="controls-card" id="app-controls">
@@ -800,6 +807,21 @@
     </div>
   </div>
 
+  <!-- ========================= MODAL: COMPARADOR DE OFERTAS ========================= -->
+  <div class="modal-backdrop" id="compare-modal-backdrop"></div>
+  <div class="excel-modal" id="compare-modal" role="dialog" aria-labelledby="modal-compare-title" style="max-width: 640px;">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-compare-title" style="font-size: 1.15rem; font-weight: 800; margin-bottom: 2px;">⚖️ Comparar ofertas</h3>
+        <p id="compare-modal-subtitle" style="font-size: 0.8rem; color: var(--text-subtle);"></p>
+      </div>
+      <button class="modal-close-btn" id="compare-modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="compare-modal-body"></div>
+    </div>
+  </div>
+
   <!-- ========================= MODAL: PROPONER/CREAR MATERIAL NUEVO (Fase G3) ========================= -->
   <div class="modal-backdrop" id="new-material-modal-backdrop"></div>
   <div class="excel-modal" id="new-material-modal" role="dialog" aria-labelledby="modal-new-material-title" style="max-width: 480px;">
@@ -1247,6 +1269,10 @@
         </div>
       </div>
 
+      <div class="catalog-search-inline" style="max-width: 420px; margin-bottom: 1.25rem;">
+        <input type="text" id="directory-search-input" class="search-input" placeholder="Buscar por nombre, rubro o palabra clave..." autocomplete="off">
+      </div>
+
       <div class="category-filter-bar" id="directory-category-pills" style="margin-bottom: 1.5rem;"></div>
 
       <div id="directory-status" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;"></div>
@@ -1438,6 +1464,21 @@
             <button type="submit" class="btn-computo" id="btn-save-provider-profile">Guardar datos comerciales</button>
             <span id="provider-profile-status" style="margin-left: 10px; font-size: 0.85rem; color: var(--text-muted);"></span>
           </form>
+        </div>
+      </details>
+
+      <!-- PALABRAS CLAVE / HASHTAGS -->
+      <details class="provider-section">
+        <summary>🔑 Palabras clave</summary>
+        <div class="provider-section-body">
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">
+            Además de tu rubro, sumá palabras sueltas por las que te gustaría que te encuentren (ej: "delivery gratis", "importados", "obra en seco"). Se usan en el buscador del Directorio de Proveedores y, si coinciden, también aparecés sugerido desde el buscador del catálogo principal.
+          </p>
+          <div style="display:flex; gap:8px; margin-bottom:14px;">
+            <input type="text" id="provider-keyword-input" class="form-select" placeholder="Ej: delivery gratis" maxlength="40" style="flex:1;">
+            <button type="button" class="btn-computo" id="btn-add-provider-keyword" style="padding:10px 16px; white-space:nowrap;">➕ Agregar</button>
+          </div>
+          <div id="provider-keywords-list"></div>
         </div>
       </details>
 
