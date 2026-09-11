@@ -112,6 +112,7 @@ import * as ST from './state.js';
       if (searchString !== null) {
         ST.state.searchQuery = searchString;
         ST.catalogSearchInput.value = searchString;
+        MapModule.updateCatalogProviderSuggestion(searchString);
       }
 
       Catalog.updateCatalogHeader();
@@ -265,6 +266,11 @@ import * as ST from './state.js';
     });
     const btnDirectoryCreateAlert = document.getElementById('btn-directory-create-alert');
     if (btnDirectoryCreateAlert) btnDirectoryCreateAlert.addEventListener('click', MapModule.toggleCategoryAlert);
+    const directorySearchInput = document.getElementById('directory-search-input');
+    if (directorySearchInput) directorySearchInput.addEventListener('input', (e) => {
+      ST.directoryState.searchQuery = e.target.value;
+      MapModule.renderDirectoryList();
+    });
 
     const btnMethodologyCatalog = document.getElementById('btn-open-methodology-catalog');
     if (btnMethodologyCatalog) btnMethodologyCatalog.addEventListener('click', () => switchView('about'));
@@ -345,11 +351,26 @@ import * as ST from './state.js';
     if (materialHistoryCloseBtn) materialHistoryCloseBtn.addEventListener('click', Pricing.closeMaterialHistoryModal);
     if (ST.materialHistoryModalBackdrop) ST.materialHistoryModalBackdrop.addEventListener('click', Pricing.closeMaterialHistoryModal);
 
+    // Comparador de ofertas (mapa)
+    const compareModalCloseBtn = document.getElementById('compare-modal-close-btn');
+    if (compareModalCloseBtn) compareModalCloseBtn.addEventListener('click', MapModule.closeCompareModal);
+    const compareModalBackdrop = document.getElementById('compare-modal-backdrop');
+    if (compareModalBackdrop) compareModalBackdrop.addEventListener('click', MapModule.closeCompareModal);
+
+    // Palabras clave del proveedor
+    const btnAddProviderKeyword = document.getElementById('btn-add-provider-keyword');
+    if (btnAddProviderKeyword) btnAddProviderKeyword.addEventListener('click', Provider.addProviderKeyword);
+    const providerKeywordInput = document.getElementById('provider-keyword-input');
+    if (providerKeywordInput) providerKeywordInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); Provider.addProviderKeyword(); }
+    });
+
     // Catalog Search listener
     ST.catalogSearchInput.addEventListener('input', (e) => {
       ST.state.searchQuery = e.target.value;
       Catalog.renderRubroPills();
       Catalog.renderProducts();
+      MapModule.updateCatalogProviderSuggestion(e.target.value);
     });
 
     // Paginación del catálogo
@@ -547,7 +568,13 @@ toggleFavorite: MapModule.toggleFavorite,
 removeFavorite: MapModule.removeFavorite,
 toggleOfferSubscription: MapModule.toggleOfferSubscription,
 removeOfferSubscription: MapModule.removeOfferSubscription,
+toggleCompareOffer: MapModule.toggleCompareOffer,
+openCompareModal: MapModule.openCompareModal,
+closeCompareModal: MapModule.closeCompareModal,
+goToProviderInDirectory: MapModule.goToProviderInDirectory,
 sendProviderOfferBroadcast: Provider.sendProviderOfferBroadcast,
+addProviderKeyword: Provider.addProviderKeyword,
+removeProviderKeyword: Provider.removeProviderKeyword,
 toggleMaterialAlert: MapModule.toggleMaterialAlert,
     removeAlert: MapModule.removeAlert,
     toggleCategoryAlert: MapModule.toggleCategoryAlert,

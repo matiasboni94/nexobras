@@ -327,7 +327,7 @@
   export const providerState = { provider: null, branch: null, offers: [], excelPending: [] };
   export const DEFAULT_MAP_CENTER = { lat: -27.4864, lng: -55.1199 };
   export const mapState = { map: null, markers: [], center: { ...DEFAULT_MAP_CENTER }, radiusKm: 25, initialized: false, filterMaterialId: null, filterMaterialName: null, offerPickerCartIndex: null };
-  export const directoryState = { center: { ...DEFAULT_MAP_CENTER }, radiusKm: 50, categoryId: null, categories: [] };
+  export const directoryState = { center: { ...DEFAULT_MAP_CENTER }, radiusKm: 50, categoryId: null, categories: [], searchQuery: '' };
   export const providerPricesState = { loaded: false, byMaterial: {} };
   export const favoritesState = { ids: new Set(), loaded: false };
   export const alertsState = { byMaterial: {}, loaded: false };
@@ -336,6 +336,11 @@
   // avise por mail cuando manda sus ofertas del día/semana.
   export const offerSubscriptionsState = { ids: new Set(), loaded: false };
   export const categoryAlertsState = { byCategoryId: {}, loaded: false }; // "avisame de proveedores nuevos de este rubro cerca mío" (distinto de alertsState, que es por material)
+  // Comparador de ofertas: hasta 2 ofertas (de distintas marcas/proveedores,
+  // para el mismo material) elegidas desde el panel "ofertas cercanas" en el
+  // mapa, para verlas lado a lado. Se vacía al cerrar el comparador o al
+  // buscar un material distinto.
+  export const compareState = { materialId: null, materialName: null, items: [] };
   export const homeView = document.getElementById('home-view');
   export const catalogView = document.getElementById('catalog-view');
   export const laborView = document.getElementById('labor-view');

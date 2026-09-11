@@ -82,6 +82,7 @@ import * as ST from './state.js';
     await loadProviderDashboard();
     await loadProviderInteractionStats();
     await loadProviderBroadcastStatus();
+    await loadProviderKeywords();
   }
 
   let branchLocationMap = null;
@@ -497,6 +498,7 @@ import * as ST from './state.js';
         </div>
         <div class="provider-search-row-controls">
           <input type="text" id="prov-sku-${item.id}" placeholder="Tu SKU (opcional)">
+          <input type="text" id="prov-brand-${item.id}" placeholder="Marca (opcional)" maxlength="40">
           <select id="prov-unit-${item.id}">
             <option value="venta">Por ${item.unidadVenta} (compra)</option>
             <option value="computo">Por ${item.unidadComputo} (cómputo)</option>
@@ -621,6 +623,7 @@ import * as ST from './state.js';
       return;
     }
     const sku = document.getElementById(`prov-sku-${materialId}`).value.trim() || null;
+    const brand = document.getElementById(`prov-brand-${materialId}`).value.trim() || null;
     const stock = document.getElementById(`prov-stock-${materialId}`).value;
     const unitMode = document.getElementById(`prov-unit-${materialId}`).value; // 'venta' | 'computo'
 
@@ -631,6 +634,7 @@ import * as ST from './state.js';
       amount: price,
       unit: unitMode === 'venta' ? material.unidadVenta : material.unidadComputo,
       provider_sku: sku,
+      brand: brand,
       stock_status: stock,
       status: 'pending', // nuevo precio: queda pendiente de aprobación del admin
       reported_at: new Date().toISOString()
@@ -654,7 +658,7 @@ import * as ST from './state.js';
     }
     const { data, error } = await ST.supabaseClient
       .from('provider_offers')
-      .select('id, amount, unit, provider_sku, stock_status, status, rejection_reason, materials(id, denomination)')
+      .select('id, amount, unit, provider_sku, brand, stock_status, status, rejection_reason, materials(id, denomination)')
       .eq('branch_id', ST.providerState.branch.id)
       .order('reported_at', { ascending: false });
 
@@ -675,7 +679,7 @@ import * as ST from './state.js';
       <div class="provider-catalog-row">
         <div class="provider-catalog-row-info">
           <h5>${ST.escapeHtml(offer.materials?.denomination) || '(material eliminado)'}</h5>
-          <span>${offer.provider_sku ? `SKU propio: ${ST.escapeHtml(offer.provider_sku)} · ` : ''}${offer.unit}</span>
+          <span>${offer.brand ? `<strong>${ST.escapeHtml(offer.brand)}</strong> · ` : ''}${offer.provider_sku ? `SKU propio: ${ST.escapeHtml(offer.provider_sku)} · ` : ''}${offer.unit}</span>
           ${offer.status === 'pending' ? '<br><span style="font-size:0.7rem; font-weight:700; color:#b45309;">⏳ Pendiente de aprobación</span>' : ''}
           ${offer.status === 'rejected' ? `<br><span style="font-size:0.7rem; font-weight:700; color:#b91c1c;">✕ Rechazado${offer.rejection_reason ? ': ' + ST.escapeHtml(offer.rejection_reason) : ' — revisá el precio y volvé a intentar'}</span>` : ''}
         </div>
@@ -1143,4 +1147,78 @@ import * as ST from './state.js';
       ST.showToast(`✓ Ofertas enviadas a ${data.recipient_count} suscriptor${data.recipient_count === 1 ? '' : 'es'}.`);
     }
     loadProviderBroadcastStatus();
+  }
+
+  // ============================================================
+  // Palabras clave / hashtags del proveedor -- para aparecer en más
+  // búsquedas del Directorio y del catálogo principal, más allá del rubro
+  // formal. Mismo patrón que los tags de materiales (material_aliases).
+  // ============================================================
+
+  export async function loadProviderKeywords() {
+    const container = document.getElementById('provider-keywords-list');
+    if (!container || !ST.providerState.provider) return;
+
+    const { data, error } = await ST.supabaseClient
+      .from('provider_keywords')
+      .select('id, keyword')
+      .eq('provider_id', ST.providerState.provider.id)
+      .order('created_at');
+
+    if (error) {
+      container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, 'cargar tus palabras clave')}</p>`;
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      container.innerHTML = '<p style="font-size:0.82rem; color:var(--text-muted);">Todavía no cargaste ninguna.</p>';
+      return;
+    }
+
+    container.innerHTML = data.map(k => `
+      <span class="provider-keyword-chip">
+        ${ST.escapeHtml(k.keyword)}
+        <button type="button" onclick="window.nexoBraApp.removeProviderKeyword('${k.id}')" title="Quitar">&times;</button>
+      </span>
+    `).join('');
+  }
+
+  export async function addProviderKeyword() {
+    if (!ST.providerState.provider) {
+      ST.showToast('Primero guardá tus datos comerciales arriba.');
+      return;
+    }
+    const input = document.getElementById('provider-keyword-input');
+    const keyword = input.value.trim().toLowerCase();
+    if (keyword.length < 2) {
+      ST.showToast('La palabra clave tiene que tener al menos 2 letras.');
+      return;
+    }
+    if (keyword.length > 40) {
+      ST.showToast('Máximo 40 caracteres por palabra clave.');
+      return;
+    }
+
+    const { error } = await ST.supabaseClient.from('provider_keywords').insert({
+      provider_id: ST.providerState.provider.id,
+      keyword
+    });
+
+    if (error) {
+      // Violación del unique(provider_id, keyword) -- ya la tenía cargada.
+      if (error.code === '23505') {
+        ST.showToast('Ya tenés esa palabra clave cargada.');
+      } else {
+        ST.showToast('No se pudo agregar: ' + error.message);
+      }
+      return;
+    }
+    input.value = '';
+    loadProviderKeywords();
+  }
+
+  export async function removeProviderKeyword(keywordId) {
+    const { error } = await ST.supabaseClient.from('provider_keywords').delete().eq('id', keywordId);
+    if (error) { ST.showToast('No se pudo quitar: ' + error.message); return; }
+    loadProviderKeywords();
   }

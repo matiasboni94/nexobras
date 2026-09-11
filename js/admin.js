@@ -431,7 +431,7 @@ export async function loadPendingOffers() {
 
   const { data, error } = await ST.supabaseClient
     .from('provider_offers')
-    .select('id, amount, unit, provider_sku, stock_status, reported_at, materials(denomination), provider_branches(name, locality, providers(business_name))')
+    .select('id, amount, unit, provider_sku, brand, stock_status, reported_at, materials(denomination), provider_branches(name, locality, providers(business_name))')
     .eq('status', 'pending')
     .order('reported_at');
 
@@ -473,7 +473,7 @@ function renderPendingOffers() {
             <div class="provider-catalog-row">
               <div class="provider-catalog-row-info">
                 <h5>${ST.escapeHtml(offer.materials?.denomination) || '(material eliminado)'}</h5>
-                <span>${offer.provider_sku ? `SKU: ${ST.escapeHtml(offer.provider_sku)} · ` : ''}${ST.formatMoney(offer.amount)} / ${offer.unit} · ${offer.stock_status} · cargado ${formatDateTime(offer.reported_at)}</span>
+                <span>${offer.brand ? `<strong>${ST.escapeHtml(offer.brand)}</strong> · ` : ''}${offer.provider_sku ? `SKU: ${ST.escapeHtml(offer.provider_sku)} · ` : ''}${ST.formatMoney(offer.amount)} / ${offer.unit} · ${offer.stock_status} · cargado ${formatDateTime(offer.reported_at)}</span>
               </div>
               <div class="provider-catalog-row-controls">
                 <button class="btn-computo" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.approveOffer(${ST.escAttr(offer.id)})">✓ Aprobar</button>

@@ -94,6 +94,30 @@ import * as ST from './state.js';
     Main.switchView('providers-directory');
   }
 
+  /**
+   * La RPC nearby_offers_for_material no devuelve la marca (no está
+   * trackeada en ninguna migración del repo, así que no se reescribe a
+   * ciegas). En cambio, se pide acá aparte con un select normal a
+   * provider_offers filtrado por los offer_id que ya trajo la RPC, y se
+   * mergea en memoria -- así el resto del flujo (mapa, panel, comparador)
+   * no tiene que saber que son dos consultas distintas.
+   */
+  async function attachOfferBrands(offers) {
+    const ids = (offers || []).map(o => o.offer_id).filter(Boolean);
+    if (ids.length === 0) return offers;
+    const { data, error } = await ST.supabaseClient.from('provider_offers').select('id, brand').in('id', ids);
+    if (error || !data) return offers;
+    const brandById = new Map(data.map(row => [row.id, row.brand]));
+    offers.forEach(o => { o.brand = brandById.get(o.offer_id) || null; });
+    return offers;
+  }
+
+  // Últimas ofertas mostradas en el mapa, por offer_id -- así el comparador
+  // (toggleCompareOffer) puede recuperar el objeto completo (precio, marca,
+  // proveedor, distancia) sin tener que repetir la consulta cada vez que se
+  // agrega una oferta a comparar.
+  const lastOffersById = new Map();
+
   export async function selectMaterialOnMap(materialId, materialName) {
     if (!ST.supabaseClient || !ST.mapState.map) return;
     ST.mapState.filterMaterialId = materialId;
@@ -122,6 +146,16 @@ import * as ST from './state.js';
       ST.mapStatusMsg.textContent = 'No se pudo buscar: ' + error.message;
       return;
     }
+    await attachOfferBrands(data);
+
+    // Búsqueda nueva: se vacía el comparador, para no arrastrar ofertas de
+    // otro material.
+    ST.compareState.materialId = materialId;
+    ST.compareState.materialName = materialName;
+    ST.compareState.items = [];
+    lastOffersById.clear();
+    (data || []).forEach(o => { if (o.offer_id) lastOffersById.set(o.offer_id, o); });
+    renderCompareBar();
 
     clearMapMarkers();
     const centerMarker = L.circleMarker([ST.mapState.center.lat, ST.mapState.center.lng], {
@@ -203,6 +237,9 @@ import * as ST from './state.js';
     // ni condiciona el render del panel: si falla, no pasa nada para el usuario.
     ST.logProviderInteraction(offer.branch_id, offer.provider_id, 'offer_view', materialId, materialName, offer.distance_km);
 
+    const enComparacion = ST.compareState.items.some(i => i.offer_id === offer.offer_id);
+    const compareDisabled = !enComparacion && ST.compareState.items.length >= 2;
+
     ST.mapBranchPanel.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
         <div style="display:flex; align-items:center; gap:10px;">
@@ -214,7 +251,7 @@ import * as ST from './state.js';
           <button class="btn-favorite-toggle ${ST.offerSubscriptionsState.ids.has(offer.branch_id) ? 'active' : ''}" onclick='window.nexoBraApp.toggleOfferSubscription(${ST.escAttr(offer.branch_id)}, ${ST.escAttr(offer.provider_id)}, ${ST.escAttr(offer.business_name)})' title="Recibir sus ofertas por mail">📧</button>
         </div>
       </div>
-      <div class="branch-meta">${ST.escapeHtml(offer.branch_name)} · ${ST.escapeHtml(offer.locality || '')} · ${offer.distance_km.toFixed(1)} km de tu ubicación</div>
+      <div class="branch-meta">${offer.brand ? `<strong>${ST.escapeHtml(offer.brand)}</strong> · ` : ''}${ST.escapeHtml(offer.branch_name)} · ${ST.escapeHtml(offer.locality || '')} · ${offer.distance_km.toFixed(1)} km de tu ubicación</div>
       <div style="margin: 4px 0 10px;">${renderStarRating(offer.avg_rating, offer.review_count)}</div>
 
       <div class="card-price-box" style="margin: 14px 0;">
@@ -232,6 +269,10 @@ import * as ST from './state.js';
         </div>
       </div>
 
+      <button class="btn-action-drawer ${enComparacion ? 'btn-print' : 'btn-copy'}" style="width:100%; margin-bottom:10px;" ${compareDisabled ? 'disabled title="Ya tenés 2 ofertas para comparar — sacá una primero"' : ''} onclick="window.nexoBraApp.toggleCompareOffer('${offer.offer_id}')">
+        ${enComparacion ? '✓ En comparación — sacar' : '⚖️ Agregar a comparar'}
+      </button>
+
       ${whatsappLink}
 
       <div id="branch-reviews-section" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-light);">
@@ -241,12 +282,106 @@ import * as ST from './state.js';
     `;
   }
 
+  // ============================================================
+  // Comparador de ofertas: elegís hasta 2 ofertas del mismo material
+  // (típicamente de distinta marca) desde el panel "ofertas cercanas" y las
+  // ves lado a lado -- precio, marca, proveedor, distancia, stock.
+  // ============================================================
+
+  export function toggleCompareOffer(offerId) {
+    const idx = ST.compareState.items.findIndex(i => i.offer_id === offerId);
+    if (idx >= 0) {
+      ST.compareState.items.splice(idx, 1);
+    } else {
+      if (ST.compareState.items.length >= 2) {
+        ST.showToast('Ya tenés 2 ofertas para comparar. Sacá una antes de agregar otra.');
+        return;
+      }
+      const offer = lastOffersById.get(offerId);
+      if (!offer) return;
+      ST.compareState.items.push(offer);
+    }
+    renderCompareBar();
+    // Vuelve a pintar el panel activo para que el botón "Agregar a comparar"
+    // refleje el estado nuevo (activo/deshabilitado) sin tener que tocar el pin de nuevo.
+    const current = ST.compareState.items.find(i => i.offer_id === offerId) || lastOffersById.get(offerId);
+    if (current) showMaterialOfferDetail(current, ST.compareState.materialId, ST.compareState.materialName);
+  }
+
+  export function renderCompareBar() {
+    const bar = document.getElementById('compare-bar');
+    if (!bar) return;
+    const items = ST.compareState.items;
+    if (items.length === 0) {
+      bar.style.display = 'none';
+      bar.innerHTML = '';
+      return;
+    }
+    bar.style.display = 'flex';
+    bar.innerHTML = `
+      <span style="font-size:0.85rem; font-weight:700;">⚖️ Comparando (${items.length}/2):</span>
+      ${items.map(o => `
+        <span class="compare-bar-chip">
+          ${o.brand ? ST.escapeHtml(o.brand) + ' — ' : ''}${ST.escapeHtml(o.business_name)}
+          <button type="button" onclick="window.nexoBraApp.toggleCompareOffer('${o.offer_id}')" title="Sacar de la comparación">&times;</button>
+        </span>
+      `).join('')}
+      ${items.length === 2 ? `<button class="btn-computo" style="padding:8px 16px; font-size:0.82rem;" onclick="window.nexoBraApp.openCompareModal()">Ver comparación</button>` : `<span style="font-size:0.78rem; color:var(--text-muted);">Elegí una oferta más para comparar</span>`}
+    `;
+  }
+
+  export function openCompareModal() {
+    const items = ST.compareState.items;
+    if (items.length < 2) return;
+    const [a, b] = items;
+    const rows = [
+      ['Marca', a.brand || '—', b.brand || '—'],
+      ['Proveedor', ST.escapeHtml(a.business_name), ST.escapeHtml(b.business_name)],
+      ['Sucursal', `${ST.escapeHtml(a.branch_name)} · ${ST.escapeHtml(a.locality || '')}`, `${ST.escapeHtml(b.branch_name)} · ${ST.escapeHtml(b.locality || '')}`],
+      ['Precio', `<strong>${ST.formatMoney(a.amount)}</strong> / ${a.unit}`, `<strong>${ST.formatMoney(b.amount)}</strong> / ${b.unit}`],
+      ['Distancia', `${a.distance_km.toFixed(1)} km`, `${b.distance_km.toFixed(1)} km`],
+      ['Stock', a.stock_status === 'agotado' ? 'Agotado' : a.stock_status === 'a_pedido' ? 'A pedido' : 'En stock', b.stock_status === 'agotado' ? 'Agotado' : b.stock_status === 'a_pedido' ? 'A pedido' : 'En stock'],
+      ['Valoración', renderStarRating(a.avg_rating, a.review_count), renderStarRating(b.avg_rating, b.review_count)]
+    ];
+    const masBarata = a.amount === b.amount ? null : (a.amount < b.amount ? 0 : 1);
+
+    document.getElementById('compare-modal-subtitle').textContent = ST.compareState.materialName || '';
+    document.getElementById('compare-modal-body').innerHTML = `
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th style="${masBarata === 0 ? 'color:#15803d;' : ''}">${masBarata === 0 ? '✓ ' : ''}${ST.escapeHtml(a.business_name)}</th>
+            <th style="${masBarata === 1 ? 'color:#15803d;' : ''}">${masBarata === 1 ? '✓ ' : ''}${ST.escapeHtml(b.business_name)}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(([label, valA, valB]) => `<tr><td>${label}</td><td>${valA}</td><td>${valB}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    `;
+    document.getElementById('compare-modal').classList.add('open');
+    document.getElementById('compare-modal-backdrop').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  export function closeCompareModal() {
+    document.getElementById('compare-modal').classList.remove('open');
+    document.getElementById('compare-modal-backdrop').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
   export function clearMaterialSearchOnMap() {
     ST.mapState.filterMaterialId = null;
     ST.mapState.filterMaterialName = null;
     document.getElementById('home-map-material-search').value = '';
     document.getElementById('home-map-material-results').innerHTML = '';
     document.getElementById('btn-clear-map-material-search').style.display = 'none';
+    ST.compareState.items = [];
+    ST.compareState.materialId = null;
+    ST.compareState.materialName = null;
+    lastOffersById.clear();
+    renderCompareBar();
     loadNearbyBranchesOnMap();
   }
 
@@ -637,11 +772,12 @@ import * as ST from './state.js';
       ST.offerPickerResults.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">No hay ofertas cercanas para este material.</p>';
       return;
     }
+    await attachOfferBrands(data);
 
     ST.offerPickerResults.innerHTML = data.map((offer, idx) => `
       <div class="offer-picker-row">
         <div class="offer-picker-row-info">
-          <h5>${ST.escapeHtml(offer.business_name)}</h5>
+          <h5>${offer.brand ? `${ST.escapeHtml(offer.brand)} — ` : ''}${ST.escapeHtml(offer.business_name)}</h5>
           <span>${ST.escapeHtml(offer.branch_name)} · ${ST.escapeHtml(offer.locality)} · ${offer.distance_km.toFixed(1)} km${offer.stock_status === 'agotado' ? ' · <strong style="color:#b91c1c;">Agotado</strong>' : offer.stock_status === 'a_pedido' ? ' · A pedido' : ' · En stock'}</span>
         </div>
         <div class="offer-picker-row-price">
@@ -1231,6 +1367,12 @@ import * as ST from './state.js';
     });
   }
 
+  // Último resultado de nearby_providers_directory (con las palabras clave
+  // ya mergeadas). Se guarda acá para que escribir en el buscador de texto
+  // solo re-filtre y re-pinte en memoria, sin repetir la consulta RPC
+  // (que hace el cálculo de distancia) en cada letra que se tipea.
+  let directoryDataCache = [];
+
   export async function loadProvidersDirectory() {
     const status = document.getElementById('directory-status');
     const container = document.getElementById('directory-cards-container');
@@ -1247,17 +1389,66 @@ import * as ST from './state.js';
     if (error) {
       status.textContent = ST.friendlyError(error, 'cargar el directorio de proveedores');
       container.innerHTML = '';
+      directoryDataCache = [];
       return;
     }
     if (!data || data.length === 0) {
       status.textContent = 'No hay proveedores cargados en esta zona/rubro todavía.';
       container.innerHTML = '';
+      directoryDataCache = [];
       return;
     }
 
-    status.textContent = `${data.length} proveedor${data.length === 1 ? '' : 'es'} encontrado${data.length === 1 ? '' : 's'}.`;
+    // Palabras clave: la RPC no las devuelve (no está trackeada en ninguna
+    // migración, así que no se reescribe a ciegas) -- se piden aparte, mismo
+    // patrón que attachOfferBrands() para las ofertas del mapa.
+    const providerIds = [...new Set(data.map(p => p.provider_id))];
+    const { data: keywordRows } = await ST.supabaseClient.from('provider_keywords').select('provider_id, keyword').in('provider_id', providerIds);
+    const keywordsByProvider = new Map();
+    (keywordRows || []).forEach(k => {
+      if (!keywordsByProvider.has(k.provider_id)) keywordsByProvider.set(k.provider_id, []);
+      keywordsByProvider.get(k.provider_id).push(k.keyword);
+    });
+    data.forEach(p => { p.keywords = keywordsByProvider.get(p.provider_id) || []; });
 
-    container.innerHTML = data.map(p => {
+    directoryDataCache = data;
+    renderDirectoryList();
+
+    // Registra que cada uno de estos proveedores apareció en una búsqueda del
+    // Directorio, para su dashboard ("cantidad de interacciones" por distancia).
+    // Es una señal más débil que un click, pero es la única forma de saber que
+    // alguien efectivamente vio la ficha (no solo la buscó por WhatsApp/web).
+    // Sobre TODOS los resultados de la zona/rubro, no solo los que matchean
+    // el buscador de texto (ese es solo un filtro visual en el cliente).
+    data.forEach(p => ST.logProviderInteraction(p.branch_id, p.provider_id, 'directory_view', null, null, p.distance_km));
+  }
+
+  function directoryCardMatchesSearch(p, tokens) {
+    if (tokens.length === 0) return true;
+    const haystack = ST.normalizeText([p.business_name, p.category_name, p.locality, ...(p.keywords || [])].filter(Boolean).join(' '));
+    return tokens.every(t => haystack.includes(t));
+  }
+
+  /** Re-filtra y re-pinta directoryDataCache según ST.directoryState.searchQuery, sin red. */
+  export function renderDirectoryList() {
+    const status = document.getElementById('directory-status');
+    const container = document.getElementById('directory-cards-container');
+    if (!container) return;
+
+    const tokens = ST.normalizeText(ST.directoryState.searchQuery || '').split(' ').filter(Boolean);
+    const filtered = directoryDataCache.filter(p => directoryCardMatchesSearch(p, tokens));
+
+    if (filtered.length === 0) {
+      status.textContent = directoryDataCache.length === 0
+        ? 'No hay proveedores cargados en esta zona/rubro todavía.'
+        : 'Ningún proveedor coincide con esa búsqueda.';
+      container.innerHTML = '';
+      return;
+    }
+
+    status.textContent = `${filtered.length} proveedor${filtered.length === 1 ? '' : 'es'} encontrado${filtered.length === 1 ? '' : 's'}.`;
+
+    container.innerHTML = filtered.map(p => {
       const whatsappDigits = (p.whatsapp_phone || p.contact_phone) ? (p.whatsapp_phone || p.contact_phone).replace(/\D/g, '') : null;
       return `
         <div class="provider-directory-card">
@@ -1272,6 +1463,7 @@ import * as ST from './state.js';
           <div>${renderStarRating(p.avg_rating, p.review_count)}</div>
           ${p.matricula ? `<p style="font-size:0.78rem; color:var(--text-muted);"><strong>Matrícula:</strong> ${ST.escapeHtml(p.matricula)}</p>` : ''}
           ${p.description ? `<p style="font-size:0.85rem; color:var(--text-muted);">${ST.escapeHtml(p.description)}</p>` : ''}
+          ${p.keywords && p.keywords.length > 0 ? `<div style="margin:4px 0;">${p.keywords.map(k => `<span class="provider-keyword-chip" style="font-size:0.7rem; padding:2px 8px;">${ST.escapeHtml(k)}</span>`).join('')}</div>` : ''}
           <div class="provider-directory-actions">
             ${whatsappDigits ? `<a href="https://wa.me/${whatsappDigits}" target="_blank" rel="noopener" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;" onclick="window.nexoBraApp.logProviderInteraction(${ST.escAttr(p.branch_id)}, ${ST.escAttr(p.provider_id)}, 'whatsapp_click', null, null, ${JSON.stringify(p.distance_km ?? null)})">💬 WhatsApp</a>` : ''}
             ${p.website_url ? `<a href="${ST.escapeHtml(p.website_url)}" target="_blank" rel="noopener" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;" onclick="window.nexoBraApp.logProviderInteraction(${ST.escAttr(p.branch_id)}, ${ST.escAttr(p.provider_id)}, 'website_click', null, null, ${JSON.stringify(p.distance_km ?? null)})">🌐 Sitio web</a>` : ''}
@@ -1279,12 +1471,80 @@ import * as ST from './state.js';
         </div>
       `;
     }).join('');
+  }
 
-    // Registra que cada uno de estos proveedores apareció en una búsqueda del
-    // Directorio, para su dashboard ("cantidad de interacciones" por distancia).
-    // Es una señal más débil que un click, pero es la única forma de saber que
-    // alguien efectivamente vio la ficha (no solo la buscó por WhatsApp/web).
-    data.forEach(p => ST.logProviderInteraction(p.branch_id, p.provider_id, 'directory_view', null, null, p.distance_km));
+  // ============================================================
+  // Sugerencia de proveedores desde el buscador del catálogo principal: si
+  // lo que se busca matchea una palabra clave que cargó un proveedor, se
+  // sugiere ahí mismo (además de aparecer, como siempre, en el Directorio).
+  // Cache simple en memoria -- se pide una sola vez por sesión, no en cada
+  // letra que se tipea (los proveedores no cambian tan seguido).
+  // ============================================================
+
+  let keywordSuggestionCache = null;
+
+  async function ensureKeywordSuggestionCache() {
+    if (keywordSuggestionCache !== null || !ST.supabaseClient) return keywordSuggestionCache;
+    const { data, error } = await ST.supabaseClient
+      .from('provider_keywords')
+      .select('keyword, provider_id, providers(business_name, active)');
+    if (error) { keywordSuggestionCache = []; return keywordSuggestionCache; }
+    // El embed de providers respeta su propia RLS -- si por lo que sea no
+    // pasa (proveedor inactivo, etc.) viene null en vez de filtrar la fila,
+    // así que se descarta acá.
+    keywordSuggestionCache = (data || []).filter(k => k.providers && k.providers.active);
+    return keywordSuggestionCache;
+  }
+
+  export async function updateCatalogProviderSuggestion(query) {
+    const container = document.getElementById('catalog-provider-suggestion');
+    if (!container) return;
+    const tokens = ST.normalizeText(query || '').split(' ').filter(Boolean);
+    if (tokens.length === 0 || (query || '').trim().length < 3) {
+      container.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
+
+    const cache = await ensureKeywordSuggestionCache();
+    const matches = cache.filter(k => {
+      const haystack = ST.normalizeText(k.keyword);
+      return tokens.some(t => haystack.includes(t));
+    });
+    if (matches.length === 0) {
+      container.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
+
+    // Un proveedor puede matchear por más de una palabra clave -- se
+    // muestra una sola vez.
+    const seen = new Set();
+    const uniqueProviders = [];
+    matches.forEach(m => {
+      if (!seen.has(m.provider_id)) { seen.add(m.provider_id); uniqueProviders.push(m); }
+    });
+
+    container.style.display = 'flex';
+    container.innerHTML = `
+      <span style="font-size:0.85rem; font-weight:700;">🏪 Proveedores relacionados:</span>
+      ${uniqueProviders.slice(0, 5).map(m => `
+        <button type="button" class="btn-action-drawer btn-copy" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.goToProviderInDirectory(${ST.escAttr(m.providers.business_name)})">${ST.escapeHtml(m.providers.business_name)}</button>
+      `).join('')}
+    `;
+  }
+
+  /** Desde una sugerencia del catálogo: abre el Directorio ya filtrado por ese proveedor. */
+  export function goToProviderInDirectory(businessName) {
+    ST.directoryState.searchQuery = businessName;
+    Main.switchView('providers-directory');
+    const input = document.getElementById('directory-search-input');
+    if (input) input.value = businessName;
+    if (directoryDataCache.length > 0) {
+      renderDirectoryList();
+    } else {
+      loadProvidersDirectory();
+    }
   }
 
   export function requestDirectoryUserLocation() {
