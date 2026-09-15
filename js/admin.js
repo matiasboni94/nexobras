@@ -857,6 +857,11 @@ export function setupAdminListeners() {
 
   const btnAddProvAnnouncement = document.getElementById('btn-admin-add-prov-announcement');
   if (btnAddProvAnnouncement) btnAddProvAnnouncement.addEventListener('click', addAdminProviderAnnouncement);
+
+  const provLogoInput = document.getElementById('admin-prov-logo-input');
+  if (provLogoInput) provLogoInput.addEventListener('change', (e) => {
+    if (e.target.files[0]) uploadAdminProviderLogo(e.target.files[0]);
+  });
 }
 
 export function loadAdminPanel() {
@@ -1127,6 +1132,7 @@ export async function openAdminProviderEditor(providerId) {
   if (!providerId) {
     adminState.manageSelectedProvider = null;
     adminState.manageSelectedBranch = null;
+    updateAdminLogoPreview(null);
     document.getElementById('admin-prov-owner-info').textContent = 'Guardá primero los datos comerciales -- una vez creado el proveedor vas a poder transferirlo, cargarle palabras clave y precios.';
     document.getElementById('admin-prov-transfer-email').closest('div').style.display = 'none';
     document.getElementById('admin-prov-keywords-list').innerHTML = '<p style="font-size:0.82rem; color:var(--text-muted);">Guardá primero los datos comerciales.</p>';
@@ -1153,6 +1159,7 @@ export async function openAdminProviderEditor(providerId) {
   }
 
   adminState.manageSelectedProvider = provider;
+  updateAdminLogoPreview(provider.logo_url);
 
   document.getElementById('admin-prov-business-name').value = provider.business_name || '';
   document.getElementById('admin-prov-category').value = provider.category_id || '';
@@ -1196,6 +1203,75 @@ export async function openAdminProviderEditor(providerId) {
   await loadAdminProviderKeywords();
   await loadAdminProviderCatalog();
   await loadAdminProviderAnnouncements();
+}
+
+function updateAdminLogoPreview(url) {
+  const img = document.getElementById('admin-prov-logo-img');
+  const placeholder = document.getElementById('admin-prov-logo-placeholder');
+  if (!img || !placeholder) return;
+  if (url) {
+    img.src = url;
+    img.style.display = 'block';
+    placeholder.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    placeholder.style.display = 'block';
+  }
+}
+
+/**
+ * Mismo mecanismo que uploadProviderLogo() en provider.js (mismo bucket
+ * 'provider-logos', mismo límite de 2MB, misma validación de tipo), pero con
+ * una diferencia importante: el autoservicio guarda el archivo en
+ * `${auth.uid()}/logo.ext` porque cada usuario tiene un solo proveedor. Acá
+ * el admin puede estar administrando VARIOS proveedores con su misma cuenta,
+ * así que el nombre de archivo tiene que incluir el id del proveedor
+ * (`${auth.uid()}/logo-${provider.id}.ext`) -- si no, el logo del segundo
+ * proveedor que cargues pisaría el del primero.
+ */
+export async function uploadAdminProviderLogo(file) {
+  const provider = adminState.manageSelectedProvider;
+  if (!provider) {
+    ST.showToast('Guardá primero los datos comerciales, y después subí el logo.');
+    return;
+  }
+  if (!file.type.startsWith('image/')) {
+    ST.showToast('Tiene que ser una imagen (PNG, JPG o WEBP).');
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    ST.showToast('La imagen pesa más de 2 MB. Achicala e intentá de nuevo.');
+    return;
+  }
+
+  const ext = file.name.split('.').pop().toLowerCase();
+  const path = `${ST.authState.user.id}/logo-${provider.id}.${ext}`;
+
+  const { error: uploadError } = await ST.supabaseClient.storage
+    .from('provider-logos')
+    .upload(path, file, { upsert: true, cacheControl: '3600' });
+
+  if (uploadError) {
+    ST.showToast('No se pudo subir el logo: ' + uploadError.message);
+    return;
+  }
+
+  const { data: publicUrlData } = ST.supabaseClient.storage.from('provider-logos').getPublicUrl(path);
+  const logoUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`;
+
+  const { error: updateError } = await ST.supabaseClient
+    .from('providers')
+    .update({ logo_url: logoUrl })
+    .eq('id', provider.id);
+
+  if (updateError) {
+    ST.showToast('El logo se subió pero no se pudo guardar: ' + updateError.message);
+    return;
+  }
+
+  adminState.manageSelectedProvider.logo_url = logoUrl;
+  updateAdminLogoPreview(logoUrl);
+  ST.showToast('Logo actualizado.');
 }
 
 export function closeAdminProviderEditor() {
