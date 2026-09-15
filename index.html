@@ -1524,6 +1524,22 @@
         </div>
       </details>
 
+      <!-- ANUNCIOS / PROMOS TEMPORALES -->
+      <details class="provider-section">
+        <summary>📢 Anuncios / Promos</summary>
+        <div class="provider-section-body">
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">
+            Publicá una promo corta con fecha de vencimiento (ej: "Esta semana 20% off en cemento"). Se ve al instante en el Directorio de Proveedores y en tu ficha del mapa, y desaparece solo cuando vence.
+          </p>
+          <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+            <input type="text" id="provider-announcement-message" class="form-select" placeholder="Ej: 20% off en cemento esta semana" maxlength="140" style="flex:2; min-width:200px;">
+            <input type="date" id="provider-announcement-expires" class="form-select" style="flex:1; min-width:150px;">
+            <button type="button" class="btn-computo" id="btn-add-provider-announcement" style="white-space:nowrap;">📢 Publicar</button>
+          </div>
+          <div id="provider-announcements-list"></div>
+        </div>
+      </details>
+
       <!-- 5. DASHBOARD DE COMPETITIVIDAD -->
       <details class="provider-section">
         <summary>📊 Cómo te comparás en tu zona</summary>
@@ -1812,6 +1828,157 @@
 
           <h4 style="font-size:0.85rem; margin-bottom:8px;">Últimos valores cargados de esta serie</h4>
           <div id="admin-index-recent-values" class="provider-search-results"></div>
+        </div>
+      </details>
+
+      <!-- GESTIONAR PROVEEDORES (crear, cargar precios y transferir a un dueño real) -->
+      <details class="provider-section" open>
+        <summary>🏗️ Gestionar proveedores</summary>
+        <div class="provider-section-body">
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">
+            Creá un proveedor vos mismo y cargale sus datos y precios reales como primer paso -- ideal para arrancar con un corralón que todavía no quiere cargar nada por su cuenta. Más adelante, si el negocio quiere hacerse cargo, se lo podés <strong>transferir</strong> a su propio email sin perder el catálogo ya cargado.
+          </p>
+
+          <div id="admin-prov-manage-picker">
+            <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+              <input type="text" id="admin-prov-manage-search" class="form-select" placeholder="Buscar proveedor por nombre..." style="flex:1; min-width:200px;">
+              <button type="button" class="btn-computo" id="btn-admin-prov-new">➕ Crear proveedor nuevo</button>
+            </div>
+            <div id="admin-prov-manage-list" class="computations-list"></div>
+          </div>
+
+          <div id="admin-prov-manage-editor" style="display:none;">
+            <button type="button" class="btn-action-drawer btn-copy" id="btn-admin-prov-back" style="margin-bottom:16px;">← Volver a la lista</button>
+
+            <div id="admin-prov-manage-status-banner" style="display:none;"></div>
+
+            <form id="admin-prov-manage-form">
+              <div class="excel-config-grid">
+                <div class="config-field">
+                  <label for="admin-prov-business-name">Razón social</label>
+                  <input type="text" id="admin-prov-business-name" class="form-select" required>
+                </div>
+                <div class="config-field">
+                  <label for="admin-prov-category">Rubro</label>
+                  <select id="admin-prov-category" class="form-select"></select>
+                </div>
+                <div class="config-field">
+                  <label for="admin-prov-tax-id">CUIT</label>
+                  <input type="text" id="admin-prov-tax-id" class="form-select" placeholder="30-12345678-9">
+                </div>
+                <div class="config-field">
+                  <label for="admin-prov-matricula">Matrícula profesional (si aplica)</label>
+                  <input type="text" id="admin-prov-matricula" class="form-select" placeholder="Ej: MP 1234, CPIM 5678">
+                </div>
+                <div class="config-field">
+                  <label for="admin-prov-website">Sitio web</label>
+                  <input type="url" id="admin-prov-website" class="form-select" placeholder="https://...">
+                </div>
+                <div class="config-field">
+                  <label for="admin-prov-contact-phone">Teléfono comercial</label>
+                  <input type="tel" id="admin-prov-contact-phone" class="form-select">
+                </div>
+                <div class="config-field">
+                  <label for="admin-prov-contact-email">Email comercial</label>
+                  <input type="email" id="admin-prov-contact-email" class="form-select">
+                </div>
+                <div class="config-field">
+                  <label for="admin-prov-description">Descripción breve</label>
+                  <input type="text" id="admin-prov-description" class="form-select" placeholder="Ej: Proveedor mayorista, 20 años en la zona">
+                </div>
+              </div>
+
+              <h4 class="provider-subsection-title">Sucursal principal</h4>
+              <div class="excel-config-grid">
+                <div class="config-field">
+                  <label for="admin-branch-name">Nombre de la sucursal</label>
+                  <input type="text" id="admin-branch-name" class="form-select" placeholder="Ej: Casa Central" required>
+                </div>
+                <div class="config-field">
+                  <label for="admin-branch-locality">Localidad</label>
+                  <input type="text" id="admin-branch-locality" class="form-select" placeholder="Ej: Oberá" required>
+                </div>
+                <div class="config-field">
+                  <label for="admin-branch-province">Provincia</label>
+                  <input type="text" id="admin-branch-province" class="form-select" placeholder="Ej: Misiones">
+                </div>
+                <div class="config-field" style="grid-column: 1 / -1;">
+                  <label for="admin-branch-address">Dirección</label>
+                  <div style="display:flex; gap:8px;">
+                    <input type="text" id="admin-branch-address" class="form-select" style="flex:1; min-width:0;" placeholder="Calle, número, localidad">
+                    <button type="button" class="btn-action-drawer btn-copy" id="btn-admin-geocode-address" style="flex-shrink:0;">📍 Buscar en el mapa</button>
+                  </div>
+                </div>
+                <div class="config-field" style="grid-column: 1 / -1;">
+                  <label>Ubicación exacta (arrastrá el pin para ajustar)</label>
+                  <div id="admin-branch-location-map" style="height: 260px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-light);"></div>
+                  <p id="admin-branch-location-status" style="font-size: 0.75rem; color: var(--text-subtle); margin-top: 6px;">Buscá la dirección arriba, o hacé clic directo en el mapa para marcar el lugar.</p>
+                </div>
+                <div class="config-field">
+                  <label for="admin-branch-whatsapp">WhatsApp de la sucursal</label>
+                  <input type="tel" id="admin-branch-whatsapp" class="form-select" placeholder="Con código de país, ej: 5493755...">
+                </div>
+                <div class="config-field">
+                  <label for="admin-branch-delivery-radius">Radio de entrega (km)</label>
+                  <input type="number" id="admin-branch-delivery-radius" class="form-select" min="0" step="1">
+                </div>
+                <div class="config-field">
+                  <label for="admin-branch-lat">Latitud</label>
+                  <input type="text" id="admin-branch-lat" class="form-select" readonly style="opacity:0.7;" placeholder="Se completa solo">
+                </div>
+                <div class="config-field">
+                  <label for="admin-branch-lng">Longitud</label>
+                  <input type="text" id="admin-branch-lng" class="form-select" readonly style="opacity:0.7;" placeholder="Se completa solo">
+                </div>
+              </div>
+
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; margin-bottom: 16px;">
+                <input type="checkbox" id="admin-branch-delivery-available" style="width: auto;">
+                Ofrece flete/entrega a domicilio
+              </label>
+
+              <button type="submit" class="btn-computo" id="btn-admin-save-prov-profile">Guardar datos comerciales</button>
+              <span id="admin-prov-profile-status" style="margin-left: 10px; font-size: 0.85rem; color: var(--text-muted);"></span>
+            </form>
+
+            <h4 class="provider-subsection-title">Transferir a un dueño real</h4>
+            <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+              Si el negocio ya se registró en NEXOBRA con su propio email, transferíselo acá: pasa a ser el dueño de esta ficha (con todo el catálogo ya cargado) y vos dejás de administrarla desde este panel.
+            </p>
+            <p id="admin-prov-owner-info" style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;"></p>
+            <div style="display:flex; gap:8px; margin-bottom:24px; flex-wrap:wrap;">
+              <input type="email" id="admin-prov-transfer-email" class="form-select" placeholder="email@delnegocio.com" style="flex:1; min-width:200px;">
+              <button type="button" class="btn-action-drawer" style="color:#b91c1c;" id="btn-admin-prov-transfer">Transferir proveedor</button>
+            </div>
+
+            <h4 class="provider-subsection-title">Palabras clave</h4>
+            <div style="display:flex; gap:8px; margin-bottom:14px;">
+              <input type="text" id="admin-prov-keyword-input" class="form-select" placeholder="Ej: delivery gratis" maxlength="40" style="flex:1;">
+              <button type="button" class="btn-computo" id="btn-admin-add-prov-keyword" style="padding:10px 16px; white-space:nowrap;">➕ Agregar</button>
+            </div>
+            <div id="admin-prov-keywords-list" style="margin-bottom:24px;"></div>
+
+            <h4 class="provider-subsection-title">Agregar un material al catálogo</h4>
+            <div class="config-field" style="margin-bottom: 12px;">
+              <label for="admin-prov-add-search">Buscar material NEXOBRA</label>
+              <input type="text" id="admin-prov-add-search" class="form-select" placeholder="Ej: cemento portland, ladrillo hueco...">
+            </div>
+            <div id="admin-prov-add-results" class="provider-search-results" style="margin-bottom:24px;"></div>
+
+            <h4 class="provider-subsection-title">Catálogo cargado</h4>
+            <div id="admin-prov-catalog-list" class="provider-catalog-list"></div>
+
+            <h4 class="provider-subsection-title">Anuncios / Promos</h4>
+            <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+              Promo corta con fecha de vencimiento (ej: "Esta semana 20% off en cemento") -- se ve al instante en el Directorio y en la ficha del mapa, y desaparece sola al vencer.
+            </p>
+            <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+              <input type="text" id="admin-prov-announcement-message" class="form-select" placeholder="Ej: 20% off en cemento esta semana" maxlength="140" style="flex:2; min-width:200px;">
+              <input type="date" id="admin-prov-announcement-expires" class="form-select" style="flex:1; min-width:150px;">
+              <button type="button" class="btn-computo" id="btn-admin-add-prov-announcement" style="white-space:nowrap;">📢 Publicar</button>
+            </div>
+            <div id="admin-prov-announcements-list"></div>
+          </div>
         </div>
       </details>
 
