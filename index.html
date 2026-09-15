@@ -1852,6 +1852,18 @@
 
             <div id="admin-prov-manage-status-banner" style="display:none;"></div>
 
+            <div class="provider-logo-upload-row">
+              <div class="provider-logo-preview" id="admin-prov-logo-preview">
+                <span id="admin-prov-logo-placeholder">🏪</span>
+                <img id="admin-prov-logo-img" style="display:none;" alt="Logo del negocio">
+              </div>
+              <div>
+                <label for="admin-prov-logo-input" class="btn-action-drawer btn-copy" style="display:inline-flex; cursor:pointer;">Subir logo</label>
+                <input type="file" id="admin-prov-logo-input" accept="image/png,image/jpeg,image/webp" style="display:none;">
+                <p style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">PNG, JPG o WEBP. Máximo 2 MB. Se muestra en el mapa y en la ficha del proveedor. Guardá primero los datos comerciales de abajo para poder subir el logo.</p>
+              </div>
+            </div>
+
             <form id="admin-prov-manage-form">
               <div class="excel-config-grid">
                 <div class="config-field">
