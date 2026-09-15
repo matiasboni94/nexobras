@@ -112,6 +112,36 @@ import * as ST from './state.js';
     return offers;
   }
 
+  // ============================================================
+  // Anuncios / promos temporales de proveedores (ej. "20% off en cemento
+  // esta semana") -- se ven en la ficha del mapa (acá) y en el Directorio
+  // (más abajo, loadProvidersDirectory/renderDirectoryList). RLS ya filtra
+  // por activo+no vencido para lectura pública (ver migración 012), así que
+  // alcanza con pedir el más nuevo de la sucursal.
+  // ============================================================
+
+  async function fetchLatestAnnouncement(branchId) {
+    if (!branchId) return null;
+    const { data, error } = await ST.supabaseClient
+      .from('provider_announcements')
+      .select('id, message, expires_at')
+      .eq('branch_id', branchId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) return null;
+    return data || null;
+  }
+
+  function renderAnnouncementBanner(announcement) {
+    if (!announcement) return '';
+    return `
+      <div class="provider-announcement-banner">
+        <span>📢 ${ST.escapeHtml(announcement.message)}</span>
+      </div>
+    `;
+  }
+
   // Últimas ofertas mostradas en el mapa, por offer_id -- así el comparador
   // (toggleCompareOffer) puede recuperar el objeto completo (precio, marca,
   // proveedor, distancia) sin tener que repetir la consulta cada vez que se
@@ -239,8 +269,10 @@ import * as ST from './state.js';
 
     const enComparacion = ST.compareState.items.some(i => i.offer_id === offer.offer_id);
     const compareDisabled = !enComparacion && ST.compareState.items.length >= 2;
+    const announcement = await fetchLatestAnnouncement(offer.branch_id);
 
     ST.mapBranchPanel.innerHTML = `
+      ${renderAnnouncementBanner(announcement)}
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
         <div style="display:flex; align-items:center; gap:10px;">
           ${offer.logo_url ? `<img src="${ST.escapeHtml(offer.logo_url)}" class="provider-logo-mini" alt="">` : ''}
@@ -462,6 +494,7 @@ import * as ST from './state.js';
         ${esSuscripto ? '📧 Recibiendo sus ofertas' : '📧 Recibir sus ofertas por mail'}
       </button>
     `;
+    const announcement = await fetchLatestAnnouncement(branchId);
 
     const filas = (data || []).map(row => {
       const cls = row.variation_pct === null ? 'equal' : row.variation_pct < -1 ? 'below' : row.variation_pct > 1 ? 'above' : 'equal';
@@ -478,6 +511,7 @@ import * as ST from './state.js';
     }).join('');
 
     ST.mapBranchPanel.innerHTML = `
+      ${renderAnnouncementBanner(announcement)}
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:2px;">
         ${branchInfo.logo_url ? `<img src="${ST.escapeHtml(branchInfo.logo_url)}" class="provider-logo-mini" alt="">` : ''}
         <h3 style="margin-bottom:0;">${ST.escapeHtml(branchInfo.business_name)}</h3>
@@ -1411,6 +1445,21 @@ import * as ST from './state.js';
     });
     data.forEach(p => { p.keywords = keywordsByProvider.get(p.provider_id) || []; });
 
+    // Anuncios/promos: mismo patrón que las palabras clave -- se piden en
+    // bloque por los branch_id de este resultado, y se queda con el más
+    // nuevo por sucursal (RLS ya filtra activo+no vencido, ver migración 012).
+    const branchIds = [...new Set(data.map(p => p.branch_id))];
+    const { data: announcementRows } = await ST.supabaseClient
+      .from('provider_announcements')
+      .select('branch_id, message, expires_at, created_at')
+      .in('branch_id', branchIds)
+      .order('created_at', { ascending: false });
+    const announcementByBranch = new Map();
+    (announcementRows || []).forEach(a => {
+      if (!announcementByBranch.has(a.branch_id)) announcementByBranch.set(a.branch_id, a);
+    });
+    data.forEach(p => { p.announcement = announcementByBranch.get(p.branch_id) || null; });
+
     directoryDataCache = data;
     renderDirectoryList();
 
@@ -1460,6 +1509,7 @@ import * as ST from './state.js';
             </div>
           </div>
           ${p.category_name ? `<span class="provider-directory-category-badge">${p.category_kind === 'services' ? '🛠️' : '📦'} ${ST.escapeHtml(p.category_name)}</span>` : ''}
+          ${renderAnnouncementBanner(p.announcement)}
           <div>${renderStarRating(p.avg_rating, p.review_count)}</div>
           ${p.matricula ? `<p style="font-size:0.78rem; color:var(--text-muted);"><strong>Matrícula:</strong> ${ST.escapeHtml(p.matricula)}</p>` : ''}
           ${p.description ? `<p style="font-size:0.85rem; color:var(--text-muted);">${ST.escapeHtml(p.description)}</p>` : ''}

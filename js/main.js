@@ -604,7 +604,15 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
     rejectTechSuggestion: Admin.rejectTechSuggestion,
     suggestTechnicalData: Provider.suggestTechnicalData,
     deleteIndexValue: Admin.deleteIndexValue,
-    unassignProvider: Computo.unassignProvider
+    unassignProvider: Computo.unassignProvider,
+    openAdminProviderEditor: Admin.openAdminProviderEditor,
+    addAdminOfferFromSearch: Admin.addAdminOfferFromSearch,
+    updateAdminOfferPrice: Admin.updateAdminOfferPrice,
+    updateAdminOfferStock: Admin.updateAdminOfferStock,
+    deleteAdminOffer: Admin.deleteAdminOffer,
+    removeAdminProviderKeyword: Admin.removeAdminProviderKeyword,
+    deleteAdminProviderAnnouncement: Admin.deleteAdminProviderAnnouncement,
+    deleteProviderAnnouncement: Provider.deleteProviderAnnouncement
   };
 
 

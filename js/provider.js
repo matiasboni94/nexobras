@@ -83,6 +83,7 @@ import * as ST from './state.js';
     await loadProviderInteractionStats();
     await loadProviderBroadcastStatus();
     await loadProviderKeywords();
+    await loadProviderAnnouncements();
   }
 
   let branchLocationMap = null;
@@ -918,6 +919,8 @@ import * as ST from './state.js';
     if (btnDownloadProviderTemplate) btnDownloadProviderTemplate.addEventListener('click', generateProviderTemplate);
     const btnGeocodeAddress = document.getElementById('btn-geocode-address');
     if (btnGeocodeAddress) btnGeocodeAddress.addEventListener('click', (e) => { e.preventDefault(); geocodeBranchAddress(); });
+    const btnAddAnnouncement = document.getElementById('btn-add-provider-announcement');
+    if (btnAddAnnouncement) btnAddAnnouncement.addEventListener('click', addProviderAnnouncement);
   }
 
   export function setupNewMaterialListeners() {
@@ -1221,4 +1224,107 @@ import * as ST from './state.js';
     const { error } = await ST.supabaseClient.from('provider_keywords').delete().eq('id', keywordId);
     if (error) { ST.showToast('No se pudo quitar: ' + error.message); return; }
     loadProviderKeywords();
+  }
+
+  // ============================================================
+  // Anuncios / promos temporales -- ej. "Esta semana 20% off en cemento".
+  // Se publican al instante (mismo criterio que el stock) y desaparecen
+  // solos al pasar la fecha de vencimiento que elige el proveedor. Se ven
+  // en el Directorio de Proveedores y en la ficha del mapa (js/map.js).
+  // ============================================================
+
+  export async function loadProviderAnnouncements() {
+    const container = document.getElementById('provider-announcements-list');
+    if (!container) return;
+    if (!ST.providerState.branch) {
+      container.innerHTML = '<p style="font-size:0.82rem; color:var(--text-muted);">Guardá primero tus datos comerciales para poder publicar un anuncio.</p>';
+      return;
+    }
+    const dateInput = document.getElementById('provider-announcement-expires');
+    if (dateInput) dateInput.min = new Date().toISOString().slice(0, 10);
+
+    const { data, error } = await ST.supabaseClient
+      .from('provider_announcements')
+      .select('id, message, expires_at, created_at')
+      .eq('branch_id', ST.providerState.branch.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, 'cargar tus anuncios')}</p>`;
+      return;
+    }
+    renderProviderAnnouncements(data || []);
+  }
+
+  function renderProviderAnnouncements(list) {
+    const container = document.getElementById('provider-announcements-list');
+    if (!container) return;
+    if (list.length === 0) {
+      container.innerHTML = '<p style="font-size:0.82rem; color:var(--text-muted);">Todavía no publicaste ningún anuncio.</p>';
+      return;
+    }
+    const now = Date.now();
+    container.innerHTML = list.map(a => {
+      const vencido = new Date(a.expires_at).getTime() <= now;
+      const diasRestantes = Math.ceil((new Date(a.expires_at).getTime() - now) / 86400000);
+      return `
+        <div class="provider-catalog-row">
+          <div class="provider-catalog-row-info">
+            <h5>📢 ${ST.escapeHtml(a.message)}</h5>
+            <span>${vencido ? '<span style="color:var(--text-subtle);">Venció el ' + new Date(a.expires_at).toLocaleDateString('es-AR') + '</span>' : `Visible hasta el ${new Date(a.expires_at).toLocaleDateString('es-AR')} (${diasRestantes} día${diasRestantes === 1 ? '' : 's'})`}</span>
+          </div>
+          <div class="provider-catalog-row-controls">
+            <button class="btn-remove-item" onclick="window.nexoBraApp.deleteProviderAnnouncement('${a.id}')" title="Eliminar">&times;</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  export async function addProviderAnnouncement() {
+    if (!ST.providerState.branch) {
+      ST.showToast('Primero guardá tus datos comerciales (sucursal) arriba.');
+      return;
+    }
+    const messageInput = document.getElementById('provider-announcement-message');
+    const dateInput = document.getElementById('provider-announcement-expires');
+    const message = messageInput.value.trim();
+    const dateValue = dateInput.value;
+
+    if (message.length < 3 || message.length > 140) {
+      ST.showToast('El anuncio tiene que tener entre 3 y 140 caracteres.');
+      return;
+    }
+    if (!dateValue) {
+      ST.showToast('Elegí hasta cuándo querés que se vea el anuncio.');
+      return;
+    }
+    // Fin del día elegido, en hora local -- así "hasta el 20" incluye todo el 20.
+    const expiresAt = new Date(dateValue + 'T23:59:59');
+    if (expiresAt.getTime() <= Date.now()) {
+      ST.showToast('La fecha tiene que ser futura.');
+      return;
+    }
+
+    const { error } = await ST.supabaseClient.from('provider_announcements').insert({
+      branch_id: ST.providerState.branch.id,
+      message,
+      expires_at: expiresAt.toISOString()
+    });
+
+    if (error) {
+      ST.showToast('No se pudo publicar: ' + error.message);
+      return;
+    }
+    ST.showToast('Anuncio publicado.');
+    messageInput.value = '';
+    dateInput.value = '';
+    loadProviderAnnouncements();
+  }
+
+  export async function deleteProviderAnnouncement(id) {
+    if (!confirm('¿Eliminar este anuncio?')) return;
+    const { error } = await ST.supabaseClient.from('provider_announcements').delete().eq('id', id);
+    if (error) { ST.showToast('No se pudo eliminar: ' + error.message); return; }
+    loadProviderAnnouncements();
   }
