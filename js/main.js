@@ -75,6 +75,8 @@ import * as ST from './state.js';
     if (contactViewEl) contactViewEl.style.display = viewName === 'contact' ? 'block' : 'none';
     const directoryViewEl = document.getElementById('providers-directory-view');
     if (directoryViewEl) directoryViewEl.style.display = viewName === 'providers-directory' ? 'block' : 'none';
+    const providerPublicViewEl = document.getElementById('provider-public-view');
+    if (providerPublicViewEl) providerPublicViewEl.style.display = viewName === 'provider-public' ? 'block' : 'none';
     if (viewName === 'providers-directory') {
       MapModule.loadDirectoryCategories();
       MapModule.loadProvidersDirectory();
@@ -542,6 +544,18 @@ import * as ST from './state.js';
 
     // Resuelve el enlace directo, si vino uno (ver chequeo al principio de init())
     if (deepLinkView) switchView(deepLinkView);
+
+    // Página pública de un proveedor (nexoobra.com.ar/proveedor/<slug>) --
+    // a diferencia de ?share=TOKEN, esta sí corre TODO el init() de arriba
+    // (nav, nota de tema, mapa, etc.) porque queremos que quien llega desde
+    // el link de un proveedor pueda seguir navegando el resto del sitio
+    // normalmente -- el objetivo es que también descubra NEXOBRA, no solo
+    // esa ficha puntual.
+    const providerSlugMatch = window.location.pathname.match(/^\/proveedor\/([a-z0-9-]+)\/?$/i);
+    if (providerSlugMatch) {
+      switchView('provider-public');
+      MapModule.loadProviderPublicPage(providerSlugMatch[1]);
+    }
   }
 
   // --- RENDER SUBAREAS EN EL HOME ---

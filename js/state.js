@@ -266,6 +266,40 @@
       .trim();
   }
 
+  /** "Corralón Oberá S.A." -> "corralon-obera-sa" -- para armar la página pública de cada proveedor. */
+  export function slugify(text) {
+    const base = (text || '')
+      .toString()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60);
+    return base || 'proveedor';
+  }
+
+  /**
+   * Genera un slug único para la página pública de una sucursal nueva, a
+   * partir del nombre comercial del proveedor. Si ya existe (dos proveedores
+   * con el mismo nombre, por ejemplo), le agrega un sufijo numérico hasta
+   * encontrar uno libre. Se llama UNA sola vez, al crear la sucursal -- el
+   * slug de una sucursal ya existente nunca se regenera (es el link que el
+   * proveedor ya puede haber compartido).
+   */
+  export async function generateUniqueBranchSlug(businessName) {
+    const base = slugify(businessName);
+    let candidate = base;
+    let suffix = 2;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data } = await supabaseClient.from('provider_branches').select('id').eq('slug', candidate).maybeSingle();
+      if (!data) return candidate;
+      candidate = `${base}-${suffix}`;
+      suffix += 1;
+    }
+  }
+
   export function formatFactor(factor) {
     return new Intl.NumberFormat('es-AR', {
       minimumFractionDigits: 3,

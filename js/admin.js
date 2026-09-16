@@ -862,6 +862,15 @@ export function setupAdminListeners() {
   if (provLogoInput) provLogoInput.addEventListener('change', (e) => {
     if (e.target.files[0]) uploadAdminProviderLogo(e.target.files[0]);
   });
+
+  const btnCopyAdminProviderLink = document.getElementById('btn-admin-copy-provider-link');
+  if (btnCopyAdminProviderLink) btnCopyAdminProviderLink.addEventListener('click', () => {
+    const text = document.getElementById('admin-prov-public-link-text').textContent;
+    navigator.clipboard.writeText(`https://${text}`).then(
+      () => ST.showToast('Link copiado.'),
+      () => ST.showToast('No se pudo copiar — copialo a mano: ' + text)
+    );
+  });
 }
 
 export function loadAdminPanel() {
@@ -1133,6 +1142,7 @@ export async function openAdminProviderEditor(providerId) {
     adminState.manageSelectedProvider = null;
     adminState.manageSelectedBranch = null;
     updateAdminLogoPreview(null);
+    updateAdminProviderPublicLinkBox(null);
     document.getElementById('admin-prov-owner-info').textContent = 'Guardá primero los datos comerciales -- una vez creado el proveedor vas a poder transferirlo, cargarle palabras clave y precios.';
     document.getElementById('admin-prov-transfer-email').closest('div').style.display = 'none';
     document.getElementById('admin-prov-keywords-list').innerHTML = '<p style="font-size:0.82rem; color:var(--text-muted);">Guardá primero los datos comerciales.</p>';
@@ -1191,12 +1201,14 @@ export async function openAdminProviderEditor(providerId) {
     document.getElementById('admin-branch-province').value = branch.province || '';
     document.getElementById('admin-branch-address').value = branch.address || '';
     document.getElementById('admin-branch-whatsapp').value = branch.whatsapp_phone || '';
+    document.getElementById('admin-branch-hours').value = branch.business_hours || '';
     document.getElementById('admin-branch-delivery-radius').value = branch.delivery_radius_km || '';
     document.getElementById('admin-branch-lat').value = branch.latitude ?? '';
     document.getElementById('admin-branch-lng').value = branch.longitude ?? '';
     document.getElementById('admin-branch-delivery-available').checked = !!branch.delivery_available;
   }
   initAdminBranchLocationMap(branch?.latitude, branch?.longitude);
+  updateAdminProviderPublicLinkBox(branch);
 
   document.getElementById('admin-prov-add-search').value = '';
   document.getElementById('admin-prov-add-results').innerHTML = '';
@@ -1216,6 +1228,19 @@ function updateAdminLogoPreview(url) {
   } else {
     img.style.display = 'none';
     placeholder.style.display = 'block';
+  }
+}
+
+/** Igual que updateProviderPublicLinkBox() en provider.js, pero para la sucursal que el admin tiene seleccionada. */
+function updateAdminProviderPublicLinkBox(branch) {
+  const box = document.getElementById('admin-prov-public-link-box');
+  const textEl = document.getElementById('admin-prov-public-link-text');
+  if (!box || !textEl) return;
+  if (branch && branch.slug) {
+    textEl.textContent = `nexoobra.com.ar/proveedor/${branch.slug}`;
+    box.style.display = 'block';
+  } else {
+    box.style.display = 'none';
   }
 }
 
@@ -1328,6 +1353,7 @@ export async function handleAdminProviderProfileSubmit(e) {
       province: document.getElementById('admin-branch-province').value.trim() || null,
       address: document.getElementById('admin-branch-address').value.trim() || null,
       whatsapp_phone: document.getElementById('admin-branch-whatsapp').value.trim() || null,
+      business_hours: document.getElementById('admin-branch-hours').value.trim() || null,
       delivery_radius_km: parseFloat(document.getElementById('admin-branch-delivery-radius').value) || null,
       latitude: parseFloat(document.getElementById('admin-branch-lat').value) || null,
       longitude: parseFloat(document.getElementById('admin-branch-lng').value) || null,
@@ -1341,6 +1367,9 @@ export async function handleAdminProviderProfileSubmit(e) {
       if (error) throw error;
       branch = { ...branch, ...branchPayload };
     } else {
+      // Mismo criterio que en el autoservicio (provider.js): el slug de la
+      // página pública se genera una sola vez, al crear la sucursal.
+      branchPayload.slug = await ST.generateUniqueBranchSlug(providerPayload.business_name);
       const { data, error } = await ST.supabaseClient.from('provider_branches').insert(branchPayload).select('*').single();
       if (error) throw error;
       branch = data;
@@ -1354,6 +1383,7 @@ export async function handleAdminProviderProfileSubmit(e) {
     document.getElementById('admin-prov-owner-info').textContent = provider.owner_id
       ? 'Este proveedor ya tiene un dueño propio con su propia cuenta.'
       : 'Sin dueño propio todavía -- lo estás administrando vos desde acá.';
+    updateAdminProviderPublicLinkBox(branch);
 
     loadAdminProviderKeywords();
     loadAdminProviderCatalog();

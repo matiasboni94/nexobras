@@ -133,6 +133,25 @@ import * as ST from './state.js';
     return data || null;
   }
 
+  /** Horario de atención: mismo patrón que fetchLatestAnnouncement -- se pide aparte por branch_id, sin tocar ninguna RPC. */
+  async function fetchBranchHours(branchId) {
+    if (!branchId) return null;
+    const { data, error } = await ST.supabaseClient
+      .from('provider_branches')
+      .select('business_hours')
+      .eq('id', branchId)
+      .maybeSingle();
+    if (error) return null;
+    return data?.business_hours || null;
+  }
+
+  function renderBusinessHours(hours) {
+    if (!hours) return '';
+    // white-space: pre-line respeta los saltos de línea que haya escrito el
+    // proveedor (ej. "Lun a Vie 8 a 18\nSáb 8 a 13"), sin necesitar HTML.
+    return `<p style="font-size:0.8rem; color:var(--text-muted); margin: 4px 0 8px; white-space: pre-line;">🕒 ${ST.escapeHtml(hours)}</p>`;
+  }
+
   function renderAnnouncementBanner(announcement) {
     if (!announcement) return '';
     return `
@@ -495,6 +514,7 @@ import * as ST from './state.js';
       </button>
     `;
     const announcement = await fetchLatestAnnouncement(branchId);
+    const businessHours = await fetchBranchHours(branchId);
 
     const filas = (data || []).map(row => {
       const cls = row.variation_pct === null ? 'equal' : row.variation_pct < -1 ? 'below' : row.variation_pct > 1 ? 'above' : 'equal';
@@ -518,6 +538,7 @@ import * as ST from './state.js';
       </div>
       <div class="branch-meta">${ST.escapeHtml(branchInfo.branch_name)} · ${ST.escapeHtml(branchInfo.locality)} · ${branchInfo.distance_km.toFixed(1)} km de tu ubicación</div>
       <div style="margin: 4px 0 10px;">${renderStarRating(branchInfo.avg_rating, branchInfo.review_count)}</div>
+      ${renderBusinessHours(businessHours)}
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;">${whatsappLink}${favBtn}${subBtn}</div>
       <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">Variación de precio vs. la mediana de proveedores en ${ST.mapState.radiusKm} km a la redonda:</p>
       ${filas || '<p style="font-size:0.8rem; color:var(--text-muted);">Sin materiales cargados todavía.</p>'}
@@ -1460,6 +1481,14 @@ import * as ST from './state.js';
     });
     data.forEach(p => { p.announcement = announcementByBranch.get(p.branch_id) || null; });
 
+    // Horario de atención: mismo patrón, bulk-fetch por los branch_id de este resultado.
+    const { data: hoursRows } = await ST.supabaseClient
+      .from('provider_branches')
+      .select('id, business_hours')
+      .in('id', branchIds);
+    const hoursByBranch = new Map((hoursRows || []).map(r => [r.id, r.business_hours]));
+    data.forEach(p => { p.business_hours = hoursByBranch.get(p.branch_id) || null; });
+
     directoryDataCache = data;
     renderDirectoryList();
 
@@ -1511,6 +1540,7 @@ import * as ST from './state.js';
           ${p.category_name ? `<span class="provider-directory-category-badge">${p.category_kind === 'services' ? '🛠️' : '📦'} ${ST.escapeHtml(p.category_name)}</span>` : ''}
           ${renderAnnouncementBanner(p.announcement)}
           <div>${renderStarRating(p.avg_rating, p.review_count)}</div>
+          ${renderBusinessHours(p.business_hours)}
           ${p.matricula ? `<p style="font-size:0.78rem; color:var(--text-muted);"><strong>Matrícula:</strong> ${ST.escapeHtml(p.matricula)}</p>` : ''}
           ${p.description ? `<p style="font-size:0.85rem; color:var(--text-muted);">${ST.escapeHtml(p.description)}</p>` : ''}
           ${p.keywords && p.keywords.length > 0 ? `<div style="margin:4px 0;">${p.keywords.map(k => `<span class="provider-keyword-chip" style="font-size:0.7rem; padding:2px 8px;">${ST.escapeHtml(k)}</span>`).join('')}</div>` : ''}
@@ -1616,4 +1646,107 @@ import * as ST from './state.js';
       },
       { timeout: 8000 }
     );
+  }
+
+  // ============================================================
+  // Página pública por proveedor (nexoobra.com.ar/proveedor/<slug>) --
+  // pensada para que cada corralón la comparta como "su espacio" (bio de
+  // WhatsApp/Instagram, etc.). A diferencia de la ficha del mapa
+  // (showBranchDetail), esta vista NO depende de la ubicación de quien la
+  // visita -- no muestra "variación de precio vs. la zona" (que necesita un
+  // centro de referencia), solo la lista de precios propia del proveedor.
+  // Se arma por sucursal (branch), que es donde vive el slug -- ver
+  // migración 013.
+  // ============================================================
+
+  export async function loadProviderPublicPage(slug) {
+    const container = document.getElementById('provider-public-content');
+    if (!container) return;
+    container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Cargando...</p>';
+
+    const { data: branch, error } = await ST.supabaseClient
+      .from('provider_branches')
+      .select('id, name, locality, whatsapp_phone, business_hours, provider_id, providers(business_name, description, logo_url, website_url, contact_phone, contact_email, matricula, category_id)')
+      .eq('slug', slug)
+      .eq('active', true)
+      .maybeSingle();
+
+    if (error || !branch || !branch.providers) {
+      container.innerHTML = `
+        <div style="text-align:center; padding: 40px 16px;">
+          <p style="font-size:1rem; font-weight:700; margin-bottom:8px;">No encontramos esta página.</p>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">El link puede estar mal escrito, o el proveedor todavía no está activo.</p>
+          <button class="btn-action-drawer btn-copy" onclick="window.nexoBraApp.switchView('providers-directory')">Ver el Directorio de Proveedores</button>
+        </div>
+      `;
+      document.title = 'NEXOBRA | Comparador técnico de precios para la construcción';
+      return;
+    }
+
+    const provider = branch.providers;
+    document.title = `${provider.business_name} | NEXOBRA`;
+
+    let categoryName = '';
+    if (provider.category_id) {
+      const { data: cat } = await ST.supabaseClient.from('provider_categories').select('name').eq('id', provider.category_id).maybeSingle();
+      categoryName = cat?.name || '';
+    }
+
+    const [{ data: ratingData }, { data: offers }, { data: keywordRows }, announcement] = await Promise.all([
+      ST.supabaseClient.from('provider_ratings_summary').select('avg_rating, review_count').eq('provider_id', branch.provider_id).maybeSingle(),
+      ST.supabaseClient.from('provider_offers').select('amount, unit, brand, stock_status, materials(denomination)').eq('branch_id', branch.id).eq('status', 'approved').order('reported_at', { ascending: false }),
+      ST.supabaseClient.from('provider_keywords').select('keyword').eq('provider_id', branch.provider_id),
+      fetchLatestAnnouncement(branch.id),
+    ]);
+
+    const whatsappLink = branch.whatsapp_phone
+      ? `<a class="branch-whatsapp-btn" target="_blank" href="https://wa.me/${branch.whatsapp_phone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde tu página de NEXOBRA para consultar precios.')}">💬 Contactar por WhatsApp</a>`
+      : '';
+    const websiteLink = provider.website_url
+      ? `<a class="btn-action-drawer btn-copy" target="_blank" rel="noopener" href="${ST.escapeHtml(provider.website_url)}">🌐 Sitio web</a>`
+      : '';
+
+    const keywordsHtml = (keywordRows || []).length
+      ? `<div style="display:flex; flex-wrap:wrap; gap:6px; margin: 10px 0;">${keywordRows.map(k => `<span class="provider-keyword-chip">${ST.escapeHtml(k.keyword)}</span>`).join('')}</div>`
+      : '';
+
+    const catalogRows = (offers || []).map(o => `
+      <div class="provider-catalog-row">
+        <div class="provider-catalog-row-info">
+          <h5>${ST.escapeHtml(o.materials?.denomination) || '(material eliminado)'}</h5>
+          <span>${o.brand ? `<strong>${ST.escapeHtml(o.brand)}</strong> · ` : ''}${ST.escapeHtml(o.unit)}</span>
+        </div>
+        <div class="provider-catalog-row-controls">
+          <span class="stock-badge ${o.stock_status}">${o.stock_status === 'en_stock' ? 'En stock' : o.stock_status === 'a_pedido' ? 'A pedido' : 'Agotado'}</span>
+          <strong>${ST.formatMoney(o.amount)}</strong>
+        </div>
+      </div>
+    `).join('');
+
+    container.innerHTML = `
+      ${renderAnnouncementBanner(announcement)}
+      <div style="display:flex; align-items:center; gap:14px; margin-bottom:6px;">
+        ${provider.logo_url ? `<img src="${ST.escapeHtml(provider.logo_url)}" class="provider-logo-mini" alt="" style="width:56px; height:56px;">` : ''}
+        <div>
+          <h2 style="margin-bottom:2px;">${ST.escapeHtml(provider.business_name)}</h2>
+          <div class="branch-meta">${categoryName ? ST.escapeHtml(categoryName) + ' · ' : ''}${ST.escapeHtml(branch.name)} · ${ST.escapeHtml(branch.locality)}</div>
+        </div>
+      </div>
+      <div style="margin: 6px 0 12px;">${renderStarRating(ratingData?.avg_rating, ratingData?.review_count)}</div>
+      ${renderBusinessHours(branch.business_hours)}
+      ${provider.description ? `<p style="font-size:0.88rem; margin-bottom:14px;">${ST.escapeHtml(provider.description)}</p>` : ''}
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">${whatsappLink}${websiteLink}</div>
+      ${provider.matricula ? `<p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:8px;">Matrícula: ${ST.escapeHtml(provider.matricula)}</p>` : ''}
+      ${keywordsHtml}
+
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border-light);">
+        <h4 style="margin-bottom:10px;">Lista de precios</h4>
+        ${catalogRows || '<p style="font-size:0.85rem; color:var(--text-muted);">Este proveedor todavía no cargó materiales.</p>'}
+      </div>
+
+      <div style="margin-top:24px; padding:16px; border-radius:var(--radius-md,10px); background:var(--bg-subtle, #f5f5f0); text-align:center;">
+        <p style="font-size:0.85rem; margin-bottom:10px;">Esta es la página pública de ${ST.escapeHtml(provider.business_name)} en <strong>NEXOBRA</strong>, el comparador técnico de precios de la construcción.</p>
+        <button class="btn-action-drawer" onclick="window.nexoBraApp.switchView('providers-directory')">Ver más proveedores cerca tuyo</button>
+      </div>
+    `;
   }

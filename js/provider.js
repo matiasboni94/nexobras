@@ -70,12 +70,14 @@ import * as ST from './state.js';
         document.getElementById('branch-province').value = branch.province || '';
         document.getElementById('branch-address').value = branch.address || '';
         document.getElementById('branch-whatsapp').value = branch.whatsapp_phone || '';
+        document.getElementById('branch-hours').value = branch.business_hours || '';
         document.getElementById('branch-delivery-radius').value = branch.delivery_radius_km || '';
         document.getElementById('branch-lat').value = branch.latitude ?? '';
         document.getElementById('branch-lng').value = branch.longitude ?? '';
         document.getElementById('branch-delivery-available').checked = !!branch.delivery_available;
       }
       initBranchLocationMap(branch?.latitude, branch?.longitude);
+      updateProviderPublicLinkBox(branch);
     }
 
     await loadProviderCatalog();
@@ -203,6 +205,19 @@ import * as ST from './state.js';
         ${servicios.map(c => `<option value="${c.id}">${ST.escapeHtml(c.name)}</option>`).join('')}
       </optgroup>
     `;
+  }
+
+  /** Muestra (o esconde, si la sucursal todavía no tiene slug) el link a la página pública en "Datos comerciales". */
+  function updateProviderPublicLinkBox(branch) {
+    const box = document.getElementById('provider-public-link-box');
+    const textEl = document.getElementById('provider-public-link-text');
+    if (!box || !textEl) return;
+    if (branch && branch.slug) {
+      textEl.textContent = `nexoobra.com.ar/proveedor/${branch.slug}`;
+      box.style.display = 'block';
+    } else {
+      box.style.display = 'none';
+    }
   }
 
   function updateLogoPreview(url) {
@@ -434,6 +449,7 @@ import * as ST from './state.js';
         province: document.getElementById('branch-province').value.trim() || null,
         address: document.getElementById('branch-address').value.trim() || null,
         whatsapp_phone: document.getElementById('branch-whatsapp').value.trim() || null,
+        business_hours: document.getElementById('branch-hours').value.trim() || null,
         delivery_radius_km: parseFloat(document.getElementById('branch-delivery-radius').value) || null,
         latitude: parseFloat(document.getElementById('branch-lat').value) || null,
         longitude: parseFloat(document.getElementById('branch-lng').value) || null,
@@ -446,6 +462,10 @@ import * as ST from './state.js';
         const { error } = await ST.supabaseClient.from('provider_branches').update(branchPayload).eq('id', branch.id);
         if (error) throw error;
       } else {
+        // El slug (para la página pública compartible) se genera una sola
+        // vez acá, al crear la sucursal -- nunca se regenera después, aunque
+        // el proveedor cambie el nombre comercial más adelante.
+        branchPayload.slug = await ST.generateUniqueBranchSlug(providerPayload.business_name);
         const { data, error } = await ST.supabaseClient.from('provider_branches').insert(branchPayload).select('*').single();
         if (error) throw error;
         branch = data;
@@ -905,6 +925,14 @@ import * as ST from './state.js';
       Main.switchView('provider');
     });
     ST.providerProfileForm.addEventListener('submit', handleProviderProfileSubmit);
+    const btnCopyProviderLink = document.getElementById('btn-copy-provider-link');
+    if (btnCopyProviderLink) btnCopyProviderLink.addEventListener('click', () => {
+      const text = document.getElementById('provider-public-link-text').textContent;
+      navigator.clipboard.writeText(`https://${text}`).then(
+        () => ST.showToast('Link copiado.'),
+        () => ST.showToast('No se pudo copiar — copialo a mano: ' + text)
+      );
+    });
     const providerLogoInput = document.getElementById('provider-logo-input');
     if (providerLogoInput) providerLogoInput.addEventListener('change', (e) => {
       if (e.target.files[0]) uploadProviderLogo(e.target.files[0]);
