@@ -1248,6 +1248,12 @@
   <!-- =========================================================================
        VISTA: DIRECTORIO DE PROVEEDORES
        ========================================================================= -->
+  <div id="provider-public-view" class="view-section" style="display: none;">
+    <div class="container" style="padding: 2rem 1.5rem 4rem; max-width: 640px;">
+      <div id="provider-public-content"></div>
+    </div>
+  </div>
+
   <div id="providers-directory-view" class="view-section" style="display: none;">
     <div class="container" style="padding: 2rem 1.5rem 4rem;">
       <h2 class="catalog-title">Proveedores</h2>
@@ -1373,6 +1379,12 @@
             </div>
           </div>
 
+          <div id="provider-public-link-box" style="display:none; margin: 10px 0 16px; padding:10px 12px; background:var(--bg-subtle,#f5f5f0); border-radius:var(--radius-md,10px); font-size:0.82rem;">
+            <strong>Tu página pública:</strong> <span id="provider-public-link-text"></span>
+            <button type="button" class="btn-action-drawer btn-copy" id="btn-copy-provider-link" style="margin-left:8px; padding:4px 10px; font-size:0.78rem;">🔗 Copiar link</button>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Pegala en tu WhatsApp, Instagram o donde quieras — muestra tu ficha y tu lista de precios.</p>
+          </div>
+
           <p id="provider-own-rating" style="margin-bottom: 8px;"></p>
           <div id="provider-own-reviews-list" style="margin-bottom: 20px;"></div>
 
@@ -1441,6 +1453,10 @@
               <div class="config-field">
                 <label for="branch-whatsapp">WhatsApp de la sucursal</label>
                 <input type="tel" id="branch-whatsapp" class="form-select" placeholder="Con código de país, ej: 5493755...">
+              </div>
+              <div class="config-field" style="grid-column: 1 / -1;">
+                <label for="branch-hours">Horario de atención (opcional)</label>
+                <textarea id="branch-hours" class="form-select" rows="2" maxlength="200" placeholder="Ej: Lun a Vie 8 a 18hs, Sáb 8 a 13hs"></textarea>
               </div>
               <div class="config-field">
                 <label for="branch-delivery-radius">Radio de entrega (km)</label>
@@ -1864,6 +1880,12 @@
               </div>
             </div>
 
+            <div id="admin-prov-public-link-box" style="display:none; margin: 10px 0 16px; padding:10px 12px; background:var(--bg-subtle,#f5f5f0); border-radius:var(--radius-md,10px); font-size:0.82rem;">
+              <strong>Página pública:</strong> <span id="admin-prov-public-link-text"></span>
+              <button type="button" class="btn-action-drawer btn-copy" id="btn-admin-copy-provider-link" style="margin-left:8px; padding:4px 10px; font-size:0.78rem;">🔗 Copiar link</button>
+              <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Pasale este link al proveedor — lo puede pegar en su WhatsApp o Instagram apenas se sume.</p>
+            </div>
+
             <form id="admin-prov-manage-form">
               <div class="excel-config-grid">
                 <div class="config-field">
@@ -1929,6 +1951,10 @@
                 <div class="config-field">
                   <label for="admin-branch-whatsapp">WhatsApp de la sucursal</label>
                   <input type="tel" id="admin-branch-whatsapp" class="form-select" placeholder="Con código de país, ej: 5493755...">
+                </div>
+                <div class="config-field" style="grid-column: 1 / -1;">
+                  <label for="admin-branch-hours">Horario de atención (opcional)</label>
+                  <textarea id="admin-branch-hours" class="form-select" rows="2" maxlength="200" placeholder="Ej: Lun a Vie 8 a 18hs, Sáb 8 a 13hs"></textarea>
                 </div>
                 <div class="config-field">
                   <label for="admin-branch-delivery-radius">Radio de entrega (km)</label>
