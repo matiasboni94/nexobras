@@ -227,6 +227,23 @@ import * as ST from './state.js';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // Navega a la página pública de un proveedor (/proveedor/<slug>) desde
+  // CUALQUIER lugar del sitio que ya conozca su slug -- ficha del mapa
+  // (showBranchDetail) y tarjetas del Directorio (renderDirectoryList), por
+  // ahora. A diferencia de switchView(), esta vista no está en VIEW_ROUTES
+  // (lleva un slug dinámico, no una ruta fija), así que arma el pushState a
+  // mano y llama directo a loadProviderPublicPage -- mismo resultado que
+  // entrar de cero al link, pero sin recargar la página.
+  export function goToProviderPublicPage(slug) {
+    if (!slug) return;
+    const targetPath = `/proveedor/${slug}`;
+    if (window.location.pathname !== targetPath) {
+      history.pushState({ view: 'provider-public' }, '', targetPath);
+    }
+    switchView('provider-public');
+    MapModule.loadProviderPublicPage(slug);
+  }
+
   export function init() {
     // Presupuesto compartido por link público (?share=TOKEN): se muestra una
     // vista mínima de solo lectura, sin inicializar el resto de la app
@@ -610,6 +627,7 @@ import * as ST from './state.js';
   // --- PUBLIC API EXPOSURE ---
   window.nexoBraApp = {
     switchView,
+    goToProviderPublicPage,
 addToComputo: Computo.addToComputo,
 changeCardQty: Computo.changeCardQty,
 updateItemQtyInCart: Computo.updateItemQtyInCart,

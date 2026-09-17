@@ -145,6 +145,18 @@ import * as ST from './state.js';
     return data?.business_hours || null;
   }
 
+  /** Slug de la sucursal (para el link a su página pública, /proveedor/<slug>) -- mismo patrón que fetchBranchHours. */
+  async function fetchBranchSlug(branchId) {
+    if (!branchId) return null;
+    const { data, error } = await ST.supabaseClient
+      .from('provider_branches')
+      .select('slug')
+      .eq('id', branchId)
+      .maybeSingle();
+    if (error) return null;
+    return data?.slug || null;
+  }
+
   function renderBusinessHours(hours) {
     if (!hours) return '';
     // white-space: pre-line respeta los saltos de línea que haya escrito el
@@ -515,6 +527,12 @@ import * as ST from './state.js';
     `;
     const announcement = await fetchLatestAnnouncement(branchId);
     const businessHours = await fetchBranchHours(branchId);
+    const branchSlug = await fetchBranchSlug(branchId);
+    const publicPageBtn = branchSlug ? `
+      <button class="btn-action-drawer btn-copy" style="width:100%; margin-bottom:12px;" onclick='window.nexoBraApp.goToProviderPublicPage(${ST.escAttr(branchSlug)})'>
+        🌐 Ver ficha completa del proveedor
+      </button>
+    ` : '';
 
     const filas = (data || []).map(row => {
       const cls = row.variation_pct === null ? 'equal' : row.variation_pct < -1 ? 'below' : row.variation_pct > 1 ? 'above' : 'equal';
@@ -539,6 +557,7 @@ import * as ST from './state.js';
       <div class="branch-meta">${ST.escapeHtml(branchInfo.branch_name)} · ${ST.escapeHtml(branchInfo.locality)} · ${branchInfo.distance_km.toFixed(1)} km de tu ubicación</div>
       <div style="margin: 4px 0 10px;">${renderStarRating(branchInfo.avg_rating, branchInfo.review_count)}</div>
       ${renderBusinessHours(businessHours)}
+      ${publicPageBtn}
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;">${whatsappLink}${favBtn}${subBtn}</div>
       <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">Variación de precio vs. la mediana de proveedores en ${ST.mapState.radiusKm} km a la redonda:</p>
       ${filas || '<p style="font-size:0.8rem; color:var(--text-muted);">Sin materiales cargados todavía.</p>'}
@@ -995,7 +1014,7 @@ import * as ST from './state.js';
 
     const { data, error } = await ST.supabaseClient
       .from('provider_favorites')
-      .select('id, branch_id, provider_branches(name, locality, whatsapp_phone, providers(business_name))')
+      .select('id, branch_id, provider_branches(name, locality, whatsapp_phone, slug, providers(business_name))')
       .eq('user_id', ST.authState.user.id)
       .order('created_at', { ascending: false });
 
@@ -1026,6 +1045,7 @@ import * as ST from './state.js';
             <span>${ST.escapeHtml(branch.name)} · ${ST.escapeHtml(branch.locality)}</span>
           </div>
           <div class="computation-row-actions">
+            ${branch.slug ? `<button class="btn-computo" style="padding:7px 12px; font-size:0.78rem;" onclick='window.nexoBraApp.goToProviderPublicPage(${ST.escAttr(branch.slug)})'>📄 Ver ficha</button>` : ''}
             ${whatsappUrl ? `<a href="${whatsappUrl}" target="_blank" class="btn-computo" style="padding:7px 12px; font-size:0.78rem; text-decoration:none;">💬 WhatsApp</a>` : ''}
             <button class="danger" onclick="window.nexoBraApp.removeFavorite('${fav.branch_id}')">Quitar</button>
           </div>
@@ -1481,13 +1501,18 @@ import * as ST from './state.js';
     });
     data.forEach(p => { p.announcement = announcementByBranch.get(p.branch_id) || null; });
 
-    // Horario de atención: mismo patrón, bulk-fetch por los branch_id de este resultado.
+    // Horario de atención + slug (para el link a la página pública): mismo
+    // patrón, bulk-fetch por los branch_id de este resultado.
     const { data: hoursRows } = await ST.supabaseClient
       .from('provider_branches')
-      .select('id, business_hours')
+      .select('id, business_hours, slug')
       .in('id', branchIds);
     const hoursByBranch = new Map((hoursRows || []).map(r => [r.id, r.business_hours]));
-    data.forEach(p => { p.business_hours = hoursByBranch.get(p.branch_id) || null; });
+    const slugByBranch = new Map((hoursRows || []).map(r => [r.id, r.slug]));
+    data.forEach(p => {
+      p.business_hours = hoursByBranch.get(p.branch_id) || null;
+      p.slug = slugByBranch.get(p.branch_id) || null;
+    });
 
     directoryDataCache = data;
     renderDirectoryList();
@@ -1545,6 +1570,7 @@ import * as ST from './state.js';
           ${p.description ? `<p style="font-size:0.85rem; color:var(--text-muted);">${ST.escapeHtml(p.description)}</p>` : ''}
           ${p.keywords && p.keywords.length > 0 ? `<div style="margin:4px 0;">${p.keywords.map(k => `<span class="provider-keyword-chip" style="font-size:0.7rem; padding:2px 8px;">${ST.escapeHtml(k)}</span>`).join('')}</div>` : ''}
           <div class="provider-directory-actions">
+            ${p.slug ? `<button class="btn-action-drawer btn-copy" style="font-size:0.78rem;" onclick='window.nexoBraApp.goToProviderPublicPage(${ST.escAttr(p.slug)})'>📄 Ver ficha completa</button>` : ''}
             ${whatsappDigits ? `<a href="https://wa.me/${whatsappDigits}" target="_blank" rel="noopener" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;" onclick="window.nexoBraApp.logProviderInteraction(${ST.escAttr(p.branch_id)}, ${ST.escAttr(p.provider_id)}, 'whatsapp_click', null, null, ${JSON.stringify(p.distance_km ?? null)})">💬 WhatsApp</a>` : ''}
             ${p.website_url ? `<a href="${ST.escapeHtml(p.website_url)}" target="_blank" rel="noopener" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;" onclick="window.nexoBraApp.logProviderInteraction(${ST.escAttr(p.branch_id)}, ${ST.escAttr(p.provider_id)}, 'website_click', null, null, ${JSON.stringify(p.distance_km ?? null)})">🌐 Sitio web</a>` : ''}
           </div>
