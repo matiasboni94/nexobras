@@ -53,8 +53,39 @@ import * as ST from './state.js';
     }
   }
 
+  // URL linda por vista (ej. nexoobra.com.ar/catalogo) -- así el navegador
+  // no vuelve siempre a home al recargar la página o al copiar el link.
+  // "provider-public" queda afuera a propósito: esa ruta lleva un slug
+  // dinámico (/proveedor/<slug>) y ya se resuelve aparte en init(), más
+  // abajo -- no tiene sentido en esta tabla de rutas fijas.
+  const VIEW_ROUTES = {
+    home: '/',
+    catalog: '/catalogo',
+    labor: '/mano-de-obra',
+    'my-computations': '/mis-presupuestos',
+    provider: '/mi-proveedor',
+    favorites: '/favoritos',
+    alerts: '/alertas',
+    admin: '/admin',
+    about: '/quienes-somos',
+    guide: '/guia-de-uso',
+    contact: '/contacto',
+    'providers-directory': '/proveedores',
+  };
+  const PATH_TO_VIEW = Object.fromEntries(Object.entries(VIEW_ROUTES).map(([view, path]) => [path, view]));
+
   export function switchView(viewName, rubroFilter = null, searchString = null) {
     ST.state.currentView = viewName;
+
+    // Si esta vista tiene una URL linda y todavía no estamos ahí, la
+    // agregamos al historial -- así el botón "atrás" del navegador funciona,
+    // y recargar la página no te manda de vuelta a home. Si ya estamos en
+    // esa URL (ej. porque esta llamada vino de resolver el link al cargar,
+    // o de un popstate del propio botón "atrás"), no duplicamos entrada.
+    const targetPath = VIEW_ROUTES[viewName];
+    if (targetPath && window.location.pathname !== targetPath) {
+      history.pushState({ view: viewName }, '', targetPath);
+    }
 
     ST.homeView.style.display = viewName === 'home' ? 'block' : 'none';
     ST.catalogView.style.display = viewName === 'catalog' ? 'block' : 'none';
@@ -544,6 +575,23 @@ import * as ST from './state.js';
 
     // Resuelve el enlace directo, si vino uno (ver chequeo al principio de init())
     if (deepLinkView) switchView(deepLinkView);
+
+    // URL linda (ej. nexoobra.com.ar/catalogo): si la página se abrió o se
+    // recargó directo en una de esas rutas, abrimos esa vista en vez de
+    // quedarnos en home -- mismo mapa VIEW_ROUTES que usa switchView() para
+    // ir "para adelante" (ver más arriba).
+    const pathView = PATH_TO_VIEW[window.location.pathname];
+    if (pathView && pathView !== 'home') switchView(pathView);
+
+    // Botón "atrás"/"adelante" del navegador: re-sincroniza la vista visible
+    // con la URL a la que el navegador ya volvió. No hace falta llamar a
+    // history acá -- el navegador ya cambió la URL antes de disparar este
+    // evento, así que switchView() no vuelve a apilar una entrada (ver el
+    // chequeo de "ya estamos ahí" adentro de switchView).
+    window.addEventListener('popstate', () => {
+      const view = PATH_TO_VIEW[window.location.pathname] || 'home';
+      switchView(view);
+    });
 
     // Página pública de un proveedor (nexoobra.com.ar/proveedor/<slug>) --
     // a diferencia de ?share=TOKEN, esta sí corre TODO el init() de arriba
