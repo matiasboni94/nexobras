@@ -1,0 +1,16 @@
+# NEXOBRA -- Cloudflare Pages: fallback de SPA.
+#
+# El sitio es una sola página (index.html) que muestra/esconde secciones con
+# JavaScript (ver switchView() en js/main.js) -- no hay un archivo .html real
+# para /catalogo, /proveedores, etc. Sin esta regla, entrar directo a esas
+# URLs o recargar la página en ellas tira 404 (Cloudflare busca un archivo
+# físico con ese nombre y no lo encuentra). Esta regla dice: para cualquier
+# ruta que no matchee un archivo real que ya exista (imágenes, css, js,
+# manifest, etc. se siguen sirviendo tal cual, Cloudflare los prioriza antes
+# de aplicar esto), servir index.html con status 200 -- así el navegador
+# recibe el sitio y js/main.js decide qué vista mostrar según la URL.
+#
+# No pisa /proveedor/<slug> -- esa ruta ya la resuelve antes la Cloudflare
+# Pages Function de functions/proveedor/[slug].js (las Functions tienen
+# prioridad sobre esta regla).
+/*  /index.html  200
