@@ -145,6 +145,18 @@ import * as ST from './state.js';
     return data?.business_hours || null;
   }
 
+  /** Fallback de WhatsApp cuando la sucursal no cargó whatsapp_phone -- usa el contact_phone del proveedor (mismo criterio que ya usa el Directorio). */
+  async function fetchProviderContactPhone(providerId) {
+    if (!providerId) return null;
+    const { data, error } = await ST.supabaseClient
+      .from('providers')
+      .select('contact_phone')
+      .eq('id', providerId)
+      .maybeSingle();
+    if (error) return null;
+    return data?.contact_phone || null;
+  }
+
   /** Slug de la sucursal (para el link a su página pública, /proveedor/<slug>) -- mismo patrón que fetchBranchHours. */
   async function fetchBranchSlug(branchId) {
     if (!branchId) return null;
@@ -509,8 +521,12 @@ import * as ST from './state.js';
       return;
     }
 
-    const whatsappLink = branchInfo.whatsapp_phone
-      ? `<a class="branch-whatsapp-btn" target="_blank" href="https://wa.me/${branchInfo.whatsapp_phone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde NEXOBRA para consultar precios.')}">💬 Contactar por WhatsApp</a>`
+    // Fallback a contact_phone cuando la sucursal no cargó whatsapp_phone
+    // (17/09) -- mismo criterio que ya usaba el Directorio; sin esto, un
+    // proveedor con solo contact_phone (ej. HIDEAR) se quedaba sin botón acá.
+    const branchContactPhone = branchInfo.whatsapp_phone || await fetchProviderContactPhone(branchInfo.provider_id);
+    const whatsappLink = branchContactPhone
+      ? `<a class="branch-whatsapp-btn" target="_blank" href="https://wa.me/${branchContactPhone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde NEXOBRA para consultar precios.')}">💬 Contactar por WhatsApp</a>`
       : '';
 
     const esFavorito = ST.favoritesState.ids.has(branchId);
@@ -1551,10 +1567,17 @@ import * as ST from './state.js';
 
     status.textContent = `${filtered.length} proveedor${filtered.length === 1 ? '' : 'es'} encontrado${filtered.length === 1 ? '' : 's'}.`;
 
+    // Rediseño (17/09, a pedido del usuario): la tarjeta entera es ahora el
+    // "botón" que lleva a la ficha completa del proveedor -- antes tenía un
+    // botón aparte "Ver ficha completa" más otros 2 (WhatsApp/Sitio web)
+    // compitiendo adentro de la tarjeta. Acá solo se muestra lo esencial
+    // para elegir (nombre, ubicación, rubro, descripción, estrellas) -- el
+    // contacto por WhatsApp, el sitio web, el horario y el catálogo completo
+    // ya están un click más allá, en la ficha completa.
     container.innerHTML = filtered.map(p => {
-      const whatsappDigits = (p.whatsapp_phone || p.contact_phone) ? (p.whatsapp_phone || p.contact_phone).replace(/\D/g, '') : null;
+      const clickable = p.slug ? `class="provider-directory-card clickable" onclick='window.nexoBraApp.goToProviderPublicPage(${ST.escAttr(p.slug)})' role="button" tabindex="0"` : `class="provider-directory-card"`;
       return `
-        <div class="provider-directory-card">
+        <div ${clickable}>
           <div class="provider-directory-card-header">
             ${p.logo_url ? `<img src="${ST.escapeHtml(p.logo_url)}" alt="">` : ''}
             <div>
@@ -1565,15 +1588,7 @@ import * as ST from './state.js';
           ${p.category_name ? `<span class="provider-directory-category-badge">${p.category_kind === 'services' ? '🛠️' : '📦'} ${ST.escapeHtml(p.category_name)}</span>` : ''}
           ${renderAnnouncementBanner(p.announcement)}
           <div>${renderStarRating(p.avg_rating, p.review_count)}</div>
-          ${renderBusinessHours(p.business_hours)}
-          ${p.matricula ? `<p style="font-size:0.78rem; color:var(--text-muted);"><strong>Matrícula:</strong> ${ST.escapeHtml(p.matricula)}</p>` : ''}
           ${p.description ? `<p style="font-size:0.85rem; color:var(--text-muted);">${ST.escapeHtml(p.description)}</p>` : ''}
-          ${p.keywords && p.keywords.length > 0 ? `<div style="margin:4px 0;">${p.keywords.map(k => `<span class="provider-keyword-chip" style="font-size:0.7rem; padding:2px 8px;">${ST.escapeHtml(k)}</span>`).join('')}</div>` : ''}
-          <div class="provider-directory-actions">
-            ${p.slug ? `<button class="btn-action-drawer btn-copy" style="font-size:0.78rem;" onclick='window.nexoBraApp.goToProviderPublicPage(${ST.escAttr(p.slug)})'>📄 Ver ficha completa</button>` : ''}
-            ${whatsappDigits ? `<a href="https://wa.me/${whatsappDigits}" target="_blank" rel="noopener" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;" onclick="window.nexoBraApp.logProviderInteraction(${ST.escAttr(p.branch_id)}, ${ST.escAttr(p.provider_id)}, 'whatsapp_click', null, null, ${JSON.stringify(p.distance_km ?? null)})">💬 WhatsApp</a>` : ''}
-            ${p.website_url ? `<a href="${ST.escapeHtml(p.website_url)}" target="_blank" rel="noopener" class="btn-action-drawer btn-copy" style="text-decoration:none; font-size:0.78rem;" onclick="window.nexoBraApp.logProviderInteraction(${ST.escAttr(p.branch_id)}, ${ST.escAttr(p.provider_id)}, 'website_click', null, null, ${JSON.stringify(p.distance_km ?? null)})">🌐 Sitio web</a>` : ''}
-          </div>
         </div>
       `;
     }).join('');
@@ -1729,8 +1744,13 @@ import * as ST from './state.js';
     // (antes era un link de texto más grande, "Contactar por WhatsApp" --
     // pedido del 17/09 para que la página pública tenga la misma estética
     // que el resto de las "fichas" de proveedores).
-    const whatsappLink = branch.whatsapp_phone
-      ? `<a class="btn-action-drawer btn-copy" target="_blank" rel="noopener" style="text-decoration:none;" href="https://wa.me/${branch.whatsapp_phone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde tu página de NEXOBRA para consultar precios.')}">💬 WhatsApp</a>`
+    // Fallback a contact_phone (17/09): el Directorio ya lo hacía
+    // (whatsappDigits = whatsapp_phone || contact_phone), pero acá faltaba
+    // -- por eso un proveedor con solo contact_phone cargado (ej. HIDEAR)
+    // se veía sin botón de WhatsApp en la página pública.
+    const contactPhone = branch.whatsapp_phone || provider.contact_phone;
+    const whatsappLink = contactPhone
+      ? `<a class="btn-action-drawer btn-copy" target="_blank" rel="noopener" style="text-decoration:none;" href="https://wa.me/${contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde tu página de NEXOBRA para consultar precios.')}">💬 WhatsApp</a>`
       : '';
     const websiteLink = provider.website_url
       ? `<a class="btn-action-drawer btn-copy" target="_blank" rel="noopener" href="${ST.escapeHtml(provider.website_url)}">🌐 Sitio web</a>`
@@ -1739,6 +1759,25 @@ import * as ST from './state.js';
     const keywordsHtml = (keywordRows || []).length
       ? `<div style="display:flex; flex-wrap:wrap; gap:6px; margin: 10px 0;">${keywordRows.map(k => `<span class="provider-keyword-chip">${ST.escapeHtml(k.keyword)}</span>`).join('')}</div>`
       : '';
+
+    // Sección propia para anuncios/ofertas (17/09, a pedido del usuario) --
+    // antes solo se mostraba como un banner arriba de todo que directamente
+    // desaparecía si no había un anuncio activo (lo mismo que ya hace
+    // renderAnnouncementBanner en el Directorio y en la ficha del mapa,
+    // pensado para no ocupar lugar ahí). Acá, en cambio, la página pública
+    // tiene un "lugar asignado" fijo para esto, con el mismo tratamiento que
+    // la sección de "Lista de precios" de abajo (título + estado vacío).
+    const announcementSection = `
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border-light);">
+        <h4 style="margin-bottom:10px;">📢 Anuncios y ofertas</h4>
+        ${announcement ? `
+          <div class="provider-announcement-banner">
+            <span>${ST.escapeHtml(announcement.message)}</span>
+          </div>
+          <p style="font-size:0.72rem; color:var(--text-subtle); margin-top:6px;">Vence el ${new Date(announcement.expires_at).toLocaleDateString('es-AR')}.</p>
+        ` : '<p style="font-size:0.85rem; color:var(--text-muted);">Este proveedor no tiene anuncios activos por ahora.</p>'}
+      </div>
+    `;
 
     const catalogRows = (offers || []).map(o => `
       <div class="provider-catalog-row">
@@ -1754,7 +1793,6 @@ import * as ST from './state.js';
     `).join('');
 
     container.innerHTML = `
-      ${renderAnnouncementBanner(announcement)}
       <div style="display:flex; align-items:center; gap:14px; margin-bottom:6px;">
         ${provider.logo_url ? `<img src="${ST.escapeHtml(provider.logo_url)}" class="provider-logo-mini" alt="" style="width:56px; height:56px;">` : ''}
         <div>
@@ -1768,6 +1806,7 @@ import * as ST from './state.js';
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">${whatsappLink}${websiteLink}</div>
       ${provider.matricula ? `<p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:8px;">Matrícula: ${ST.escapeHtml(provider.matricula)}</p>` : ''}
       ${keywordsHtml}
+      ${announcementSection}
 
       <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border-light);">
         <h4 style="margin-bottom:10px;">Lista de precios</h4>
