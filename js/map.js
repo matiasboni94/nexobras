@@ -1045,7 +1045,7 @@ import * as ST from './state.js';
             <span>${ST.escapeHtml(branch.name)} · ${ST.escapeHtml(branch.locality)}</span>
           </div>
           <div class="computation-row-actions">
-            ${branch.slug ? `<button class="btn-computo" style="padding:7px 12px; font-size:0.78rem;" onclick='window.nexoBraApp.goToProviderPublicPage(${ST.escAttr(branch.slug)})'>📄 Ver ficha</button>` : ''}
+            ${branch.slug ? `<button class="btn-action-drawer btn-copy" style="padding:7px 12px; font-size:0.78rem;" onclick='window.nexoBraApp.goToProviderPublicPage(${ST.escAttr(branch.slug)})'>📄 Ver ficha</button>` : ''}
             ${whatsappUrl ? `<a href="${whatsappUrl}" target="_blank" class="btn-computo" style="padding:7px 12px; font-size:0.78rem; text-decoration:none;">💬 WhatsApp</a>` : ''}
             <button class="danger" onclick="window.nexoBraApp.removeFavorite('${fav.branch_id}')">Quitar</button>
           </div>
