@@ -1725,8 +1725,12 @@ import * as ST from './state.js';
       fetchLatestAnnouncement(branch.id),
     ]);
 
+    // Mismo botón compacto que ya se usa en las tarjetas del Directorio
+    // (antes era un link de texto más grande, "Contactar por WhatsApp" --
+    // pedido del 17/09 para que la página pública tenga la misma estética
+    // que el resto de las "fichas" de proveedores).
     const whatsappLink = branch.whatsapp_phone
-      ? `<a class="branch-whatsapp-btn" target="_blank" href="https://wa.me/${branch.whatsapp_phone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde tu página de NEXOBRA para consultar precios.')}">💬 Contactar por WhatsApp</a>`
+      ? `<a class="btn-action-drawer btn-copy" target="_blank" rel="noopener" style="text-decoration:none;" href="https://wa.me/${branch.whatsapp_phone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde tu página de NEXOBRA para consultar precios.')}">💬 WhatsApp</a>`
       : '';
     const websiteLink = provider.website_url
       ? `<a class="btn-action-drawer btn-copy" target="_blank" rel="noopener" href="${ST.escapeHtml(provider.website_url)}">🌐 Sitio web</a>`
