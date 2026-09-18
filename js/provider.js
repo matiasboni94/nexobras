@@ -1038,6 +1038,14 @@ import * as ST from './state.js';
     const bodyEl = document.getElementById('provider-stats-body');
     if (!summaryEl || !bodyEl || !ST.providerState.provider) return;
 
+    // El mes del informe descargable arranca en el mes actual (no se pisa si
+    // el proveedor ya había elegido otro antes de que se recargue el panel).
+    const reportMonthInput = document.getElementById('provider-report-month');
+    if (reportMonthInput && !reportMonthInput.value) {
+      const now = new Date();
+      reportMonthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+
     summaryEl.innerHTML = '';
     bodyEl.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Calculando...</p>';
 
@@ -1113,6 +1121,237 @@ import * as ST from './state.js';
       <h4 class="provider-subsection-title">Histórico mensual (últimos 12 meses)</h4>
       ${porMes.length ? porMes.map(m => barRow(m.mes, m.cantidad, maxMes)).join('') : '<p style="font-size:0.8rem; color:var(--text-muted);">Sin datos todavía.</p>'}
     `;
+  }
+
+  // --- INFORME MENSUAL EN PDF (18/09) ---
+  // Arma un PDF con el resumen de UN mes calendario puntual (a diferencia del
+  // dashboard de arriba, que siempre muestra ventanas móviles de 30/90 días).
+  // jsPDF se carga bajo demanda (ST.ensurePdfLibsLoaded) -- recién cuando el
+  // proveedor efectivamente pide el informe, para no cargar esa librería en
+  // cada visita al panel.
+  const MESES_REPORTE = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const DISTANCIA_LABELS_REPORTE = { '0-5km': '0 a 5 km', '5-15km': '5 a 15 km', '15-30km': '15 a 30 km', '30km+': 'Más de 30 km', 'sin_datos': 'Sin datos de distancia' };
+  const EVENT_TYPE_LABELS_REPORTE = { offer_view: 'Vistas de una oferta puntual', directory_view: 'Vistas en el Directorio', whatsapp_click: 'Clicks a WhatsApp', website_click: 'Clicks al sitio web' };
+
+  /** Dibuja una fila "barra horizontal" simple en el PDF, mismo criterio visual que barRow() en la pantalla. */
+  function pdfBarRow(doc, x, y, width, label, cantidad, maxCantidad) {
+    const labelWidth = 62;
+    const valueWidth = 12;
+    const trackWidth = width - labelWidth - valueWidth - 6;
+    const trackX = x + labelWidth;
+
+    doc.setFontSize(8.5);
+    doc.setTextColor(30, 34, 41);
+    doc.text(String(label), x, y + 3.2, { maxWidth: labelWidth - 2 });
+
+    doc.setFillColor(230, 232, 236);
+    doc.roundedRect(trackX, y, trackWidth, 4, 1, 1, 'F');
+
+    const pct = maxCantidad > 0 ? Math.max(0.04, cantidad / maxCantidad) : 0;
+    if (pct > 0) {
+      doc.setFillColor(245, 176, 0);
+      doc.roundedRect(trackX, y, trackWidth * pct, 4, 1, 1, 'F');
+    }
+
+    doc.setFontSize(8.5);
+    doc.text(String(cantidad), trackX + trackWidth + 3, y + 3.2, { align: 'left' });
+
+    return y + 7.5;
+  }
+
+  function pdfSectionTitle(doc, x, y, text) {
+    doc.setFontSize(10.5);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(30, 34, 41);
+    doc.text(text, x, y);
+    doc.setFont(undefined, 'normal');
+    return y + 6;
+  }
+
+  function buildProviderMonthlyReportPdf(provider, stats, year, month) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginX = 16;
+    const contentWidth = pageWidth - marginX * 2;
+    let y = 0;
+
+    // Encabezado con la marca
+    doc.setFillColor(30, 34, 41);
+    doc.rect(0, 0, pageWidth, 28, 'F');
+    doc.setTextColor(245, 176, 0);
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text('NEXOBRA', marginX, 13);
+    doc.setFontSize(9.5);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont(undefined, 'normal');
+    doc.text('Informe mensual de consultas', marginX, 20);
+
+    y = 38;
+    doc.setTextColor(30, 34, 41);
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text(provider.business_name || 'Proveedor', marginX, y);
+    y += 6.5;
+    doc.setFontSize(10.5);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(94, 105, 119);
+    doc.text(`Período: ${MESES_REPORTE[month]} ${year}`, marginX, y);
+    y += 4.5;
+    doc.text(`Generado el ${new Date().toLocaleDateString('es-AR')}`, marginX, y);
+    y += 9;
+
+    // Aclaración importante: consultas, no ventas
+    doc.setFillColor(255, 248, 231);
+    doc.setDrawColor(252, 225, 153);
+    doc.roundedRect(marginX, y, contentWidth, 12, 2, 2, 'FD');
+    doc.setFontSize(8);
+    doc.setTextColor(30, 34, 41);
+    doc.text(
+      'NEXOBRA registra consultas (vistas y clicks a WhatsApp), no ventas confirmadas. "Material más consultado" no equivale a "material más vendido".',
+      marginX + 4, y + 5, { maxWidth: contentWidth - 8, lineHeightFactor: 1.35 }
+    );
+    y += 20;
+
+    // KPIs principales
+    const total = stats.total_events || 0;
+    const totalPrev = stats.total_events_prev_month || 0;
+    let variacionTxt = 'Sin datos del mes anterior';
+    if (totalPrev > 0) {
+      const variacion = Math.round(((total - totalPrev) / totalPrev) * 100);
+      variacionTxt = `${variacion > 0 ? '+' : ''}${variacion}% vs. mes anterior`;
+    } else if (total > 0) {
+      variacionTxt = 'Mes anterior sin consultas';
+    }
+    const rating = stats.rating || {};
+    const ratingTxt = rating.review_count ? `${rating.avg_rating} ★ (${rating.review_count} reseña${rating.review_count === 1 ? '' : 's'})` : 'Sin reseñas';
+
+    const kpis = [
+      { label: 'Consultas totales', value: String(total), sub: variacionTxt },
+      { label: 'Clicks a WhatsApp', value: String(stats.whatsapp_clicks || 0), sub: 'en el período' },
+      { label: 'Valoración', value: ratingTxt, sub: 'promedio general' },
+    ];
+    const kpiWidth = (contentWidth - 12) / 3;
+    kpis.forEach((kpi, i) => {
+      const kx = marginX + i * (kpiWidth + 6);
+      doc.setFillColor(247, 245, 240);
+      doc.roundedRect(kx, y, kpiWidth, 22, 2, 2, 'F');
+      doc.setFontSize(13);
+      doc.setFont(undefined, 'bold');
+      doc.setTextColor(30, 34, 41);
+      doc.text(kpi.value, kx + 4, y + 9, { maxWidth: kpiWidth - 8 });
+      doc.setFontSize(7.5);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(94, 105, 119);
+      doc.text(kpi.label, kx + 4, y + 14.5, { maxWidth: kpiWidth - 8 });
+      doc.text(kpi.sub, kx + 4, y + 19, { maxWidth: kpiWidth - 8 });
+    });
+    y += 30;
+
+    if (total === 0) {
+      doc.setFontSize(9.5);
+      doc.setTextColor(94, 105, 119);
+      doc.text('No hubo consultas registradas en este período.', marginX, y);
+      doc.save(`nexobra-informe-${provider.business_name ? provider.business_name.replace(/[^a-z0-9]+/gi, '-').toLowerCase() : 'proveedor'}-${year}-${String(month).padStart(2, '0')}.pdf`);
+      return;
+    }
+
+    // Por tipo de interacción
+    const byEventType = stats.by_event_type || [];
+    if (byEventType.length) {
+      y = pdfSectionTitle(doc, marginX, y, 'Consultas por tipo');
+      const maxEvent = Math.max(1, ...byEventType.map(e => e.cantidad));
+      byEventType.forEach(e => {
+        y = pdfBarRow(doc, marginX, y, contentWidth, EVENT_TYPE_LABELS_REPORTE[e.event_type] || e.event_type, e.cantidad, maxEvent);
+      });
+      y += 5;
+    }
+
+    // Por distancia
+    const porDistancia = stats.by_distance || [];
+    if (porDistancia.length) {
+      const ordenDistancia = ['0-5km', '5-15km', '15-30km', '30km+', 'sin_datos'];
+      const distanciaOrdenada = ordenDistancia.map(r => porDistancia.find(d => d.rango === r)).filter(Boolean);
+      if (distanciaOrdenada.length) {
+        y = pdfSectionTitle(doc, marginX, y, 'Consultas por distancia');
+        const maxDistancia = Math.max(1, ...distanciaOrdenada.map(r => r.cantidad));
+        distanciaOrdenada.forEach(r => {
+          y = pdfBarRow(doc, marginX, y, contentWidth, DISTANCIA_LABELS_REPORTE[r.rango] || r.rango, r.cantidad, maxDistancia);
+        });
+        y += 5;
+      }
+    }
+
+    // Materiales más consultados
+    const topMateriales = stats.top_materials || [];
+    if (topMateriales.length) {
+      if (y > 250) { doc.addPage(); y = 20; }
+      y = pdfSectionTitle(doc, marginX, y, 'Materiales/servicios más consultados');
+      const maxMaterial = Math.max(1, ...topMateriales.map(m => m.cantidad));
+      topMateriales.forEach(m => {
+        if (y > 275) { doc.addPage(); y = 20; }
+        y = pdfBarRow(doc, marginX, y, contentWidth, m.material_name || '(sin nombre)', m.cantidad, maxMaterial);
+      });
+    }
+
+    // Pie de página en todas las hojas
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= pageCount; p++) {
+      doc.setPage(p);
+      doc.setFontSize(7.5);
+      doc.setTextColor(138, 150, 166);
+      doc.text('Generado automáticamente por NEXOBRA · nexobra.com.ar', marginX, 290);
+    }
+
+    const fileSlug = (provider.business_name || 'proveedor').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    doc.save(`nexobra-informe-${fileSlug}-${year}-${String(month).padStart(2, '0')}.pdf`);
+  }
+
+  export async function downloadProviderMonthlyReport() {
+    const statusEl = document.getElementById('provider-report-status');
+    const monthInput = document.getElementById('provider-report-month');
+    const provider = ST.providerState.provider;
+    if (!provider) return;
+
+    if (!monthInput || !monthInput.value) {
+      if (statusEl) { statusEl.style.color = '#b91c1c'; statusEl.textContent = 'Elegí un mes primero.'; }
+      return;
+    }
+
+    const [yearStr, monthStr] = monthInput.value.split('-');
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+
+    if (statusEl) { statusEl.style.color = 'var(--text-muted)'; statusEl.textContent = 'Generando el PDF...'; }
+
+    let data, error;
+    try {
+      [{ data, error }] = await Promise.all([
+        ST.supabaseClient.rpc('get_provider_monthly_report', {
+          p_provider_id: provider.id,
+          p_year: year,
+          p_month: month
+        }),
+        ST.ensurePdfLibsLoaded()
+      ]);
+    } catch (err) {
+      if (statusEl) { statusEl.style.color = '#b91c1c'; statusEl.textContent = err.message || 'No se pudo generar el PDF.'; }
+      return;
+    }
+
+    if (error) {
+      if (statusEl) { statusEl.style.color = '#b91c1c'; statusEl.textContent = ST.friendlyError(error, 'generar el informe mensual'); }
+      return;
+    }
+
+    try {
+      buildProviderMonthlyReportPdf(provider, data || {}, year, month);
+      if (statusEl) { statusEl.style.color = 'var(--text-muted)'; statusEl.textContent = 'Listo, se descargó el PDF.'; }
+    } catch (err) {
+      console.error('[NEXOBRA] Error armando el PDF del informe mensual:', err);
+      if (statusEl) { statusEl.style.color = '#b91c1c'; statusEl.textContent = 'No se pudo armar el PDF. Probá de nuevo.'; }
+    }
   }
 
   // --- OFERTAS POR MAIL A SUSCRIPTORES (broadcast manual del proveedor) ---

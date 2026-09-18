@@ -190,6 +190,26 @@
   }
 
   /**
+   * Igual que ensureXlsxLoaded/ensureChartJsLoaded, pero para jsPDF -- solo
+   * hace falta cuando un proveedor descarga su informe mensual en PDF desde
+   * su panel, así que no tiene sentido cargarlo en cada visita al sitio.
+   * Expone window.jspdf.jsPDF una vez cargado.
+   */
+  let pdfLibsLoadPromise = null;
+  export function ensurePdfLibsLoaded() {
+    if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve();
+    if (pdfLibsLoadPromise) return pdfLibsLoadPromise;
+    pdfLibsLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('No se pudo cargar el generador de PDF. Revisá tu conexión e intentá de nuevo.'));
+      document.head.appendChild(script);
+    });
+    return pdfLibsLoadPromise;
+  }
+
+  /**
    * Para mostrar un error de la base al usuario SIN exponer el mensaje
    * técnico crudo de Postgres/Supabase (que puede ser confuso o revelar de
    * más). El error real queda en la consola del navegador, para quien

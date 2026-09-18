@@ -525,8 +525,11 @@ import * as ST from './state.js';
     // (17/09) -- mismo criterio que ya usaba el Directorio; sin esto, un
     // proveedor con solo contact_phone (ej. HIDEAR) se quedaba sin botón acá.
     const branchContactPhone = branchInfo.whatsapp_phone || await fetchProviderContactPhone(branchInfo.provider_id);
+    // (18/09) Este botón no estaba registrando 'whatsapp_click' -- se había
+    // perdido al rediseñar el Directorio. Sin este log, la estadística
+    // "Clicks a WhatsApp" del panel del proveedor queda incompleta.
     const whatsappLink = branchContactPhone
-      ? `<a class="branch-whatsapp-btn" target="_blank" href="https://wa.me/${branchContactPhone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde NEXOBRA para consultar precios.')}">💬 Contactar por WhatsApp</a>`
+      ? `<a class="branch-whatsapp-btn" target="_blank" rel="noopener" onclick="window.nexoBraApp.logProviderInteraction(${ST.escAttr(branchId)}, ${ST.escAttr(branchInfo.provider_id)}, 'whatsapp_click', null, null, ${JSON.stringify(branchInfo.distance_km ?? null)})" href="https://wa.me/${branchContactPhone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde NEXOBRA para consultar precios.')}">💬 Contactar por WhatsApp</a>`
       : '';
 
     const esFavorito = ST.favoritesState.ids.has(branchId);
@@ -1749,8 +1752,11 @@ import * as ST from './state.js';
     // -- por eso un proveedor con solo contact_phone cargado (ej. HIDEAR)
     // se veía sin botón de WhatsApp en la página pública.
     const contactPhone = branch.whatsapp_phone || provider.contact_phone;
+    // (18/09) Igual que en showBranchDetail: este botón tampoco registraba
+    // 'whatsapp_click' -- se había perdido al rediseñar el Directorio. Acá no
+    // hay distancia (esta página no depende de la ubicación de quien la ve).
     const whatsappLink = contactPhone
-      ? `<a class="btn-action-drawer btn-copy" target="_blank" rel="noopener" style="text-decoration:none;" href="https://wa.me/${contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde tu página de NEXOBRA para consultar precios.')}">💬 WhatsApp</a>`
+      ? `<a class="btn-action-drawer btn-copy" target="_blank" rel="noopener" style="text-decoration:none;" onclick="window.nexoBraApp.logProviderInteraction(${ST.escAttr(branch.id)}, ${ST.escAttr(branch.provider_id)}, 'whatsapp_click', null, null, null)" href="https://wa.me/${contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde tu página de NEXOBRA para consultar precios.')}">💬 WhatsApp</a>`
       : '';
     const websiteLink = provider.website_url
       ? `<a class="btn-action-drawer btn-copy" target="_blank" rel="noopener" href="${ST.escapeHtml(provider.website_url)}">🌐 Sitio web</a>`
