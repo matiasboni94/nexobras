@@ -1596,6 +1596,18 @@
           </p>
           <div id="provider-stats-summary" class="provider-stats-summary-cards"></div>
           <div id="provider-stats-body"><!-- se completa con loadProviderInteractionStats() --></div>
+
+          <div style="margin-top:18px; padding-top:16px; border-top:1px solid var(--border-light);">
+            <h4 style="margin-bottom:6px;">📄 Informe mensual</h4>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+              Descargá un PDF con el resumen de un mes puntual: cantidad de consultas, clicks a WhatsApp, materiales más consultados y de dónde te contactan. Ojo: NEXOBRA registra consultas, no ventas -- "material más consultado" no es lo mismo que "material más vendido".
+            </p>
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px;">
+              <input type="month" id="provider-report-month" class="form-input" style="max-width:180px;">
+              <button type="button" class="btn-action-drawer btn-copy" onclick="window.nexoBraApp.downloadProviderMonthlyReport()">📄 Descargar informe (PDF)</button>
+            </div>
+            <div id="provider-report-status" style="font-size:0.78rem; color:var(--text-muted); margin-top:8px;"></div>
+          </div>
         </div>
       </details>
     </div>
