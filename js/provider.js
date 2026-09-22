@@ -933,6 +933,15 @@ import * as ST from './state.js';
         () => ST.showToast('No se pudo copiar — copialo a mano: ' + text)
       );
     });
+    // (22/09) "Compartir": abre el selector nativo (WhatsApp/Instagram/mail
+    // aparecen solos ahí) cuando el navegador lo soporta -- si no, cae a
+    // copiar el link, igual que el botón de al lado.
+    const btnShareProviderLink = document.getElementById('btn-share-provider-link');
+    if (btnShareProviderLink) btnShareProviderLink.addEventListener('click', () => {
+      const text = document.getElementById('provider-public-link-text').textContent;
+      const businessName = document.getElementById('prov-business-name')?.value.trim();
+      ST.shareOrCopyLink(`https://${text}`, businessName ? `${businessName} | NEXOBRA` : 'NEXOBRA', 'Mirá mi ficha y mi lista de precios en NEXOBRA:');
+    });
     const providerLogoInput = document.getElementById('provider-logo-input');
     if (providerLogoInput) providerLogoInput.addEventListener('change', (e) => {
       if (e.target.files[0]) uploadProviderLogo(e.target.files[0]);

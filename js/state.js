@@ -293,6 +293,32 @@
     return new Intl.NumberFormat('es-AR').format(n);
   }
 
+  // (22/09) Comparte una URL usando el selector nativo del celular/navegador
+  // (WhatsApp, Instagram, mail, etc. aparecen solos ahí) cuando está
+  // disponible -- si no (la mayoría de las notebooks/PC de escritorio no lo
+  // soportan), cae a copiar el link al portapapeles, mismo comportamiento
+  // que ya tenían los botones "🔗 Copiar link". `title`/`text` son
+  // opcionales, van en el mensaje que arma el selector nativo (ej. WhatsApp
+  // los usa como el texto que acompaña al link).
+  export function shareOrCopyLink(url, title = 'NEXOBRA', text = '') {
+    if (navigator.share) {
+      navigator.share({ title, text, url }).catch((err) => {
+        // AbortError: el usuario cerró el selector sin elegir nada -- no es un error real, no mostrar nada.
+        if (err && err.name !== 'AbortError') {
+          navigator.clipboard.writeText(url).then(
+            () => showToast('No se pudo abrir el selector — copiamos el link al portapapeles.'),
+            () => showToast('No se pudo compartir ni copiar — copialo a mano: ' + url)
+          );
+        }
+      });
+      return;
+    }
+    navigator.clipboard.writeText(url).then(
+      () => showToast('Tu navegador no tiene selector de compartir — copiamos el link al portapapeles.'),
+      () => showToast('No se pudo copiar — copialo a mano: ' + url)
+    );
+  }
+
   export function formatMoney(amount) {
     if (isNaN(amount)) return '$ 0,00';
     return new Intl.NumberFormat('es-AR', {

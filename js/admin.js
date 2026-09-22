@@ -871,6 +871,13 @@ export function setupAdminListeners() {
       () => ST.showToast('No se pudo copiar — copialo a mano: ' + text)
     );
   });
+  // (22/09) Mismo botón "Compartir" que "Mi Proveedor" -- acá el admin lo usa para pasarle el link ya armado al proveedor por el medio que sea.
+  const btnShareAdminProviderLink = document.getElementById('btn-admin-share-provider-link');
+  if (btnShareAdminProviderLink) btnShareAdminProviderLink.addEventListener('click', () => {
+    const text = document.getElementById('admin-prov-public-link-text').textContent;
+    const businessName = document.getElementById('admin-prov-business-name')?.value.trim();
+    ST.shareOrCopyLink(`https://${text}`, businessName ? `${businessName} | NEXOBRA` : 'NEXOBRA', 'Mirá esta ficha y su lista de precios en NEXOBRA:');
+  });
 }
 
 export function loadAdminPanel() {

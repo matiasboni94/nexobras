@@ -614,8 +614,16 @@ import * as ST from './state.js';
     `;
   }
 
-  export async function loadBranchReviews(branchId, providerId) {
-    const container = document.getElementById('branch-reviews-body');
+  // (22/09) containerId/prefix opcionales: por defecto usa los ids de
+  // siempre (la ficha del mapa), pero permiten reusar TODA esta lógica de
+  // reseñas en otro lugar de la página (ej. la página pública del
+  // proveedor) sin duplicar código -- mismo criterio que ya se usa para
+  // anuncios (fetchLatestAnnouncement/renderAnnouncementBanner, ver
+  // advertencia #22). El prefix evita ids repetidos en la página cuando los
+  // dos bloques (ficha del mapa + página pública) existen a la vez en el
+  // DOM, aunque uno esté oculto -- ver advertencia #20.
+  export async function loadBranchReviews(branchId, providerId, containerId = 'branch-reviews-body', prefix = 'review') {
+    const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '<p style="font-size:0.8rem; color:var(--text-muted); margin-top:10px;">Cargando reseñas...</p>';
 
@@ -667,20 +675,20 @@ import * as ST from './state.js';
     ` : `
       <div class="review-form" style="margin-top:14px;">
         <label style="font-size:0.78rem; font-weight:700; display:block; margin-bottom:6px;">Tu calificación</label>
-        <div class="review-star-picker" id="review-star-picker" data-value="0">
-          ${[1,2,3,4,5].map(n => `<span class="review-star-option" data-star="${n}" onclick="window.nexoBraApp.setReviewStars(${n})">☆</span>`).join('')}
+        <div class="review-star-picker" id="${prefix}-star-picker" data-value="0">
+          ${[1,2,3,4,5].map(n => `<span class="review-star-option" data-star="${n}" onclick="window.nexoBraApp.setReviewStars(${n}, '${prefix}')">☆</span>`).join('')}
         </div>
-        <textarea id="review-comment-input" class="form-select" placeholder="Comentario corto (opcional)" rows="2" maxlength="300" style="width:100%; margin-top:8px; resize:vertical;" oninput="document.getElementById('review-char-count').textContent = this.value.length"></textarea>
-        <span id="review-char-count" style="font-size:0.7rem; color:var(--text-subtle); float:right;">0</span>/300
-        <button class="btn-computo" style="margin-top:8px; width:100%; justify-content:center;" onclick="window.nexoBraApp.submitReview(${ST.escAttr(providerId)}, ${ST.escAttr(branchId)})">Publicar reseña</button>
+        <textarea id="${prefix}-comment-input" class="form-select" placeholder="Comentario corto (opcional)" rows="2" maxlength="300" style="width:100%; margin-top:8px; resize:vertical;" oninput="document.getElementById('${prefix}-char-count').textContent = this.value.length"></textarea>
+        <span id="${prefix}-char-count" style="font-size:0.7rem; color:var(--text-subtle); float:right;">0</span>/300
+        <button class="btn-computo" style="margin-top:8px; width:100%; justify-content:center;" onclick="window.nexoBraApp.submitReview(${ST.escAttr(providerId)}, ${ST.escAttr(branchId)}, '${containerId}', '${prefix}')">Publicar reseña</button>
       </div>
     `;
 
     container.innerHTML = reviewsHtml + formHtml;
   }
 
-  export function setReviewStars(n) {
-    const picker = document.getElementById('review-star-picker');
+  export function setReviewStars(n, prefix = 'review') {
+    const picker = document.getElementById(`${prefix}-star-picker`);
     if (!picker) return;
     picker.dataset.value = n;
     picker.querySelectorAll('.review-star-option').forEach((el, idx) => {
@@ -688,18 +696,18 @@ import * as ST from './state.js';
     });
   }
 
-  export async function submitReview(providerId, branchId) {
+  export async function submitReview(providerId, branchId, containerId = 'branch-reviews-body', prefix = 'review') {
     if (!ST.authState.user) {
       ST.showToast('Iniciá sesión para dejar una reseña.');
       return;
     }
-    const picker = document.getElementById('review-star-picker');
+    const picker = document.getElementById(`${prefix}-star-picker`);
     const rating = parseInt(picker?.dataset.value || '0', 10);
     if (rating < 1) {
       ST.showToast('Elegí de 1 a 5 estrellas.');
       return;
     }
-    const comment = document.getElementById('review-comment-input')?.value.trim() || null;
+    const comment = document.getElementById(`${prefix}-comment-input`)?.value.trim() || null;
 
     const { error } = await ST.supabaseClient
       .from('provider_reviews')
@@ -710,7 +718,7 @@ import * as ST from './state.js';
       return;
     }
     ST.showToast('¡Gracias por tu reseña!');
-    loadBranchReviews(branchId, providerId);
+    loadBranchReviews(branchId, providerId, containerId, prefix);
   }
 
   export async function reportReview(reviewId) {
@@ -1784,8 +1792,10 @@ import * as ST from './state.js';
     const whatsappLink = contactPhone
       ? `<a class="btn-action-drawer btn-copy" target="_blank" rel="noopener" style="text-decoration:none;" onclick="window.nexoBraApp.logProviderInteraction(${ST.escAttr(branch.id)}, ${ST.escAttr(branch.provider_id)}, 'whatsapp_click', null, null, null)" href="https://wa.me/${contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde tu página de NEXOBRA para consultar precios.')}">💬 WhatsApp</a>`
       : '';
+    // (22/09) Le faltaba "text-decoration:none;" -- por eso se veía subrayado
+    // (a diferencia del de WhatsApp, que ya lo tenía desde siempre).
     const websiteLink = provider.website_url
-      ? `<a class="btn-action-drawer btn-copy" target="_blank" rel="noopener" href="${ST.escapeHtml(provider.website_url)}">🌐 Sitio web</a>`
+      ? `<a class="btn-action-drawer btn-copy" target="_blank" rel="noopener" style="text-decoration:none;" href="${ST.escapeHtml(provider.website_url)}">🌐 Sitio web</a>`
       : '';
 
     const keywordsHtml = (keywordRows || []).length
@@ -1845,9 +1855,26 @@ import * as ST from './state.js';
         ${catalogRows || '<p style="font-size:0.85rem; color:var(--text-muted);">Este proveedor todavía no cargó materiales.</p>'}
       </div>
 
+      <div id="provider-public-reviews-section" style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border-light);">
+        <h4 style="margin-bottom:10px;">⭐ Reseñas</h4>
+        <div id="provider-public-reviews-body"><p style="font-size:0.85rem; color:var(--text-muted);">Cargando reseñas...</p></div>
+      </div>
+
       <div style="margin-top:24px; padding:16px; border-radius:var(--radius-md,10px); background:var(--bg-subtle, #f5f5f0); text-align:center;">
         <p style="font-size:0.85rem; margin-bottom:10px;">Esta es la página pública de ${ST.escapeHtml(provider.business_name)} en <strong>NEXOBRA</strong>, el comparador técnico de precios de la construcción.</p>
         <button class="btn-action-drawer" onclick="window.nexoBraApp.switchView('providers-directory')">Ver más proveedores cerca tuyo</button>
       </div>
     `;
+
+    // (22/09) Reseñas de esta sucursal -- reusa la misma lógica de
+    // loadBranchReviews/setReviewStars/submitReview que ya usa la ficha del
+    // mapa (ver esas funciones más arriba), pero con ids propios
+    // ('provider-public-reviews-body' / prefijo 'ppr') para no chocar con
+    // los ids fijos de la ficha del mapa (branch-reviews-body / review-*),
+    // que conviven en el mismo DOM aunque estén ocultos -- ver advertencia
+    // #20. A diferencia de la ficha del mapa (que las carga recién al
+    // tocar "Ver / dejar una reseña", para no gastar una consulta de más
+    // mientras se navega el mapa), acá se cargan directo: esta es una
+    // página dedicada a un solo proveedor, tiene sentido mostrarlas de una.
+    loadBranchReviews(branch.id, branch.provider_id, 'provider-public-reviews-body', 'ppr');
   }
