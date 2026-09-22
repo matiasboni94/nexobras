@@ -109,3 +109,17 @@
 .provider-keyword-chip button:hover{color:#b91c1c}
 .directory-search-suggestions{background:var(--surface-1,#f7f5f0);border:1px solid var(--border-light,#eee);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:.85rem}
 .catalog-provider-suggestion{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--brand-yellow-light);border:1px solid var(--brand-yellow-border);border-radius:12px;padding:12px 16px;margin-bottom:1.25rem;flex-wrap:wrap}
+
+/* Contadores del home (22/09): proveedores de materiales/servicios, usuarios
+   registrados, visitas a la web -- 4 tarjetas chicas debajo de la bajada del
+   hero. Mismo criterio visual que .provider-stats-card (Mi Proveedor), para
+   no inventar un estilo de "tarjeta con número" nuevo. */
+.home-stats-row{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;margin-top:2rem;max-width:900px;margin-left:auto;margin-right:auto}
+.home-stat-tile{background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-lg);padding:1.1rem 1.4rem;min-width:150px;flex:1 1 150px;text-align:center;box-shadow:var(--shadow-sm)}
+.home-stat-tile strong{display:block;font-size:1.9rem;font-weight:900;color:var(--brand-yellow);letter-spacing:-0.5px;line-height:1.1}
+.home-stat-tile span{display:block;font-size:.78rem;font-weight:600;color:var(--text-muted);margin-top:4px}
+@media (max-width:640px){
+  .home-stats-row{gap:10px}
+  .home-stat-tile{min-width:130px;padding:.9rem 1rem}
+  .home-stat-tile strong{font-size:1.5rem}
+}
