@@ -90,7 +90,20 @@ export default {
 
     if (match) {
       const slug = decodeURIComponent(match[1]);
-      const assetUrl = new URL('/index.html', request.url);
+      // OJO (22/09): acá antes decía new URL('/index.html', request.url) --
+      // eso era el bug real de "/proveedor/<slug> redirige al home". Cloudflare
+      // normaliza automáticamente /index.html -> / (redirect 308) en el
+      // manejo de assets estáticos (el mismo comportamiento que ya había
+      // roto el archivo _redirects el 17/09, ver advertencia #26 del estado
+      // del proyecto) -- así que env.ASSETS.fetch() para "/index.html" NO
+      // devolvía el HTML de la página, devolvía un redirect a "/". Ese
+      // redirect (no el HTML) es lo que buildProviderPreview() terminaba
+      // reenviando tal cual al visitante -- por eso la URL se perdía ANTES
+      // de que corriera cualquier JS, tanto con un slug real como con uno
+      // inventado (nunca llegaba a importar si Supabase encontraba el
+      // proveedor o no). Pidiendo "/" en vez de "/index.html" se evita la
+      // normalización y esto sirve el HTML real, con status 200, sin redirect.
+      const assetUrl = new URL('/', request.url);
       const originalResponse = await env.ASSETS.fetch(new Request(assetUrl, request));
       return buildProviderPreview(slug, request, originalResponse);
     }
