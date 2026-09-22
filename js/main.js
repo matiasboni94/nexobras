@@ -223,6 +223,9 @@ import * as ST from './state.js';
         if (ST.mapState.map) ST.mapState.map.invalidateSize();
         MapModule.loadNearbyBranchesOnMap();
       }, 50);
+      // Contadores del home (proveedores, usuarios, visitas) -- se refrescan
+      // cada vez que se vuelve al home, mismo criterio que el mapa.
+      MapModule.loadHomeStats();
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -290,6 +293,12 @@ import * as ST from './state.js';
       if (ST.mapState.map) ST.mapState.map.invalidateSize();
       MapModule.loadNearbyBranchesOnMap();
     }, 300);
+
+    // Contadores del home + registro de la visita (una vez por pestaña,
+    // ver ST.logSiteVisit) -- el home es la vista por defecto al cargar,
+    // así que esto también va acá, no solo dentro de switchView('home').
+    MapModule.loadHomeStats();
+    ST.logSiteVisit();
 
     // Botón de tema claro/oscuro
     setupThemeToggle();

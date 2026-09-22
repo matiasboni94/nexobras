@@ -460,6 +460,32 @@ import * as ST from './state.js';
     loadNearbyBranchesOnMap();
   }
 
+  /**
+   * Contadores del home ("proveedores de materiales", "proveedores de
+   * servicios", "usuarios registrados", "visitas a la web"). Se llama al
+   * arrancar la app y cada vez que se vuelve al home (mismo criterio que el
+   * mapa, que también se refresca en los dos casos) -- así el número de
+   * visitas se ve actualizado sin tener que recargar la página entera.
+   * Si algo falla, deja los contadores en "–" en vez de romper el home.
+   */
+  export async function loadHomeStats() {
+    if (!ST.supabaseClient) return;
+    const ids = ['home-stat-materiales', 'home-stat-servicios', 'home-stat-usuarios', 'home-stat-visitas'];
+    if (!ids.every(id => document.getElementById(id))) return;
+
+    const { data, error } = await ST.supabaseClient.rpc('get_home_stats');
+    if (error) {
+      console.warn('No se pudieron cargar los contadores del home:', error.message);
+      return;
+    }
+
+    const stats = data || {};
+    document.getElementById('home-stat-materiales').textContent = ST.formatInt(stats.proveedores_materiales);
+    document.getElementById('home-stat-servicios').textContent = ST.formatInt(stats.proveedores_servicios);
+    document.getElementById('home-stat-usuarios').textContent = ST.formatInt(stats.usuarios_registrados);
+    document.getElementById('home-stat-visitas').textContent = ST.formatInt(stats.visitas_web);
+  }
+
   export async function loadNearbyBranchesOnMap() {
     if (!ST.supabaseClient || !ST.mapState.map) return;
     ST.mapStatusMsg.textContent = 'Buscando proveedores cercanos...';

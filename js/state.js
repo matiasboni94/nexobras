@@ -265,6 +265,34 @@
     });
   }
 
+  /**
+   * Registra UNA visita a la web, para el contador del home ("Visitas a la
+   * web"). Se cuenta una vez por pestaña/sesión de navegador (guardado en
+   * sessionStorage), no una por cada cambio de vista dentro de la SPA --
+   * cambiar de "Catálogo" a "Proveedores" no es una visita nueva. Igual que
+   * logProviderInteraction: fire-and-forget, funciona sin login, si falla
+   * no rompe nada visible para el usuario.
+   */
+  export function logSiteVisit() {
+    if (!supabaseClient) return;
+    try {
+      if (sessionStorage.getItem('nexobra_visit_logged')) return;
+      sessionStorage.setItem('nexobra_visit_logged', '1');
+    } catch (err) {
+      // Si sessionStorage no está disponible (privado/bloqueado), se sigue
+      // igual -- en el peor caso esa visita se cuenta de más, no rompe nada.
+    }
+    supabaseClient.from('site_visits').insert({ path: window.location.pathname }).then(({ error }) => {
+      if (error) console.warn('No se pudo registrar la visita:', error.message);
+    });
+  }
+
+  /** Formatea un entero con separador de miles en formato argentino (ej. 1.234). Para contadores, no para plata (eso es formatMoney). */
+  export function formatInt(n) {
+    if (n === null || n === undefined || isNaN(n)) return '0';
+    return new Intl.NumberFormat('es-AR').format(n);
+  }
+
   export function formatMoney(amount) {
     if (isNaN(amount)) return '$ 0,00';
     return new Intl.NumberFormat('es-AR', {
