@@ -626,6 +626,7 @@
   export const apuView = document.getElementById('apu-view');
   export const myApuBudgetsView = document.getElementById('my-apu-budgets-view');
   export const apuTaskSearch = document.getElementById('apu-task-search');
+  export const apuTaskRubroFilter = document.getElementById('apu-task-rubro-filter');
   export const apuTaskResults = document.getElementById('apu-task-results');
   export const apuBudgetItemsEl = document.getElementById('apu-budget-items');
   export const apuBudgetEmpty = document.getElementById('apu-budget-empty');

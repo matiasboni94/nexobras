@@ -73,6 +73,7 @@ export async function loadApuCatalog() {
     }
 
     ST.apuCatalogState.loaded = true;
+    populateApuTaskRubroFilter();
   } finally {
     ST.apuCatalogState.loading = false;
   }
@@ -82,9 +83,20 @@ function normalizar(text) {
   return (text || '').toString().trim().toLowerCase();
 }
 
-/** Lista de tareas de referencia, opcionalmente filtradas por texto libre (nombre o rubro) -- para el selector de tareas de la UI. */
-export function searchTasks(query) {
-  const tasks = ST.apuCatalogState.tasks;
+/** Llena el <select> de rubro del buscador de tareas con los rubros reales del catálogo ya cargado -- se vuelve a llamar cada vez que se recarga el catálogo (ej. después de que el admin agrega un APU nuevo), preservando la selección actual si el rubro elegido sigue existiendo. */
+function populateApuTaskRubroFilter() {
+  if (!ST.apuTaskRubroFilter) return;
+  const current = ST.apuTaskRubroFilter.value;
+  const rubros = Object.keys(tasksByRubro()).sort((a, b) => a.localeCompare(b));
+  ST.apuTaskRubroFilter.innerHTML = '<option value="">Todos los rubros</option>' +
+    rubros.map(r => `<option value="${ST.escapeHtml(r)}">${ST.escapeHtml(r)}</option>`).join('');
+  if (rubros.includes(current)) ST.apuTaskRubroFilter.value = current;
+}
+
+/** Lista de tareas de referencia, opcionalmente filtradas por texto libre (nombre o rubro) y/o por un rubro exacto elegido en el selector -- para el buscador de tareas de la UI. */
+export function searchTasks(query, rubro) {
+  let tasks = ST.apuCatalogState.tasks;
+  if (rubro) tasks = tasks.filter(t => (t.rubro || 'Sin rubro') === rubro);
   if (!query || !query.trim()) return tasks;
   const q = ST.normalizeText(query);
   return tasks.filter(t => ST.normalizeText(t.nombre).includes(q) || ST.normalizeText(t.rubro || '').includes(q));
@@ -253,6 +265,80 @@ export function clearProviderOffer(comp) {
   comp.provider_whatsapp = null;
   comp.source_kind = 'reference';
   comp.price_snapshot = null;
+}
+
+// =========================================================
+// Editar los componentes de un ítem YA agregado al presupuesto -- 04/11.
+// A diferencia de buildBudgetItem/buildCustomBudgetItem (que arman los
+// componentes de un ítem recién creado, clonando el catálogo o desde el
+// draft del modal), estas son para modificar uno existente después del
+// hecho: el usuario pidió poder editar un APU pre cargado, no solo sus
+// rendimientos -- agregar o quitar materiales/mano de obra/equipos sueltos.
+// apu_task_component_id queda null: no viene de ninguna fila de referencia
+// real, es información que el usuario sumó a mano sobre esa tarea puntual
+// (misma convención que ya usan los componentes de una tarea personalizada).
+// =========================================================
+
+function buildManualComponent(tipo, { descripcion, unidad, rendimiento, material_id, labor_rate_id, equipment_rate_id }) {
+  return {
+    localId: localId('comp'),
+    apu_task_component_id: null,
+    tipo,
+    descripcion_snapshot: descripcion,
+    unidad_snapshot: unidad,
+    rendimiento_referencia: Number(rendimiento),
+    rendimiento: Number(rendimiento),
+    is_rendimiento_modificado: false,
+    material_id: material_id || null,
+    labor_rate_id: labor_rate_id || null,
+    equipment_rate_id: equipment_rate_id || null,
+    denomination_snapshot: descripcion,
+    source_kind: 'reference',
+    provider_offer_id: null,
+    provider_branch_id: null,
+    provider_business_name: null,
+    provider_branch_name: null,
+    provider_whatsapp: null,
+    price_snapshot: null
+  };
+}
+
+/** Agrega un material nuevo a un ítem ya agregado al presupuesto. Devuelve el componente creado, o null si el material no existe. */
+export function addItemMaterialComponent(item, materialId, rendimiento) {
+  const material = findMaterial(materialId);
+  if (!material) return null;
+  const comp = buildManualComponent('material', {
+    descripcion: material.denominacion, unidad: material.unidadComputo, rendimiento, material_id: material.id
+  });
+  item.components.push(comp);
+  return comp;
+}
+
+/** Agrega una mano de obra nueva a un ítem ya agregado al presupuesto. Devuelve el componente creado, o null si la tarifa no existe. */
+export function addItemLaborComponent(item, laborRateId, rendimiento) {
+  const rate = getLaborRate(laborRateId);
+  if (!rate) return null;
+  const comp = buildManualComponent('mano_obra', {
+    descripcion: rate.nombre, unidad: 'hs', rendimiento, labor_rate_id: rate.id
+  });
+  item.components.push(comp);
+  return comp;
+}
+
+/** Agrega un equipo nuevo a un ítem ya agregado al presupuesto. Devuelve el componente creado, o null si la tarifa no existe. */
+export function addItemEquipmentComponent(item, equipmentRateId, rendimiento) {
+  const rate = getEquipmentRate(equipmentRateId);
+  if (!rate) return null;
+  const comp = buildManualComponent('equipo', {
+    descripcion: rate.nombre, unidad: 'hs', rendimiento, equipment_rate_id: rate.id
+  });
+  item.components.push(comp);
+  return comp;
+}
+
+/** Quita un componente puntual de un ítem ya agregado al presupuesto (distinto de removeApuBudgetItem, que quita la tarea entera). Funciona igual para un componente de catálogo, uno de una tarea personalizada, o uno agregado a mano con las tres funciones de arriba. */
+export function removeItemComponent(item, componentLocalId) {
+  item.components = item.components.filter(c => c.localId !== componentLocalId);
 }
 
 // =========================================================
@@ -723,7 +809,8 @@ export function renderTaskResults(query) {
     ST.apuTaskResults.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">Cargando catálogo de tareas...</p>';
     return;
   }
-  const tasks = searchTasks(query);
+  const rubro = ST.apuTaskRubroFilter ? ST.apuTaskRubroFilter.value : '';
+  const tasks = searchTasks(query, rubro);
   if (tasks.length === 0) {
     ST.apuTaskResults.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">Ninguna tarea coincide con esa búsqueda.</p>';
     return;
@@ -827,8 +914,24 @@ function renderComponentRow(item, l) {
       <td>${l.cantidadNecesaria.toFixed(3)} ${ST.escapeHtml(l.unidad_snapshot)}</td>
       <td>${l.disponible ? ST.formatMoney(l.unitPriceConK) : '<span style="color:#b91c1c;">s/d</span>'}</td>
       <td style="text-align:right;">${ST.formatMoney(l.costo)}</td>
+      <td><button class="apu-item-remove" title="Quitar este componente" onclick="window.nexoBraApp.removeApuItemComponent('${item.localId}', '${l.localId}')">&times;</button></td>
     </tr>
   `;
+}
+
+/** Llena los <select> de mano de obra/equipo de la sección "Agregar material / mano de obra / equipo" de UN ítem puntual ya agregado al presupuesto -- se llama por cada tarjeta después de pintar renderBudgetItems, porque esos <select> se recrean de cero en cada repintado. */
+function populateApuItemComponentSelects(itemLocalId) {
+  const laborSelect = document.getElementById(`apu-item-labor-select-${itemLocalId}`);
+  const equipmentSelect = document.getElementById(`apu-item-equipment-select-${itemLocalId}`);
+  if (laborSelect) {
+    laborSelect.innerHTML = (ST.apuCatalogState.laborRates || [])
+      .map(r => `<option value="${r.id}">${ST.escapeHtml(r.nombre)}</option>`).join('');
+  }
+  if (equipmentSelect) {
+    equipmentSelect.innerHTML = (ST.apuCatalogState.equipmentRates || [])
+      .filter(r => r.id !== ST.apuCatalogState.herramientasRateId)
+      .map(r => `<option value="${r.id}">${ST.escapeHtml(r.nombre)}</option>`).join('');
+  }
 }
 
 /** Pinta cada tarea del presupuesto como una tarjeta con su tabla de componentes (incluida la línea virtual de Herramientas Manuales). */
@@ -858,7 +961,7 @@ export function renderBudgetItems(breakdown) {
       </div>
       <div class="apu-item-body">
         <table class="apu-component-table">
-          <thead><tr><th>Componente</th><th>Rendimiento</th><th>Cant. necesaria</th><th>Precio unit.</th><th style="text-align:right;">Costo</th></tr></thead>
+          <thead><tr><th>Componente</th><th>Rendimiento</th><th>Cant. necesaria</th><th>Precio unit.</th><th style="text-align:right;">Costo</th><th></th></tr></thead>
           <tbody>
             ${lineas.map(l => renderComponentRow(item, l)).join('')}
             <tr class="apu-component-virtual">
@@ -867,13 +970,40 @@ export function renderBudgetItems(breakdown) {
               <td>${herramientas.cantidadNecesaria.toFixed(3)} ${ST.escapeHtml(herramientas.unidad_snapshot)}</td>
               <td>${herramientas.disponible ? ST.formatMoney(herramientas.unitPriceConK) : '<span style="color:#b91c1c;">s/d</span>'}</td>
               <td style="text-align:right;">${ST.formatMoney(herramientas.costo)}</td>
+              <td></td>
             </tr>
           </tbody>
         </table>
+        <details style="margin-top:10px;">
+          <summary style="cursor:pointer; font-size:0.8rem; font-weight:700; color:var(--text-muted);">➕ Agregar material / mano de obra / equipo a esta tarea</summary>
+          <div style="margin-top:8px;">
+            <input type="text" id="apu-item-material-search-${item.localId}" class="form-select" placeholder="Buscar material por nombre..." oninput="window.nexoBraApp.renderApuItemMaterialResults('${item.localId}', this.value)">
+            <div id="apu-item-material-results-${item.localId}" class="apu-task-results" style="margin-top:6px;"></div>
+            <div class="apu-task-row" style="margin-top:8px;">
+              <div class="apu-task-row-info" style="flex:1;">
+                <select id="apu-item-labor-select-${item.localId}" class="form-select"></select>
+              </div>
+              <div class="apu-task-row-add">
+                <input type="number" id="apu-item-labor-rend-${item.localId}" value="1" min="0.0001" step="0.0001" title="Horas por unidad de tarea">
+                <button class="btn-computo" onclick="window.nexoBraApp.addApuItemLaborComponentUI('${item.localId}')">+ Mano de obra</button>
+              </div>
+            </div>
+            <div class="apu-task-row" style="margin-top:8px;">
+              <div class="apu-task-row-info" style="flex:1;">
+                <select id="apu-item-equipment-select-${item.localId}" class="form-select"></select>
+              </div>
+              <div class="apu-task-row-add">
+                <input type="number" id="apu-item-equipment-rend-${item.localId}" value="1" min="0.0001" step="0.0001" title="Horas por unidad de tarea">
+                <button class="btn-computo" onclick="window.nexoBraApp.addApuItemEquipmentComponentUI('${item.localId}')">+ Equipo</button>
+              </div>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
   `;
   }).join('');
+  breakdown.perItem.forEach(({ item }) => populateApuItemComponentSelects(item.localId));
 }
 
 /** Lista de materiales consolidada (todas las tareas sumadas por material) -- tabla + export viven en la misma vista. */
@@ -939,6 +1069,86 @@ export function updateApuKFactor(value) {
   const v = parseFloat(value);
   ST.apuBudgetMeta.kFactor = (v && v > 0) ? v : null;
   updateApuBudgetUI();
+}
+
+// --- Agregar/quitar componentes de un ítem ya agregado (pedido del usuario:
+// poder editar un APU pre cargado, no solo sus rendimientos) -- 04/11 ---
+
+/** Vuelca searchMaterialsForCustomTask(query) en la sección "Agregar material..." de UN ítem puntual del presupuesto -- mismo patrón que renderApuCustomMaterialResults, pero apuntando a ese ítem en vez de al draft de "Crear tu propia APU". */
+export function renderApuItemMaterialResults(itemLocalId, query) {
+  const resultsEl = document.getElementById(`apu-item-material-results-${itemLocalId}`);
+  if (!resultsEl) return;
+  const q = (query || '').trim();
+  if (q.length < 2) { resultsEl.innerHTML = ''; return; }
+  const results = searchMaterialsForCustomTask(q);
+  if (results.length === 0) {
+    resultsEl.innerHTML = '<p style="font-size:0.8rem; color:var(--text-muted);">Sin resultados.</p>';
+    return;
+  }
+  resultsEl.innerHTML = results.map(m => `
+    <div class="apu-task-row">
+      <div class="apu-task-row-info" style="flex:1;">
+        <strong>${ST.escapeHtml(m.denominacion)}</strong>
+        <span>${ST.escapeHtml(m.unidadComputo || '')} · ${ST.escapeHtml(m.rubro || '')}</span>
+      </div>
+      <div class="apu-task-row-add">
+        <input type="number" id="apu-item-material-rend-${itemLocalId}-${ST.escapeHtml(m.id)}" value="1" min="0.0001" step="0.0001" title="Cantidad por unidad de tarea">
+        <button class="btn-computo" onclick="window.nexoBraApp.addApuItemMaterialComponentUI('${itemLocalId}','${m.id}')">+ Agregar</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+export function addApuItemMaterialComponentUI(itemLocalId, materialId) {
+  const item = ST.state.apuBudgetItems.find(i => i.localId === itemLocalId);
+  if (!item) return;
+  const rendInput = document.getElementById(`apu-item-material-rend-${itemLocalId}-${materialId}`);
+  const rendimiento = rendInput ? (parseFloat(rendInput.value) || 0) : 0;
+  if (rendimiento <= 0) { ST.showToast('Poné una cantidad válida por unidad de tarea.'); return; }
+  const comp = addItemMaterialComponent(item, materialId, rendimiento);
+  if (!comp) { ST.showToast('No se encontró ese material.'); return; }
+  saveApuCart();
+  updateApuBudgetUI();
+  ST.showToast(`+ ${comp.denomination_snapshot.substring(0, 30)}`);
+}
+
+export function addApuItemLaborComponentUI(itemLocalId) {
+  const item = ST.state.apuBudgetItems.find(i => i.localId === itemLocalId);
+  if (!item) return;
+  const select = document.getElementById(`apu-item-labor-select-${itemLocalId}`);
+  const rendInput = document.getElementById(`apu-item-labor-rend-${itemLocalId}`);
+  if (!select || !select.value) { ST.showToast('Elegí una mano de obra.'); return; }
+  const rendimiento = rendInput ? (parseFloat(rendInput.value) || 0) : 0;
+  if (rendimiento <= 0) { ST.showToast('Poné un rendimiento válido.'); return; }
+  const comp = addItemLaborComponent(item, Number(select.value), rendimiento);
+  if (!comp) return;
+  saveApuCart();
+  updateApuBudgetUI();
+  ST.showToast(`+ ${comp.denomination_snapshot.substring(0, 30)}`);
+}
+
+export function addApuItemEquipmentComponentUI(itemLocalId) {
+  const item = ST.state.apuBudgetItems.find(i => i.localId === itemLocalId);
+  if (!item) return;
+  const select = document.getElementById(`apu-item-equipment-select-${itemLocalId}`);
+  const rendInput = document.getElementById(`apu-item-equipment-rend-${itemLocalId}`);
+  if (!select || !select.value) { ST.showToast('Elegí un equipo.'); return; }
+  const rendimiento = rendInput ? (parseFloat(rendInput.value) || 0) : 0;
+  if (rendimiento <= 0) { ST.showToast('Poné un rendimiento válido.'); return; }
+  const comp = addItemEquipmentComponent(item, Number(select.value), rendimiento);
+  if (!comp) return;
+  saveApuCart();
+  updateApuBudgetUI();
+  ST.showToast(`+ ${comp.denomination_snapshot.substring(0, 30)}`);
+}
+
+export function removeApuItemComponent(itemLocalId, componentLocalId) {
+  const item = ST.state.apuBudgetItems.find(i => i.localId === itemLocalId);
+  if (!item) return;
+  removeItemComponent(item, componentLocalId);
+  saveApuCart();
+  updateApuBudgetUI();
+  ST.showToast('Componente quitado.');
 }
 
 // =========================================================
@@ -1884,6 +2094,7 @@ export function setupApuListeners() {
   });
 
   if (ST.apuTaskSearch) ST.apuTaskSearch.addEventListener('input', (e) => renderTaskResults(e.target.value));
+  if (ST.apuTaskRubroFilter) ST.apuTaskRubroFilter.addEventListener('change', () => renderTaskResults(ST.apuTaskSearch ? ST.apuTaskSearch.value : ''));
   if (ST.apuKFactor) ST.apuKFactor.addEventListener('change', (e) => updateApuKFactor(e.target.value));
 
   const btnShareApuBudget = document.getElementById('btn-share-apu-budget');
