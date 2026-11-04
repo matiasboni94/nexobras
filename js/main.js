@@ -1,6 +1,7 @@
 // NEXOBRA - main.js
 
 import * as Admin from './admin.js';
+import * as Apu from './apu.js';
 import * as Auth from './auth.js';
 import * as Catalog from './catalog.js';
 import * as Computo from './computo.js';
@@ -63,6 +64,8 @@ import * as ST from './state.js';
     catalog: '/catalogo',
     labor: '/mano-de-obra',
     'my-computations': '/mis-presupuestos',
+    apu: '/calculadora-de-obra',
+    'my-apu-budgets': '/mis-presupuestos-de-obra',
     provider: '/mi-proveedor',
     favorites: '/favoritos',
     alerts: '/alertas',
@@ -91,6 +94,8 @@ import * as ST from './state.js';
     ST.catalogView.style.display = viewName === 'catalog' ? 'block' : 'none';
     if (ST.laborView) ST.laborView.style.display = viewName === 'labor' ? 'block' : 'none';
     if (ST.myComputationsView) ST.myComputationsView.style.display = viewName === 'my-computations' ? 'block' : 'none';
+    if (ST.apuView) ST.apuView.style.display = viewName === 'apu' ? 'block' : 'none';
+    if (ST.myApuBudgetsView) ST.myApuBudgetsView.style.display = viewName === 'my-apu-budgets' ? 'block' : 'none';
     if (ST.providerView) ST.providerView.style.display = viewName === 'provider' ? 'block' : 'none';
     const favoritesViewEl = document.getElementById('favorites-view');
     if (favoritesViewEl) favoritesViewEl.style.display = viewName === 'favorites' ? 'block' : 'none';
@@ -124,6 +129,8 @@ import * as ST from './state.js';
     if (navBtnContactoEl) navBtnContactoEl.classList.toggle('active', viewName === 'contact');
     const navBtnProveedoresEl = document.getElementById('nav-btn-proveedores');
     if (navBtnProveedoresEl) navBtnProveedoresEl.classList.toggle('active', viewName === 'providers-directory');
+    const navBtnApuEl = document.getElementById('nav-btn-apu');
+    if (navBtnApuEl) navBtnApuEl.classList.toggle('active', viewName === 'apu' || viewName === 'my-apu-budgets');
 
     const mHome = document.getElementById('mobile-nav-btn-home');
     const mCatalogo = document.getElementById('mobile-nav-btn-catalogo');
@@ -137,6 +144,8 @@ import * as ST from './state.js';
     if (mQuienesSomos) mQuienesSomos.classList.toggle('active', viewName === 'about');
     if (mGuia) mGuia.classList.toggle('active', viewName === 'guide');
     if (mContacto) mContacto.classList.toggle('active', viewName === 'contact');
+    const mApu = document.getElementById('mobile-nav-btn-apu');
+    if (mApu) mApu.classList.toggle('active', viewName === 'apu' || viewName === 'my-apu-budgets');
 
     if (viewName === 'catalog') {
       if (rubroFilter) {
@@ -168,6 +177,33 @@ import * as ST from './state.js';
         if (ST.myComputationsView) ST.myComputationsView.style.display = 'none';
       } else {
         Computo.loadMyComputations();
+      }
+    }
+    if (viewName === 'apu') {
+      // A diferencia de "Mis Presupuestos de Obra", la calculadora en sí no
+      // pide login -- se puede armar y exportar un presupuesto sin cuenta,
+      // igual que el catálogo/Mi Cómputo. Guardar y compartir por link sí
+      // piden login (lo resuelven Apu.saveApuBudget/shareApuBudget solas).
+      Apu.loadApuCatalog().then(() => {
+        Apu.renderTaskResults(ST.apuTaskSearch ? ST.apuTaskSearch.value : '');
+        // Si ya había tareas en el carrito (localStorage) de una sesión
+        // anterior, sus precios dependen del catálogo de APU recién cargado
+        // -- se vuelve a pintar una vez que está listo (antes de esto puede
+        // mostrar "s/d" un instante).
+        Apu.updateApuBudgetUI();
+      });
+      Apu.updateApuBudgetUI();
+      Apu.updateApuBudgetNameUI();
+    }
+    if (viewName === 'my-apu-budgets') {
+      if (!ST.authState.user) {
+        Auth.showAuthTab('login');
+        Auth.openAuthModal();
+        ST.state.currentView = 'home';
+        ST.homeView.style.display = 'block';
+        if (ST.myApuBudgetsView) ST.myApuBudgetsView.style.display = 'none';
+      } else {
+        Apu.loadMyApuBudgets();
       }
     }
     if (viewName === 'favorites') {
@@ -256,6 +292,11 @@ import * as ST from './state.js';
       Computo.renderSharedComputation(shareToken);
       return;
     }
+    const apuShareToken = new URLSearchParams(window.location.search).get('apu_share');
+    if (apuShareToken) {
+      Apu.renderSharedApuBudget(apuShareToken);
+      return;
+    }
 
     // Enlace directo a una vista puntual desde afuera del sitio (ej. desde
     // los links de navegación de las páginas legales, que no tienen toda
@@ -276,6 +317,7 @@ import * as ST from './state.js';
     Auth.setupProfileListeners();
     Auth.setupRoleListeners();
     Computo.setupComputationListeners();
+    Apu.setupApuListeners();
     Provider.setupProviderListeners();
     Provider.setupNewMaterialListeners();
     Admin.setupAdminListeners();
@@ -311,6 +353,8 @@ import * as ST from './state.js';
 
     ST.navBtnCatalogo.addEventListener('click', () => switchView('catalog', 'Todos', ''));
     if (ST.navBtnManoObra) ST.navBtnManoObra.addEventListener('click', () => switchView('labor'));
+    const navBtnApu = document.getElementById('nav-btn-apu');
+    if (navBtnApu) navBtnApu.addEventListener('click', () => switchView('apu'));
     const navBtnProveedores = document.getElementById('nav-btn-proveedores');
     if (navBtnProveedores) navBtnProveedores.addEventListener('click', () => switchView('providers-directory'));
     const mobileNavBtnProveedores = document.getElementById('mobile-nav-btn-proveedores');
@@ -381,6 +425,8 @@ import * as ST from './state.js';
     if (mobileNavBtnHome) mobileNavBtnHome.addEventListener('click', () => mobileNavAction(() => switchView('home')));
     if (mobileNavBtnCatalogo) mobileNavBtnCatalogo.addEventListener('click', () => mobileNavAction(() => switchView('catalog', 'Todos', '')));
     if (mobileNavBtnManoObra) mobileNavBtnManoObra.addEventListener('click', () => mobileNavAction(() => switchView('labor')));
+    const mobileNavBtnApu = document.getElementById('mobile-nav-btn-apu');
+    if (mobileNavBtnApu) mobileNavBtnApu.addEventListener('click', () => mobileNavAction(() => switchView('apu')));
     if (mobileNavBtnQuienesSomos) mobileNavBtnQuienesSomos.addEventListener('click', () => mobileNavAction(() => switchView('about')));
     if (mobileNavBtnGuia) mobileNavBtnGuia.addEventListener('click', () => mobileNavAction(() => switchView('guide')));
     if (mobileNavBtnContacto) mobileNavBtnContacto.addEventListener('click', () => mobileNavAction(goToContact));
@@ -702,7 +748,28 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
     deleteAdminOffer: Admin.deleteAdminOffer,
     removeAdminProviderKeyword: Admin.removeAdminProviderKeyword,
     deleteAdminProviderAnnouncement: Admin.deleteAdminProviderAnnouncement,
-    deleteProviderAnnouncement: Provider.deleteProviderAnnouncement
+    deleteProviderAnnouncement: Provider.deleteProviderAnnouncement,
+    deleteAdminApuTask: Admin.deleteAdminApuTask,
+    addAdminApuMaterialDraft: Admin.addAdminApuMaterialDraft,
+    removeAdminApuComponentDraft: Admin.removeAdminApuComponentDraft,
+    addApuTaskToBudget: Apu.addApuTaskToBudget,
+    removeApuBudgetItem: Apu.removeApuBudgetItem,
+    updateApuItemQuantity: Apu.updateApuItemQuantity,
+    updateApuComponentRendimiento: Apu.updateApuComponentRendimiento,
+    resetApuComponentRendimiento: Apu.resetApuComponentRendimiento,
+    changeApuComponentMaterial: Apu.changeApuComponentMaterial,
+    exportApuItem: Apu.exportApuItem,
+    openApuBudget: Apu.openApuBudget,
+    duplicateApuBudget: Apu.duplicateApuBudget,
+    deleteApuBudget: Apu.deleteApuBudget,
+    unshareApuBudget: Apu.unshareApuBudget,
+    shareApuListToProvider: Apu.shareApuListToProvider,
+    addApuCustomComponentDraft: Apu.addApuCustomComponentDraft,
+    removeApuCustomComponentDraft: Apu.removeApuCustomComponentDraft,
+    openApuMaterialProviderPicker: Apu.openApuMaterialProviderPicker,
+    closeApuMaterialProviderPicker: Apu.closeApuMaterialProviderPicker,
+    chooseApuMaterialOffer: Apu.chooseApuMaterialOffer,
+    clearApuMaterialProviderOffer: Apu.clearApuMaterialProviderOffer
   };
 
 

@@ -12,6 +12,15 @@
     excelProcessedRows: [],
     priceMonth: null, // "YYYY-MM-01", mes elegido por el usuario para EXPLORAR precios en el catálogo
     computoMonth: null, // "YYYY-MM-01", mes al que se recalcula TODO "Mi Cómputo" (independiente del anterior)
+    // Calculadora de Obra (APU) -- sección separada de "Mi Cómputo" (ver
+    // claude/estado-proyecto.md, decisión 03/11). apuBudgetItems es la lista
+    // de tareas agregadas al presupuesto en curso (cada una con sus
+    // componentes) -- misma idea que computoCart, pero con un nivel más de
+    // anidamiento (tarea -> componentes) porque acá se arma por receta, no
+    // ítem por ítem. apuMonth es independiente de computoMonth: cambiar el
+    // mes en Mi Cómputo no debe recalcular un presupuesto de obra abierto.
+    apuBudgetItems: JSON.parse(localStorage.getItem('nexobra_apu_budget') || '[]'),
+    apuMonth: null,
     compareNearbyProviders: false, // true = mostrar comparación con proveedores cercanos (Fase G2, ya no es un "modo" que reemplaza el precio)
     catalogPage: 1, // Fase G/F3: paginación del catálogo completo
     catalogPageSize: 25
@@ -432,6 +441,33 @@
   export const laborState = { roles: [], months: [], loaded: false };
   export const authState = { user: null, profile: null };
   export const computationState = { currentId: null };
+
+  // --- CALCULADORA DE OBRA (APU) ---
+  // Catálogo de referencia (apu_tasks/apu_task_components/apu_labor_rates/
+  // apu_equipment_rates, cargados por NEXOBRA vía migración 018) una vez
+  // por sesión -- ver Apu.loadApuCatalog() en js/apu.js.
+  export const apuCatalogState = {
+    loaded: false,
+    loading: false,
+    tasks: [],              // filas de apu_tasks
+    componentsByTask: {},    // apu_task_id -> filas de apu_task_components
+    laborRates: [],          // filas de apu_labor_rates
+    equipmentRates: [],      // filas de apu_equipment_rates
+    herramientasRateId: null // id (en apu_equipment_rates) de "Herramientas Manuales", resuelto por nombre, no hardcodeado
+  };
+  // Metadatos del presupuesto de obra en curso -- espeja computationState +
+  // los campos de obra_* del drawer de Mi Cómputo, más lo que es propio de
+  // esta calculadora (factor k opcional, a nivel de todo el presupuesto).
+  export const apuBudgetMeta = {
+    currentId: null,
+    name: 'Mi presupuesto de obra',
+    locality: null,
+    obraNombre: '',
+    obraUbicacion: '',
+    obraComitente: '',
+    obraReferencia: '',
+    kFactor: null
+  };
   export const providerState = { provider: null, branch: null, offers: [], excelPending: [] };
   export const DEFAULT_MAP_CENTER = { lat: -27.4864, lng: -55.1199 };
   export const mapState = { map: null, markers: [], center: { ...DEFAULT_MAP_CENTER }, radiusKm: 25, initialized: false, filterMaterialId: null, filterMaterialName: null, offerPickerCartIndex: null };
@@ -585,3 +621,59 @@
   export const materialHistorySubtitle = document.getElementById('material-history-subtitle');
   export const materialHistoryStatus = document.getElementById('material-history-status');
   export const materialHistoryChart = document.getElementById('material-history-chart');
+
+  // --- CALCULADORA DE OBRA (APU) -- Fase 1 ---
+  export const apuView = document.getElementById('apu-view');
+  export const myApuBudgetsView = document.getElementById('my-apu-budgets-view');
+  export const apuTaskSearch = document.getElementById('apu-task-search');
+  export const apuTaskResults = document.getElementById('apu-task-results');
+  export const apuBudgetItemsEl = document.getElementById('apu-budget-items');
+  export const apuBudgetEmpty = document.getElementById('apu-budget-empty');
+  export const apuBudgetFooter = document.getElementById('apu-budget-footer');
+  export const apuBudgetName = document.getElementById('apu-budget-name');
+  export const btnSaveApuBudget = document.getElementById('btn-save-apu-budget');
+  export const btnSaveApuBudgetLabel = document.getElementById('btn-save-apu-budget-label');
+  export const apuObraNombre = document.getElementById('apu-obra-nombre');
+  export const apuObraUbicacion = document.getElementById('apu-obra-ubicacion');
+  export const apuObraComitente = document.getElementById('apu-obra-comitente');
+  export const apuObraReferencia = document.getElementById('apu-obra-referencia');
+  export const apuKFactor = document.getElementById('apu-k-factor');
+  export const apuTotalMateriales = document.getElementById('apu-total-materiales');
+  export const apuTotalManoObra = document.getElementById('apu-total-mano-obra');
+  export const apuTotalEquipos = document.getElementById('apu-total-equipos');
+  export const apuTotalGeneral = document.getElementById('apu-total-general');
+  export const apuConsolidatedSection = document.getElementById('apu-consolidated-section');
+  export const apuConsolidatedBody = document.getElementById('apu-consolidated-body');
+  export const myApuBudgetsList = document.getElementById('my-apu-budgets-list');
+  export const apuProviderPickerModal = document.getElementById('apu-provider-picker-modal');
+  export const apuProviderPickerBackdrop = document.getElementById('apu-provider-picker-backdrop');
+  export const apuProviderPickerSearch = document.getElementById('apu-provider-picker-search');
+  export const apuProviderPickerResults = document.getElementById('apu-provider-picker-results');
+
+  // "Crear tu propia APU" (tarea personalizada, sin pasar por el catálogo) -- 05/11
+  export const btnOpenApuCustomTask = document.getElementById('btn-open-apu-custom-task');
+  export const apuCustomTaskModal = document.getElementById('apu-custom-task-modal');
+  export const apuCustomTaskBackdrop = document.getElementById('apu-custom-task-backdrop');
+  export const apuCustomTaskCloseBtn = document.getElementById('apu-custom-task-close-btn');
+  export const apuCustomNombre = document.getElementById('apu-custom-nombre');
+  export const apuCustomUnidad = document.getElementById('apu-custom-unidad');
+  export const apuCustomRubro = document.getElementById('apu-custom-rubro');
+  export const apuCustomDesperdicio = document.getElementById('apu-custom-desperdicio');
+  export const apuCustomHerramientas = document.getElementById('apu-custom-herramientas');
+  export const apuCustomMaterialSearch = document.getElementById('apu-custom-material-search');
+  export const apuCustomMaterialResults = document.getElementById('apu-custom-material-results');
+  export const apuCustomLaborSelect = document.getElementById('apu-custom-labor-select');
+  export const apuCustomLaborRend = document.getElementById('apu-custom-labor-rend');
+  export const btnApuCustomAddLabor = document.getElementById('btn-apu-custom-add-labor');
+  export const apuCustomEquipmentSelect = document.getElementById('apu-custom-equipment-select');
+  export const apuCustomEquipmentRend = document.getElementById('apu-custom-equipment-rend');
+  export const btnApuCustomAddEquipment = document.getElementById('btn-apu-custom-add-equipment');
+  export const apuCustomDraftList = document.getElementById('apu-custom-draft-list');
+  export const apuCustomQuantity = document.getElementById('apu-custom-quantity');
+  export const btnApuCustomConfirm = document.getElementById('btn-apu-custom-confirm');
+
+  // Elegir proveedor (u oferta puntual) para un material de una tarea ya agregada al presupuesto -- 05/11
+  export const apuMaterialOfferModal = document.getElementById('apu-material-offer-modal');
+  export const apuMaterialOfferBackdrop = document.getElementById('apu-material-offer-backdrop');
+  export const apuMaterialOfferSubtitle = document.getElementById('apu-material-offer-subtitle');
+  export const apuMaterialOfferResults = document.getElementById('apu-material-offer-results');

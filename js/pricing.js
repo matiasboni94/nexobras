@@ -555,7 +555,12 @@ import * as ST from './state.js';
       brand: row.brand || null,
       technical_description: row.technical_description || null,
       yield_value: row.yield_value || null,
-      yield_unit: row.yield_unit || null
+      yield_unit: row.yield_unit || null,
+      // Agrupador de "necesidad genérica" (ej. "Cemento Portland x 50kg"),
+      // cargado en la migración 020/021 -- lo usa la Calculadora de Obra
+      // (js/apu.js) para ofrecer todas las marcas/presentaciones que cubren
+      // el mismo insumo de un APU. null = material sin variantes (singleton).
+      genericName: row.generic_name || null
     };
   }
 
@@ -576,7 +581,7 @@ import * as ST from './state.js';
       .from('materials')
       .select(`
         id, rubro, category, subcategory, denomination, sale_unit, measurement_unit, package_quantity,
-        brand, technical_description, yield_value, yield_unit,
+        brand, technical_description, yield_value, yield_unit, generic_name,
         material_aliases(alias),
         material_price_bases(amount, price_kind, base_month, is_active)
       `)
