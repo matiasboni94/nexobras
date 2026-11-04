@@ -56,6 +56,7 @@
         <button class="nav-link" id="nav-btn-catalogo">Catálogo Completo</button>
         <button class="nav-link" id="nav-btn-proveedores">Proveedores</button>
         <button class="nav-link" id="nav-btn-manoobra">Mano de Obra</button>
+        <button class="nav-link" id="nav-btn-apu">Calculadora de Obra</button>
         <button class="nav-link" id="nav-btn-contacto">Contacto</button>
       </nav>
 
@@ -117,6 +118,7 @@
           </button>
           <div class="auth-dropdown" id="auth-dropdown" style="display: none;">
             <button type="button" id="btn-open-my-computations">Mis Presupuestos</button>
+            <button type="button" id="btn-open-my-apu-budgets">Mis Presupuestos de Obra</button>
             <button type="button" id="btn-open-favorites">Mis Favoritos</button>
             <button type="button" id="btn-open-alerts">Mis Alertas de Precio</button>
             <button type="button" id="btn-open-my-provider" style="display: none;">Mi Proveedor</button>
@@ -143,6 +145,7 @@
     <button class="mobile-menu-link" id="mobile-nav-btn-catalogo">Catálogo Completo</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-proveedores">Proveedores</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-manoobra">Mano de Obra</button>
+    <button class="mobile-menu-link" id="mobile-nav-btn-apu">Calculadora de Obra</button>
     <button class="mobile-menu-link" id="mobile-nav-btn-contacto">Contacto</button>
   </nav>
 
@@ -1369,6 +1372,108 @@
   </div>
 
   <!-- =========================================================================
+       VISTA: CALCULADORA DE OBRA (APU) -- Fase 1
+       ========================================================================= -->
+  <div id="apu-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Calculadora de Obra (APU)</h2>
+          <p class="catalog-subtitle">Elegí una tarea, cargá la cantidad y te armamos la lista de materiales, mano de obra y equipos con los rendimientos técnicos de referencia de NEXOBRA.</p>
+        </div>
+        <button class="btn-computo" id="btn-new-apu-budget">+ Nuevo presupuesto</button>
+      </div>
+
+      <!-- Buscador de tareas -->
+      <div class="provider-section" style="margin-bottom: 20px;">
+        <div class="provider-section-body" style="padding-top: 16px;">
+          <div class="excel-config-grid" style="margin-bottom:10px;">
+            <div class="config-field" style="grid-column: span 2;">
+              <label for="apu-task-search">Buscar tarea</label>
+              <input type="text" id="apu-task-search" class="form-select" placeholder="Ej: mampostería, contrapiso, cemento...">
+            </div>
+          </div>
+          <div id="apu-task-results" class="apu-task-results"><!-- Apu.renderTaskResults() --></div>
+          <p style="margin-top:10px; font-size:0.8rem; color:var(--text-muted);">
+            ¿No encontrás la tarea que buscás?
+            <button type="button" id="btn-open-apu-custom-task" style="background:none; border:none; color:var(--color-accent, #3b82f6); font-weight:700; text-decoration:underline; cursor:pointer; font-size:0.8rem; padding:0;">Creá tu propia APU</button>
+          </p>
+        </div>
+      </div>
+
+      <!-- Presupuesto en curso -->
+      <div id="apu-budget-meta" class="drawer-computation-name" style="margin-bottom: 14px;">
+        <input type="text" id="apu-budget-name" class="form-select" value="Mi presupuesto de obra" placeholder="Nombre del presupuesto/obra">
+        <button class="btn-save-computation" id="btn-save-apu-budget" title="Guardar presupuesto">
+          <span id="btn-save-apu-budget-label">Guardar</span>
+        </button>
+      </div>
+
+      <details class="drawer-obra-data" id="apu-obra-data">
+        <summary>📋 Datos de la obra + factor K (opcional)</summary>
+        <div class="drawer-obra-data-grid">
+          <input type="text" id="apu-obra-nombre" class="form-select" placeholder="Nombre de la obra">
+          <input type="text" id="apu-obra-ubicacion" class="form-select" placeholder="Ubicación">
+          <input type="text" id="apu-obra-comitente" class="form-select" placeholder="Comitente">
+          <input type="text" id="apu-obra-referencia" class="form-select" placeholder="Referencia / N° de expediente">
+          <input type="number" id="apu-k-factor" class="form-select" placeholder="Factor K (opcional)" step="0.001" min="0">
+        </div>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">Si cargás un factor K, se aplica multiplicando el precio de cada material/mano de obra/equipo del presupuesto. Vacío = costo puro (sin K).</p>
+      </details>
+
+      <div id="apu-budget-items" class="apu-budget-items"><!-- Apu.renderBudgetItems() --></div>
+
+      <div id="apu-budget-empty" class="computo-empty-state">
+        <div class="empty-icon">🧱</div>
+        <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no agregaste ninguna tarea</h4>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">Buscá una tarea arriba y agregala con su cantidad.</p>
+      </div>
+
+      <div id="apu-budget-footer" class="drawer-footer" style="position:static; border:none; padding:16px 0 0; display:none;">
+        <div class="summary-row"><span>Materiales:</span><strong id="apu-total-materiales">$ 0,00</strong></div>
+        <div class="summary-row"><span>Mano de obra:</span><strong id="apu-total-mano-obra">$ 0,00</strong></div>
+        <div class="summary-row"><span>Equipos + Herramientas:</span><strong id="apu-total-equipos">$ 0,00</strong></div>
+        <div class="summary-row total-row"><span>Total Estimado:</span><span id="apu-total-general" style="color: var(--brand-yellow); text-shadow: 0 0 1px #000;">$ 0,00</span></div>
+        <p style="font-size: 0.7rem; color: var(--text-subtle); margin: 6px 0 0; line-height: 1.4;">Valores orientativos con precios de referencia NEXOBRA. No incluyen impuestos, cargas sociales ni fletes.</p>
+
+        <div class="drawer-actions">
+          <button class="btn-action-drawer" id="btn-share-apu-budget" style="background: var(--color-accent, #3b82f6); color: #fff;">Compartir por link</button>
+          <button class="btn-action-drawer" id="btn-export-apu-full" style="background: var(--color-success); color: #fff;">Presupuesto completo (Excel)</button>
+          <button class="btn-action-drawer btn-copy" id="btn-share-apu-provider">📤 Compartir a un proveedor</button>
+        </div>
+        <button class="btn-action-drawer" id="btn-clear-apu-budget" style="background: none; color: #EF4444; font-size: 0.78rem; text-decoration: underline; margin-top: 4px;">Vaciar presupuesto</button>
+      </div>
+
+      <!-- Lista de materiales consolidada -->
+      <details class="provider-section" id="apu-consolidated-section" style="margin-top: 24px; display:none;">
+        <summary>📦 Lista de materiales consolidada (todas las tareas del presupuesto)</summary>
+        <div class="provider-section-body">
+          <div class="table-view-container">
+            <table class="materials-table">
+              <thead><tr><th>Material</th><th>Unidad</th><th>Cantidad</th><th style="text-align:right;">Costo</th></tr></thead>
+              <tbody id="apu-consolidated-body"></tbody>
+            </table>
+          </div>
+          <button class="btn-action-drawer" id="btn-export-apu-consolidated" style="background: var(--color-success); color: #fff; margin-top:10px;">Exportar lista consolidada (Excel)</button>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div id="my-apu-budgets-view" class="view-section" style="display: none;">
+    <div class="container">
+      <div class="catalog-header-banner">
+        <div>
+          <h2 class="catalog-title">Mis Presupuestos de Obra</h2>
+          <p class="catalog-subtitle">Presupuestos armados con la Calculadora de Obra. Abrí uno para seguir editándolo.</p>
+        </div>
+        <button class="btn-computo" id="btn-new-apu-budget-from-list">+ Nuevo presupuesto</button>
+      </div>
+      <div id="my-apu-budgets-list" class="computations-list"><!-- se completa con Apu.loadMyApuBudgets() --></div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
        VISTA 6: MI CORRALÓN (Fase C, solo rol 'provider')
        ========================================================================= -->
   <div id="provider-view" class="view-section" style="display: none;">
@@ -2081,6 +2186,21 @@
           <div id="admin-reported-reviews-list"></div>
         </div>
       </details>
+
+      <!-- CATÁLOGO DE APUs (análisis de precios unitarios) -- 04/11 -->
+      <details class="provider-section" open>
+        <summary>🏗️ Catálogo de APUs (análisis de precios)</summary>
+        <div class="provider-section-body">
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">
+            Tareas de referencia que aparecen en la búsqueda de la Calculadora de Obra, con sus rendimientos técnicos. Agregá una nueva o eliminá alguna que esté mal cargada (no afecta presupuestos que los usuarios ya guardaron, esos quedan con su propia copia).
+          </p>
+          <button class="btn-choose-provider" id="btn-open-admin-apu-task" type="button" style="margin: 0 0 14px;">
+            ➕ Agregar un APU nuevo
+          </button>
+          <input type="text" id="admin-apu-search" class="form-select" placeholder="Buscar en el catálogo por nombre o rubro..." style="margin-bottom:12px;">
+          <div id="admin-apu-list" class="provider-search-results"></div>
+        </div>
+      </details>
     </div>
   </div>
 
@@ -2156,6 +2276,226 @@
         <p style="text-align:center; color:var(--text-muted); padding: 3rem 0;">Cargando presupuesto...</p>
       </div>
     </main>
+  </div>
+
+  <!-- ========================= VISTA: PRESUPUESTO DE OBRA (APU) COMPARTIDO (link público) ========================= -->
+  <div id="shared-apu-budget-view" style="display:none;">
+    <header class="header">
+      <div class="container header-container" style="justify-content: center;">
+        <a href="/" class="brand-wrapper">
+          <div class="brand-logo-icon">
+            <img src="/assets/nexobra-icon.png" alt="NEXOBRA" width="36" height="36" style="display:block; object-fit: contain;">
+          </div>
+          <div class="brand-title-group">
+            <div class="brand-name">NEX<span class="accent">OBRA</span></div>
+            <span class="brand-badge-tag">COMPARADOR TÉCNICO</span>
+          </div>
+        </a>
+      </div>
+    </header>
+    <main class="container" style="padding: 2rem 1.5rem 4rem; max-width: 900px;">
+      <div id="shared-apu-budget-body">
+        <p style="text-align:center; color:var(--text-muted); padding: 3rem 0;">Cargando presupuesto...</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL: elegir proveedor para compartir la lista de materiales por WhatsApp -->
+  <div class="modal-backdrop" id="apu-provider-picker-backdrop"></div>
+  <div class="excel-modal" id="apu-provider-picker-modal" role="dialog" aria-labelledby="apu-provider-picker-title" style="max-width: 520px;">
+    <div class="modal-header">
+      <div>
+        <h3 id="apu-provider-picker-title" style="font-size: 1.15rem; font-weight: 800; margin-bottom: 2px;">Compartir lista de materiales</h3>
+        <p style="font-size: 0.8rem; color: var(--text-subtle);">Elegí un proveedor de NEXOBRA para mandarle la lista por WhatsApp.</p>
+      </div>
+      <button class="modal-close-btn" id="apu-provider-picker-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="text" id="apu-provider-picker-search" class="form-select" placeholder="Nombre del proveedor o localidad...">
+      <div id="apu-provider-picker-results" style="margin-top:12px; max-height:320px; overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: elegir proveedor (u oferta puntual) PARA UN MATERIAL de una tarea del presupuesto de obra -->
+  <div class="modal-backdrop" id="apu-material-offer-backdrop"></div>
+  <div class="excel-modal" id="apu-material-offer-modal" role="dialog" aria-labelledby="apu-material-offer-title" style="max-width: 520px;">
+    <div class="modal-header">
+      <div>
+        <h3 id="apu-material-offer-title" style="font-size: 1.15rem; font-weight: 800; margin-bottom: 2px;">Elegir proveedor para este material</h3>
+        <p id="apu-material-offer-subtitle" style="font-size: 0.8rem; color: var(--text-subtle);"></p>
+      </div>
+      <button class="modal-close-btn" id="apu-material-offer-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="apu-material-offer-results"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: crear una tarea de APU personalizada (propios materiales/mano de obra/equipos y rendimientos) -->
+  <div class="modal-backdrop" id="apu-custom-task-backdrop"></div>
+  <div class="excel-modal" id="apu-custom-task-modal" role="dialog" aria-labelledby="apu-custom-task-title" style="max-width: 720px;">
+    <div class="modal-header">
+      <div>
+        <h3 id="apu-custom-task-title" style="font-size: 1.15rem; font-weight: 800; margin-bottom: 2px;">Crear tu propia APU</h3>
+        <p style="font-size: 0.8rem; color: var(--text-subtle);">Definí la tarea con tus propios rendimientos y agregale los materiales, mano de obra y equipos que quieras.</p>
+      </div>
+      <button class="modal-close-btn" id="apu-custom-task-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="excel-config-grid">
+        <div class="config-field">
+          <label for="apu-custom-nombre">Nombre de la tarea</label>
+          <input type="text" id="apu-custom-nombre" class="form-select" placeholder="Ej: Revoque grueso a la cal">
+        </div>
+        <div class="config-field">
+          <label for="apu-custom-unidad">Unidad</label>
+          <input type="text" id="apu-custom-unidad" class="form-select" placeholder="Ej: m2, m3, un">
+        </div>
+        <div class="config-field">
+          <label for="apu-custom-rubro">Rubro (opcional)</label>
+          <input type="text" id="apu-custom-rubro" class="form-select" placeholder="Ej: Revoques">
+        </div>
+        <div class="config-field">
+          <label for="apu-custom-desperdicio">% Desperdicio de materiales</label>
+          <input type="number" id="apu-custom-desperdicio" class="form-select" value="0" min="0" step="0.1">
+        </div>
+        <div class="config-field">
+          <label for="apu-custom-herramientas">% Herramientas manuales (sobre hs. de mano de obra)</label>
+          <input type="number" id="apu-custom-herramientas" class="form-select" value="0" min="0" step="0.1">
+        </div>
+      </div>
+
+      <details class="provider-section" open style="margin-bottom:14px;">
+        <summary>🧱 Agregar material</summary>
+        <div class="provider-section-body">
+          <input type="text" id="apu-custom-material-search" class="form-select" placeholder="Buscá un material por nombre...">
+          <div id="apu-custom-material-results" class="apu-task-results" style="margin-top:8px;"></div>
+        </div>
+      </details>
+
+      <details class="provider-section" style="margin-bottom:14px;">
+        <summary>👷 Agregar mano de obra</summary>
+        <div class="provider-section-body">
+          <div class="apu-task-row">
+            <div class="apu-task-row-info" style="flex:1;">
+              <select id="apu-custom-labor-select" class="form-select"></select>
+            </div>
+            <div class="apu-task-row-add">
+              <input type="number" id="apu-custom-labor-rend" value="1" min="0.0001" step="0.0001" title="Horas por unidad de tarea">
+              <button class="btn-computo" id="btn-apu-custom-add-labor">+ Agregar</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="provider-section" style="margin-bottom:14px;">
+        <summary>⚙️ Agregar equipo / herramienta</summary>
+        <div class="provider-section-body">
+          <div class="apu-task-row">
+            <div class="apu-task-row-info" style="flex:1;">
+              <select id="apu-custom-equipment-select" class="form-select"></select>
+            </div>
+            <div class="apu-task-row-add">
+              <input type="number" id="apu-custom-equipment-rend" value="1" min="0.0001" step="0.0001" title="Horas por unidad de tarea">
+              <button class="btn-computo" id="btn-apu-custom-add-equipment">+ Agregar</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <h4 style="font-size:0.9rem; font-weight:800; margin: 14px 0 8px;">Componentes agregados</h4>
+      <div id="apu-custom-draft-list" class="apu-task-results"></div>
+
+      <div class="excel-config-grid" style="margin-top:16px;">
+        <div class="config-field">
+          <label for="apu-custom-quantity">Cantidad para este presupuesto</label>
+          <input type="number" id="apu-custom-quantity" class="form-select" value="1" min="0.01" step="0.01">
+        </div>
+      </div>
+      <button class="btn-action-drawer" id="btn-apu-custom-confirm" style="background: var(--color-success); color:#fff;">Agregar esta tarea a mi presupuesto</button>
+    </div>
+  </div>
+
+  <!-- Panel de admin: agregar un APU nuevo al catálogo de NEXOBRA -- 04/11, mismo patrón que "Creá tu propia APU" pero guarda en apu_tasks/apu_task_components en vez de en el presupuesto de un usuario. -->
+  <div class="modal-backdrop" id="admin-apu-task-backdrop"></div>
+  <div class="excel-modal" id="admin-apu-task-modal" role="dialog" aria-labelledby="admin-apu-task-title" style="max-width: 720px;">
+    <div class="excel-modal-header">
+      <div>
+        <h3 id="admin-apu-task-title" style="font-size: 1.15rem; font-weight: 800; margin-bottom: 2px;">Agregar un APU al catálogo</h3>
+      </div>
+      <button class="modal-close-btn" id="admin-apu-task-close-btn">&times;</button>
+    </div>
+    <div class="excel-modal-body">
+      <div class="excel-config-grid">
+        <div class="config-field">
+          <label for="admin-apu-nombre">Nombre de la tarea</label>
+          <input type="text" id="admin-apu-nombre" class="form-select" placeholder="Ej: Revoque grueso a la cal">
+        </div>
+        <div class="config-field">
+          <label for="admin-apu-unidad">Unidad</label>
+          <input type="text" id="admin-apu-unidad" class="form-select" placeholder="Ej: m2, m3, un">
+        </div>
+        <div class="config-field">
+          <label for="admin-apu-rubro">Rubro (opcional)</label>
+          <input type="text" id="admin-apu-rubro" class="form-select" placeholder="Ej: Revoques">
+        </div>
+        <div class="config-field">
+          <label for="admin-apu-desperdicio">% Desperdicio de materiales</label>
+          <input type="number" id="admin-apu-desperdicio" class="form-select" value="0" min="0" step="0.1">
+        </div>
+        <div class="config-field">
+          <label for="admin-apu-herramientas">% Herramientas manuales (sobre hs. de mano de obra)</label>
+          <input type="number" id="admin-apu-herramientas" class="form-select" value="0" min="0" step="0.1">
+        </div>
+      </div>
+      <div class="config-field" style="margin-bottom:14px;">
+        <label for="admin-apu-descripcion">Descripción breve (qué contempla esta tarea)</label>
+        <textarea id="admin-apu-descripcion" class="form-select" rows="2" placeholder="Ej: Incluye azotado, grueso y fino a la cal sobre mampostería, sin terminación final."></textarea>
+      </div>
+
+      <details class="provider-section" open style="margin-bottom:14px;">
+        <summary>🧱 Agregar material</summary>
+        <div class="provider-section-body">
+          <input type="text" id="admin-apu-material-search" class="form-select" placeholder="Buscá un material por nombre...">
+          <div id="admin-apu-material-results" class="apu-task-results" style="margin-top:8px;"></div>
+        </div>
+      </details>
+
+      <details class="provider-section" style="margin-bottom:14px;">
+        <summary>👷 Agregar mano de obra</summary>
+        <div class="provider-section-body">
+          <div class="apu-task-row">
+            <div class="apu-task-row-info" style="flex:1;">
+              <select id="admin-apu-labor-select" class="form-select"></select>
+            </div>
+            <div class="apu-task-row-add">
+              <input type="number" id="admin-apu-labor-rend" value="1" min="0.0001" step="0.0001" title="Horas por unidad de tarea">
+              <button class="btn-computo" id="btn-admin-apu-add-labor">+ Agregar</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="provider-section" style="margin-bottom:14px;">
+        <summary>⚙️ Agregar equipo / herramienta</summary>
+        <div class="provider-section-body">
+          <div class="apu-task-row">
+            <div class="apu-task-row-info" style="flex:1;">
+              <select id="admin-apu-equipment-select" class="form-select"></select>
+            </div>
+            <div class="apu-task-row-add">
+              <input type="number" id="admin-apu-equipment-rend" value="1" min="0.0001" step="0.0001" title="Horas por unidad de tarea">
+              <button class="btn-computo" id="btn-admin-apu-add-equipment">+ Agregar</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <h4 style="font-size:0.9rem; font-weight:800; margin: 14px 0 8px;">Componentes agregados</h4>
+      <div id="admin-apu-draft-list" class="apu-task-results"></div>
+
+      <button class="btn-action-drawer" id="btn-admin-apu-save" style="background: var(--color-success); color:#fff; margin-top:16px;">Guardar en el catálogo de NEXOBRA</button>
+    </div>
   </div>
 
   <script type="module" src="/js/main.js"></script>
