@@ -172,6 +172,14 @@
    pantalla. Si más adelante se reemplazan por ilustraciones propias, esta
    regla deja de aplicar sola (el contenedor deja de estar vacío). */
 .pilar-icon-box:empty,.rubro-card-icon:empty,.modal-icon-badge:empty,.contact-info-icon:empty,.home-computo-cta-icon:empty,.contacto-home-icon:empty,.empty-icon:empty,.dropzone-icon:empty,.provider-logo-preview:empty{display:none}
+/* Botones del header que se "amontonaban" en anchos intermedios (05/11, a
+   pedido del usuario) -- el texto nunca se parte en varias líneas dentro
+   del botón; si hace falta ceder espacio, que lo haga el texto más corto
+   (ya acortado arriba) o el propio nav, no el botón partiéndose. */
+.btn-excel-tool span,.btn-computo span:not(.computo-counter){white-space:nowrap}
+.btn-excel-tool,.btn-computo{flex-shrink:0}
+@media (max-width:1300px){.nav-link{padding:8px 10px;font-size:.84rem}.header-actions{gap:8px}.btn-excel-tool{padding:8px 12px;font-size:.8rem}.btn-computo{padding:9px 14px;font-size:.84rem}}
+#btn-download-full-catalog{white-space:nowrap;flex-shrink:0}
 .apu-purchase-details summary{list-style:none}
 .apu-purchase-details input[type="number"],.apu-purchase-details input[type="date"],.apu-purchase-details input[type="text"]{padding:5px 6px;border:1px solid var(--border-light);border-radius:6px;background:var(--bg-app);color:inherit;font-size:.78rem}
 .apu-dim-toggle{background:none;border:none;color:var(--color-accent);font-size:.74rem;text-decoration:underline;cursor:pointer;padding:0;margin-top:2px;text-align:left}
