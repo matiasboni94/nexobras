@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "ar.com.nexoobra.twa",
+        "sha256_cert_fingerprints": ["2F:69:32:A3:9A:6D:45:A1:B7:DA:9B:4C:7F:66:EB:0C:46:9F:0F:4A:8A:5C:8B:C4:B7:EF:75:61:8D:15:D8:DC"]
+      }
+    }]
