@@ -1,0 +1,11 @@
+# NEXOBRA -- archivos que NO tienen que quedar servidos como si fueran
+# páginas públicas del sitio (Cloudflare, al desplegar, por default sube
+# TODO lo que encuentra en el repo como si fuera un archivo público más --
+# incluida la carpeta .git entera, que quedó expuesta hasta ahora: ver
+# advertencia nueva en el estado del proyecto, 17/09).
+**/.git
+**/.wrangler
+**/node_modules
+wrangler.jsonc
+worker.js
+.assetsignore
