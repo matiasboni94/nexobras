@@ -117,8 +117,8 @@
             <span id="auth-header-label">Ingresar</span>
           </button>
           <div class="auth-dropdown" id="auth-dropdown" style="display: none;">
-            <button type="button" id="btn-open-my-computations">Mis Presupuestos</button>
-            <button type="button" id="btn-open-my-apu-budgets">Mis Presupuestos de Obra</button>
+            <button type="button" id="btn-open-my-computations">Mis Presupuestos (lista simple)</button>
+            <button type="button" id="btn-open-my-apu-budgets">Mis Obras (con APU)</button>
             <button type="button" id="btn-open-favorites">Mis Favoritos</button>
             <button type="button" id="btn-open-alerts">Mis Alertas de Precio</button>
             <button type="button" id="btn-open-my-provider" style="display: none;">Mi Proveedor</button>
@@ -1264,6 +1264,98 @@
           </ul>
         </div>
       </div>
+
+      <hr style="margin: 3rem 0; border: none; border-top: 1px solid var(--border-light, #eee);">
+
+      <div class="section-heading-center" style="margin-bottom: 1.5rem;">
+        <div class="subheading-accent">Para presupuestos más técnicos</div>
+        <h2 class="section-title" style="font-size: 1.5rem;">Calculadora de Obra (APU)</h2>
+        <p class="section-desc">Pensada para presupuestar por Análisis de Precios Unitarios: armás la obra tarea por tarea, con el desglose de materiales, mano de obra y equipos de cada una, en vez de cargar ítem por ítem a mano.</p>
+      </div>
+
+      <div class="pilares-grid">
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🔢</div>
+          <h3 class="pilar-title">Numerada y con resumen simple</h3>
+          <p class="pilar-text">Cada tarea que agregás queda numerada. La fila de resumen muestra solo lo esencial — nombre, cantidad, unidad, precio unitario y subtotal — sin el desglose completo a la vista.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">▾</div>
+          <h3 class="pilar-title">Plegá y desplegá cada ítem</h3>
+          <p class="pilar-text">"Ver detalle" abre el desglose de materiales/mano de obra/equipos de esa tarea puntual. Así el presupuesto no se vuelve una pantalla interminable cuando tiene muchas tareas.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🔎</div>
+          <h3 class="pilar-title">Buscador sin amontonar</h3>
+          <p class="pilar-text">La lista de tareas del catálogo muestra solo nombre y unidad hasta que elegís una — ahí se abre un panel aparte con la descripción, la cantidad a cargar y, si corresponde, el cálculo por medidas (ancho × largo).</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">➕</div>
+          <h3 class="pilar-title">Materiales sueltos, sin pasar por un APU</h3>
+          <p class="pilar-text">Dentro de la misma obra podés agregar un material suelto (por ejemplo, para pedirle precio a un proveedor) sin tener que armarlo dentro de una tarea con rendimiento ni componentes.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🧱</div>
+          <h3 class="pilar-title">Elegir presentación de un material</h3>
+          <p class="pilar-text">En los materiales donde distintas presentaciones son, de verdad, el mismo producto (por ejemplo cemento en bolsa de 50kg o 25kg), un componente de la tarea puede cambiar de presentación y NEXOBRA ajusta el rendimiento solo, para que siga representando la misma cantidad real de material.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🧮</div>
+          <h3 class="pilar-title">Factor K automático</h3>
+          <p class="pilar-text">Cargás tus coeficientes (gastos generales, beneficio, IIBB, IVA) y NEXOBRA calcula el Factor K solo, el mismo cálculo que una planilla de APU tradicional. Ver cómo se calcula más abajo.</p>
+        </article>
+      </div>
+
+      <div class="section-heading-center" style="margin-bottom: 1.5rem; margin-top: 2.5rem;">
+        <div class="subheading-accent">Factor K</div>
+        <h2 class="section-title" style="font-size: 1.5rem;">¿Qué es el Factor K y cómo se calcula?</h2>
+        <p class="section-desc">El Factor K (o "Coeficiente de Resumen") es el número que multiplica el costo puro de un presupuesto para llegar al precio final que se cobra — incluye los gastos que no son ni material ni mano de obra puntual, más los impuestos.</p>
+      </div>
+
+      <div class="pilares-grid">
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🏗️</div>
+          <h3 class="pilar-title">Gastos Generales</h3>
+          <p class="pilar-text">Los costos de mantener la obra funcionando que no son de ninguna tarea puntual: supervisión, seguros, movilidad, administración. Se carga como porcentaje.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">💰</div>
+          <h3 class="pilar-title">Beneficio</h3>
+          <p class="pilar-text">La ganancia que se quiere obtener por hacer la obra, como porcentaje sobre el costo + gastos generales.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🏛️</div>
+          <h3 class="pilar-title">Ingresos Brutos (IIBB)</h3>
+          <p class="pilar-text">El impuesto provincial sobre ingresos brutos que corresponda a tu actividad y jurisdicción.</p>
+        </article>
+        <article class="pilar-card">
+          <div class="pilar-icon-box">🧾</div>
+          <h3 class="pilar-title">IVA</h3>
+          <p class="pilar-text">El Impuesto al Valor Agregado que corresponda facturar.</p>
+        </article>
+      </div>
+
+      <div class="guide-compare-grid" style="margin-top: 1.5rem;">
+        <div class="guide-compare-col highlight">
+          <h3 class="pilar-title" style="margin-bottom: 12px;">La fórmula</h3>
+          <ul class="guide-compare-list">
+            <li>Subtotal 1 = 1 + Gastos Generales (en %, ej. 10% → 0,10)</li>
+            <li>Subtotal 2 = Subtotal 1 × (1 + Beneficio)</li>
+            <li>Factor K = Subtotal 2 × (1 + IVA) + IIBB — redondeado a 3 decimales</li>
+          </ul>
+        </div>
+        <div class="guide-compare-col">
+          <h3 class="pilar-title" style="margin-bottom: 12px;">Ejemplo</h3>
+          <ul class="guide-compare-list">
+            <li>Gastos Generales 10%, Beneficio 15%, IIBB 5%, IVA 21%</li>
+            <li>Subtotal 1 = 1 + 0,10 = <strong>1,10</strong></li>
+            <li>Subtotal 2 = 1,10 × 1,15 = <strong>1,265</strong></li>
+            <li>Factor K = 1,265 × 1,21 + 0,05 = <strong>1,581</strong></li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="pilar-text" style="margin-top: 1rem;">Dentro de cada presupuesto de la Calculadora de Obra, en "Datos de la obra + factor K", cargás estos 4 coeficientes y NEXOBRA te muestra el Factor K ya calculado — se aplica multiplicando el precio de cada material, mano de obra y equipo del presupuesto. Si dejás los 4 vacíos, el presupuesto queda a costo puro, sin Factor K.</p>
     </div>
   </div>
 
@@ -1359,8 +1451,8 @@
     <div class="container">
       <div class="catalog-header-banner">
         <div>
-          <h2 class="catalog-title">Mis Presupuestos</h2>
-          <p class="catalog-subtitle">Tus obras y presupuestos guardados. Abrí uno para seguir editándolo.</p>
+          <h2 class="catalog-title">Mis Presupuestos (lista simple)</h2>
+          <p class="catalog-subtitle">Presupuestos armados a mano, ítem por ítem, sin usar la Calculadora de Obra. Si querés armar un presupuesto con tareas de APU y materiales sueltos juntos, usá "Mis Obras".</p>
         </div>
         <button class="btn-computo" id="btn-new-computation">
           + Nuevo presupuesto
@@ -1404,6 +1496,13 @@
             ¿No encontrás la tarea que buscás?
             <button type="button" id="btn-open-apu-custom-task" style="background:none; border:none; color:var(--color-accent, #3b82f6); font-weight:700; text-decoration:underline; cursor:pointer; font-size:0.8rem; padding:0;">Creá tu propia APU</button>
           </p>
+          <details class="drawer-obra-data" id="apu-direct-material-section" style="margin-top:10px;">
+            <summary>➕ Agregar un material suelto (sin APU, para pedirle precio a un proveedor)</summary>
+            <div style="margin-top:8px;">
+              <input type="text" id="apu-direct-material-search" class="form-select" placeholder="Buscá un material por nombre...">
+              <div id="apu-direct-material-results" class="apu-task-results" style="margin-top:8px;"></div>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -1422,9 +1521,25 @@
           <input type="text" id="apu-obra-ubicacion" class="form-select" placeholder="Ubicación">
           <input type="text" id="apu-obra-comitente" class="form-select" placeholder="Comitente">
           <input type="text" id="apu-obra-referencia" class="form-select" placeholder="Referencia / N° de expediente">
-          <input type="number" id="apu-k-factor" class="form-select" placeholder="Factor K (opcional)" step="0.001" min="0">
         </div>
-        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">Si cargás un factor K, se aplica multiplicando el precio de cada material/mano de obra/equipo del presupuesto. Vacío = costo puro (sin K).</p>
+        <div class="apu-dim-fields" style="margin-top:10px;">
+          <label>Gastos Generales (%)
+            <input type="number" id="apu-k-gastos-generales" step="0.01" min="0" placeholder="ej. 10">
+          </label>
+          <label>Beneficio (%)
+            <input type="number" id="apu-k-beneficio" step="0.01" min="0" placeholder="ej. 15">
+          </label>
+          <label>Ingresos Brutos / IIBB (%)
+            <input type="number" id="apu-k-iibb" step="0.01" min="0" placeholder="ej. 5">
+          </label>
+          <label>IVA (%)
+            <input type="number" id="apu-k-iva" step="0.01" min="0" placeholder="ej. 21">
+          </label>
+          <label>Factor K calculado
+            <input type="text" id="apu-k-factor-display" readonly placeholder="—">
+          </label>
+        </div>
+        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">El factor K se calcula solo a partir de estos 4 coeficientes (igual que la planilla de referencia) y se aplica multiplicando el precio de cada material/mano de obra/equipo del presupuesto. Dejá los 4 vacíos para costo puro (sin K). ¿Qué es cada coeficiente? Mirá la sección "Factor K" en la Guía de Uso (menú de cuenta).</p>
       </details>
 
       <div id="apu-budget-items" class="apu-budget-items"><!-- Apu.renderBudgetItems() --></div>
@@ -1456,7 +1571,7 @@
         <div class="provider-section-body">
           <div class="table-view-container">
             <table class="materials-table">
-              <thead><tr><th>Material</th><th>Unidad</th><th>Cantidad</th><th style="text-align:right;">Costo</th></tr></thead>
+              <thead><tr><th>Material</th><th>Cantidad neta</th><th>A pedir</th><th>Pedido</th><th style="text-align:right;">Costo</th></tr></thead>
               <tbody id="apu-consolidated-body"></tbody>
             </table>
           </div>
@@ -1470,8 +1585,8 @@
     <div class="container">
       <div class="catalog-header-banner">
         <div>
-          <h2 class="catalog-title">Mis Presupuestos de Obra</h2>
-          <p class="catalog-subtitle">Presupuestos armados con la Calculadora de Obra. Abrí uno para seguir editándolo.</p>
+          <h2 class="catalog-title">Mis Obras (con APU)</h2>
+          <p class="catalog-subtitle">Presupuestos de obra armados con la Calculadora de Obra: tareas de APU, tareas personalizadas y materiales sueltos, todo junto en una misma obra. Abrí uno para seguir editándolo.</p>
         </div>
         <button class="btn-computo" id="btn-new-apu-budget-from-list">+ Nuevo presupuesto</button>
       </div>

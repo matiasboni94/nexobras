@@ -2334,7 +2334,9 @@ const NEXOBRA_DATA = [
     "precioComputo": 17292.44,
     "envase": 1.0,
     "precioBase": 13936.0,
-    "mesBase": "abr-25"
+    "mesBase": "abr-25",
+    "variantGroupMode": "net_qty",
+    "packageNetQty": 50
   },
   {
     "id": "BL-004",
@@ -2405,7 +2407,9 @@ const NEXOBRA_DATA = [
     "precioComputo": 9244.31,
     "envase": 1.0,
     "precioBase": 7450.0,
-    "mesBase": "abr-25"
+    "mesBase": "abr-25",
+    "variantGroupMode": "net_qty",
+    "packageNetQty": 25
   },
   {
     "id": "BL-007",
@@ -9273,7 +9277,9 @@ const NEXOBRA_DATA = [
     "precioComputo": 119453.32,
     "envase": 1.0,
     "precioBase": 96267.6,
-    "mesBase": "abr-25"
+    "mesBase": "abr-25",
+    "variantGroupMode": "net_qty",
+    "packageNetQty": 5
   },
   {
     "id": "ICI-002",
@@ -9297,7 +9303,9 @@ const NEXOBRA_DATA = [
     "precioComputo": 204719.21,
     "envase": 1.0,
     "precioBase": 164983.5,
-    "mesBase": "abr-25"
+    "mesBase": "abr-25",
+    "variantGroupMode": "net_qty",
+    "packageNetQty": 10
   },
   {
     "id": "ICI-003",
@@ -9321,7 +9329,9 @@ const NEXOBRA_DATA = [
     "precioComputo": 714021.68,
     "envase": 1.0,
     "precioBase": 575431.08,
-    "mesBase": "abr-25"
+    "mesBase": "abr-25",
+    "variantGroupMode": "net_qty",
+    "packageNetQty": 5
   },
   {
     "id": "ICI-004",
@@ -9345,7 +9355,9 @@ const NEXOBRA_DATA = [
     "precioComputo": 1180457.92,
     "envase": 1.0,
     "precioBase": 951332.7,
-    "mesBase": "abr-25"
+    "mesBase": "abr-25",
+    "variantGroupMode": "net_qty",
+    "packageNetQty": 10
   },
   {
     "id": "ICI-005",
@@ -9369,7 +9381,9 @@ const NEXOBRA_DATA = [
     "precioComputo": 1089169.26,
     "envase": 1.0,
     "precioBase": 877763.04,
-    "mesBase": "abr-25"
+    "mesBase": "abr-25",
+    "variantGroupMode": "net_qty",
+    "packageNetQty": 5
   },
   {
     "id": "ICI-006",
@@ -9393,7 +9407,9 @@ const NEXOBRA_DATA = [
     "precioComputo": 2100416.98,
     "envase": 1.0,
     "precioBase": 1692729.0,
-    "mesBase": "abr-25"
+    "mesBase": "abr-25",
+    "variantGroupMode": "net_qty",
+    "packageNetQty": 10
   },
   {
     "id": "ICI-007",
@@ -9951,7 +9967,9 @@ const NEXOBRA_DATA = [
     "precioComputo": 1501.31,
     "envase": 1.0,
     "precioBase": 1209.91,
-    "mesBase": "abr-25"
+    "mesBase": "abr-25",
+    "variantGroupMode": "net_qty",
+    "packageNetQty": 20
   },
   {
     "id": "ID-017",
@@ -9974,7 +9992,9 @@ const NEXOBRA_DATA = [
     "precioComputo": 3299.5,
     "envase": 1.0,
     "precioBase": 2659.07,
-    "mesBase": "abr-25"
+    "mesBase": "abr-25",
+    "variantGroupMode": "net_qty",
+    "packageNetQty": 50
   },
   {
     "id": "ID-018",
@@ -11918,7 +11938,8 @@ const NEXOBRA_DATA = [
     "precioComputo": 1329.01,
     "envase": 5.0,
     "precioBase": 5355.27,
-    "mesBase": "abr-25"
+    "mesBase": "abr-25",
+    "variantGroupMode": "direct"
   },
   {
     "id": "RA-005",
@@ -11942,7 +11963,8 @@ const NEXOBRA_DATA = [
     "precioComputo": 2615.21,
     "envase": 5.0,
     "precioBase": 10538.01,
-    "mesBase": "abr-25"
+    "mesBase": "abr-25",
+    "variantGroupMode": "direct"
   },
   {
     "id": "REP-001",
