@@ -285,6 +285,32 @@
  </div>
  </section>
 
+ <!-- BANNER: CALCULADORA DE OBRA (APU) -- (06/11, a pedido del usuario: la función solo se veía desde el menú de arriba, le faltaba visibilidad en el home). Reusa las mismas clases que el banner de "Excel" de arriba (.excel-banner-card/.mock-excel-sheet), solo cambia el contenido. -->
+ <section class="section-excel-cta">
+ <div class="container">
+ <div class="excel-banner-card">
+ <div class="excel-banner-content">
+ <h3 class="excel-banner-title">¿Tenés que presupuestar una obra completa?</h3>
+ <p class="excel-banner-text">Armá tu obra tarea por tarea con la Calculadora de Obra (APU): cada tarea trae su desglose de materiales, mano de obra y equipos, agrupado por rubro y por fase, con el Factor K que vos cargues.
+ </p>
+ <div class="excel-banner-buttons">
+ <button class="btn-computo" id="btn-start-apu-home" type="button">
+ Ir a la Calculadora de Obra &rarr;
+ </button>
+ </div>
+ </div>
+ <div class="excel-banner-visual">
+ <div class="mock-excel-sheet">
+ <div class="mock-sheet-row head"><span>Tarea</span><span>Materiales</span><span>Mano de obra</span><span>Equipos</span></div>
+ <div class="mock-sheet-row"><span>Mampostería 15cm</span><span>$ 212.400</span><span>$ 98.650</span><span>$ 4.200</span></div>
+ <div class="mock-sheet-row"><span>Contrapiso</span><span>$ 156.300</span><span>$ 71.900</span><span>$ 3.100</span></div>
+ <div class="mock-sheet-row total"><span>TOTAL ESTIMADO</span><span></span><span></span><span>$ 546.550</span></div>
+ </div>
+ </div>
+ </div>
+ </div>
+ </section>
+
  </div>
 
  <!-- =========================================================================
@@ -404,19 +430,21 @@
 
  <!-- RESULTS SUMMARY -->
  <div class="results-summary">
+ <div class="results-summary-row">
  <div>
  <span>Mostrando </span>
  <span class="results-count" id="visible-count">0</span>
  <span> materiales</span>
  <span id="active-filter-label" style="font-weight: 600; color: var(--brand-dark);"></span>
  </div>
- <div class="price-month-picker">
+ <div class="price-month-picker" style="margin-right: 6%;">
  <label for="price-year-select">Ver precios actualizados a:</label>
  <select id="price-year-select" class="sort-select"></select>
  <select id="price-month-select" class="sort-select"></select>
  <button type="button" id="btn-download-full-catalog" class="btn-action-drawer btn-copy" style="font-size: 0.75rem; padding: 6px 10px; white-space: nowrap; flex-shrink: 0;" title="Descarga los 943 materiales con sus precios para el mes elegido arriba (Excel)">Descargar catálogo</button>
  </div>
- <div style="font-size: 0.8rem; color: var(--text-subtle);">
+ </div>
+ <div style="font-size: 0.8rem; color: var(--text-subtle); width: 100%;">
  <span id="reference-price-status">Valores de referencia · Base: <strong>Abril 2025</strong> · Metodología y actualización visibles en cada ítem</span>
  <br><span style="font-size: 0.72rem;">Precios orientativos. No incluyen impuestos ni flete. Este período también se aplica a Mano de Obra, para que tu presupuesto quede con una sola fecha de referencia.</span>
  </div>
@@ -669,6 +697,17 @@
  </div>
  </label>
  </div>
+ </div>
+ <div class="config-field">
+ <label for="register-referral-source">¿Cómo nos conociste?</label>
+ <select id="register-referral-source" class="form-select" required>
+ <option value="" disabled selected>Elegí una opción</option>
+ <option value="instagram">Instagram</option>
+ <option value="recomendacion">Me lo recomendó alguien</option>
+ <option value="proveedor">Un corralón / proveedor me lo mencionó</option>
+ <option value="buscador">Buscando en Google / internet</option>
+ <option value="otro">Otro</option>
+ </select>
  </div>
  <button type="submit" class="btn-computo" style="width: 100%; justify-content: center;" id="btn-submit-register">Crear cuenta
  </button>
@@ -1242,7 +1281,7 @@
  <p class="pilar-text">Cada tarea que agregás queda numerada. La fila de resumen muestra solo lo esencial — nombre, cantidad, unidad, precio unitario y subtotal — sin el desglose completo a la vista.</p>
  </article>
  <article class="pilar-card">
- <div class="pilar-icon-box">▾</div>
+ <div class="pilar-icon-box"></div>
  <h3 class="pilar-title">Plegá y desplegá cada ítem</h3>
  <p class="pilar-text">"Ver detalle" abre el desglose de materiales/mano de obra/equipos de esa tarea puntual. Así el presupuesto no se vuelve una pantalla interminable cuando tiene muchas tareas.</p>
  </article>
@@ -1252,7 +1291,7 @@
  <p class="pilar-text">La lista de tareas del catálogo muestra solo nombre y unidad hasta que elegís una — ahí se abre un panel aparte con la descripción, la cantidad a cargar y, si corresponde, el cálculo por medidas (ancho × largo).</p>
  </article>
  <article class="pilar-card">
- <div class="pilar-icon-box">+</div>
+ <div class="pilar-icon-box"></div>
  <h3 class="pilar-title">Materiales sueltos, sin pasar por un APU</h3>
  <p class="pilar-text">Dentro de la misma obra podés agregar un material suelto (por ejemplo, para pedirle precio a un proveedor) sin tener que armarlo dentro de una tarea con rendimiento ni componentes.</p>
  </article>
@@ -1280,6 +1319,16 @@
  <div class="pilar-icon-box"></div>
  <h3 class="pilar-title">Fases de obra</h3>
  <p class="pilar-text">Creás las etapas de tu obra (ej. "Cimientos", "Mampostería") y le asignás una fase a cada tarea. La lista de materiales se puede ver agrupada por fase, para pedir o acopiar de a una etapa, con fecha estimada y estado de avance por fase.</p>
+ </article>
+ <article class="pilar-card">
+ <div class="pilar-icon-box"></div>
+ <h3 class="pilar-title">Resumen tipo planilla</h3>
+ <p class="pilar-text">Arriba de las tarjetas editables, un resumen de solo lectura con el mismo formato que una planilla de cómputo y presupuesto tradicional -- numerado por rubro y tarea, con el total y el % de incidencia de cada rubro sobre el total de la obra.</p>
+ </article>
+ <article class="pilar-card">
+ <div class="pilar-icon-box"></div>
+ <h3 class="pilar-title">Curva de inversiones</h3>
+ <p class="pilar-text">A partir de la fecha estimada que le cargás a cada fase, un gráfico con el gasto de cada etapa y el gasto acumulado a lo largo de la obra -- para organizar dónde está ubicada cada tarea en el tiempo, igual que una curva de inversión de obra.</p>
  </article>
  </div>
 
@@ -1453,6 +1502,12 @@
  <button class="btn-computo" id="btn-new-apu-budget">+ Nuevo presupuesto</button>
  </div>
 
+ <!-- Aviso para quien usa la Calculadora de Obra sin cuenta (06/11): sin registrarse solo puede calcular una tarea a la vez (ver Apu.enforceApuAnonSingleItemLimit/updateApuGatingUI) -- armar un presupuesto con varias tareas, organizarlo en fases, guardarlo y compartirlo queda para cuentas registradas. -->
+ <div id="apu-anon-banner" class="provider-announcement-banner" style="display:none; margin-bottom:16px; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+ <span>📌 Estás probando la Calculadora de Obra sin cuenta: podés calcular <strong>una tarea a la vez</strong> (ej. "Mampostería de 30"). Registrate gratis para armar un presupuesto completo con varias tareas, organizarlo en fases, guardarlo y compartirlo.</span>
+ <button type="button" class="btn-computo" onclick="window.nexoBraApp.openApuRegisterPrompt()" style="white-space:nowrap;">Registrarme gratis</button>
+ </div>
+
  <!-- Buscador de tareas -->
  <div class="provider-section" style="margin-bottom: 20px;">
  <div class="provider-section-body" style="padding-top: 16px;">
@@ -1534,6 +1589,19 @@
  </div>
  </details>
 
+ <!-- Resumen tipo planilla (06/11): vista de solo lectura con el mismo formato que una planilla de cómputo y presupuesto tradicional -- numerado por rubro/ítem, con el total y la incidencia % de cada rubro. No reemplaza las tarjetas editables de abajo (ahí se sigue editando cada tarea), es solo un resumen de un vistazo. -->
+ <details class="provider-section" id="apu-summary-section" style="margin-top: 16px; margin-bottom: 20px; display:none;" open>
+ <summary>Resumen del presupuesto (planilla)</summary>
+ <div class="provider-section-body">
+ <div class="table-view-container">
+ <table class="materials-table apu-summary-table">
+ <thead><tr><th>R/I</th><th>Rubro / Tarea</th><th>Un</th><th>Cant</th><th style="text-align:right;">Precio Unitario</th><th style="text-align:right;">Total Ítem</th><th style="text-align:right;">Total Rubro</th><th style="text-align:right;">Incidencia</th></tr></thead>
+ <tbody id="apu-summary-body"></tbody>
+ </table>
+ </div>
+ </div>
+ </details>
+
  <div id="apu-budget-items" class="apu-budget-items"><!-- Apu.renderBudgetItems() --></div>
 
  <div id="apu-budget-empty" class="computo-empty-state">
@@ -1549,7 +1617,7 @@
  <div class="summary-row total-row"><span>Total Estimado:</span><span id="apu-total-general" style="color: var(--brand-yellow); text-shadow: 0 0 1px #000;">$ 0,00</span></div>
  <p style="font-size: 0.7rem; color: var(--text-subtle); margin: 6px 0 0; line-height: 1.4;">Valores orientativos con precios de referencia NEXOBRA. No incluyen impuestos, cargas sociales ni fletes.</p>
 
- <div class="drawer-actions">
+ <div class="drawer-actions" id="apu-budget-drawer-actions">
  <button class="btn-action-drawer" id="btn-share-apu-budget" style="background: var(--color-accent, #3b82f6); color: #fff;">Compartir por link</button>
  <button class="btn-action-drawer" id="btn-export-apu-full" style="background: var(--color-success); color: #fff;">Presupuesto completo (Excel)</button>
  <button class="btn-action-drawer btn-copy" id="btn-share-apu-provider">Compartir a un proveedor</button>
@@ -1577,6 +1645,17 @@
  <div class="provider-section-body">
  <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 10px;">La misma lista de materiales de arriba, separada por la fase asignada a cada tarea -- para pedir o acopiar de a una etapa. Registrá los pedidos desde la lista consolidada de arriba (es la misma información, solo que ahí ya está todo junto).</p>
  <div id="apu-materiales-por-fase-body"><!-- Apu.renderApuMaterialesPorFase() --></div>
+ </div>
+ </details>
+
+ <!-- Curva de inversiones (06/11): a partir de la fecha estimada de cada fase y el monto de las tareas asignadas a ella, arma la curva de inversión (gasto por etapa + acumulado) que se usa para organizar dónde está ubicada cada tarea en el tiempo. Solo se muestra si el usuario creó alguna fase (mismo criterio que "Materiales por fase"); dentro, si ninguna fase tiene fecha estimada todavía, se avisa en vez de mostrar un gráfico vacío. -->
+ <details class="provider-section" id="apu-curva-inversion-section" style="margin-top: 24px; display:none;">
+ <summary>Curva de inversiones (por fase)</summary>
+ <div class="provider-section-body">
+ <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 10px;">Gasto de cada fase (barras) y gasto acumulado a lo largo de la obra (línea) -- se arma a partir de la fecha estimada que le pusiste a cada fase, más abajo. Cargá o editá la fecha estimada en "Fases de obra", más arriba.</p>
+ <p id="apu-curva-inversion-empty" style="font-size:0.82rem; color:var(--text-muted);">Todavía ninguna fase con tareas asignadas tiene fecha estimada -- cargá una fecha en "Fases de obra" para ver la curva.</p>
+ <canvas id="apu-curva-inversion-chart" height="90" style="display:none;"></canvas>
+ <p id="apu-curva-inversion-note" style="font-size:0.72rem; color:var(--text-subtle); margin-top:8px;"></p>
  </div>
  </details>
  </div>
@@ -1796,6 +1875,17 @@
  <button type="button" class="btn-computo" id="btn-add-provider-announcement" style="white-space:nowrap;">Publicar</button>
  </div>
  <div id="provider-announcements-list"></div>
+ </div>
+ </details>
+
+ <!-- FOTOS DE TRABAJOS REALIZADOS (06/11): hasta 3, para que la página pública se vea más vistosa. Se achican en el navegador antes de subir (ver ST.compressImageForUpload). -->
+ <details class="provider-section">
+ <summary>Fotos de trabajos realizados</summary>
+ <div class="provider-section-body">
+ <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">Subí hasta 3 fotos de trabajos que hiciste -- se ven en tu página pública de NEXOBRA. Se achican solas antes de subir, así no pesan en tu plan de almacenamiento.</p>
+ <div id="provider-photos-grid" class="provider-photos-grid"></div>
+ <input type="file" id="provider-photo-input" accept="image/*" style="display:none;">
+ <button type="button" class="btn-computo" id="btn-add-provider-photo" style="margin-top:10px;">+ Agregar foto</button>
  </div>
  </details>
 
@@ -2259,6 +2349,12 @@
  <button type="button" class="btn-computo" id="btn-admin-add-prov-announcement" style="white-space:nowrap;">Publicar</button>
  </div>
  <div id="admin-prov-announcements-list"></div>
+
+ <h4 class="provider-subsection-title">Fotos de trabajos realizados</h4>
+ <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">Hasta 3 fotos para su página pública -- se achican solas antes de subir.</p>
+ <div id="admin-prov-photos-grid" class="provider-photos-grid"></div>
+ <input type="file" id="admin-prov-photo-input" accept="image/*" style="display:none;">
+ <button type="button" class="btn-computo" id="btn-admin-add-prov-photo" style="margin-top:10px;">+ Agregar foto</button>
  </div>
  </div>
  </details>
@@ -2407,13 +2503,17 @@
  <div class="modal-header">
  <div>
  <h3 id="apu-provider-picker-title" style="font-size: 1.15rem; font-weight: 800; margin-bottom: 2px;">Compartir lista de materiales</h3>
- <p style="font-size: 0.8rem; color: var(--text-subtle);">Elegí un proveedor de NEXOBRA para mandarle la lista por WhatsApp.</p>
+ <p style="font-size: 0.8rem; color: var(--text-subtle);">Elegí uno o varios proveedores de NEXOBRA para mandarles la lista por WhatsApp. Te mostramos cuántos materiales de tu lista ya tiene cargados cada uno.</p>
  </div>
  <button class="modal-close-btn" id="apu-provider-picker-close-btn">&times;</button>
  </div>
  <div class="modal-body">
  <input type="text" id="apu-provider-picker-search" class="form-select" placeholder="Nombre del proveedor o localidad...">
  <div id="apu-provider-picker-results" style="margin-top:12px; max-height:320px; overflow-y:auto;"></div>
+ <div id="apu-provider-picker-footer" style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border-light); display:flex; align-items:center; justify-content:space-between; gap:10px;">
+ <span id="apu-provider-picker-selected-count" style="font-size:0.78rem; color:var(--text-muted);">Ningún proveedor elegido</span>
+ <button class="btn-computo" id="btn-send-apu-provider-selection" disabled>Enviar por WhatsApp</button>
+ </div>
  </div>
  </div>
 
