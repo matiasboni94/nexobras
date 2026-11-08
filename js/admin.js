@@ -859,6 +859,13 @@ export function setupAdminListeners() {
  const btnAddProvAnnouncement = document.getElementById('btn-admin-add-prov-announcement');
  if (btnAddProvAnnouncement) btnAddProvAnnouncement.addEventListener('click', addAdminProviderAnnouncement);
 
+ const btnAddProvPhoto = document.getElementById('btn-admin-add-prov-photo');
+ const provPhotoInput = document.getElementById('admin-prov-photo-input');
+ if (btnAddProvPhoto && provPhotoInput) {
+ btnAddProvPhoto.addEventListener('click', () => provPhotoInput.click());
+ provPhotoInput.addEventListener('change', handleAdminProviderPhotoFileChange);
+ }
+
  const provLogoInput = document.getElementById('admin-prov-logo-input');
  if (provLogoInput) provLogoInput.addEventListener('change', (e) => {
  if (e.target.files[0]) uploadAdminProviderLogo(e.target.files[0]);
@@ -1243,6 +1250,7 @@ export async function openAdminProviderEditor(providerId) {
  await loadAdminProviderKeywords();
  await loadAdminProviderCatalog();
  await loadAdminProviderAnnouncements();
+ await loadAdminProviderBranchPhotos();
 }
 
 function updateAdminLogoPreview(url) {
@@ -1777,6 +1785,63 @@ export async function deleteAdminProviderAnnouncement(id) {
  const { error } = await ST.supabaseClient.from('provider_announcements').delete().eq('id', id);
  if (error) { ST.showToast('No se pudo eliminar: ' + error.message); return; }
  loadAdminProviderAnnouncements();
+}
+
+// --- Fotos de trabajos realizados del proveedor seleccionado (06/11) ---
+// Mismo mecanismo que provider.js, apuntando a adminState.manageSelectedBranch
+// en vez de a la sucursal del usuario logueado -- la subida en sí (achicado +
+// Storage + insert) se reusa de Provider.uploadProviderBranchPhoto() en vez de
+// duplicarla, pasándole la sucursal del admin y este callback de refresco.
+
+export async function loadAdminProviderBranchPhotos() {
+ const container = document.getElementById('admin-prov-photos-grid');
+ const branch = adminState.manageSelectedBranch;
+ if (!container) return;
+ if (!branch) {
+ container.innerHTML = '<p style="font-size:0.82rem; color:var(--text-muted);">Guardá primero los datos comerciales.</p>';
+ return;
+ }
+ const { data, error } = await ST.supabaseClient
+ .from('provider_branch_photos')
+ .select('id, photo_url, storage_path')
+ .eq('branch_id', branch.id)
+ .order('sort_order');
+ if (error) {
+ container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+ return;
+ }
+ renderAdminProviderBranchPhotos(data || []);
+}
+
+function renderAdminProviderBranchPhotos(list) {
+ const container = document.getElementById('admin-prov-photos-grid');
+ if (!container) return;
+ container.innerHTML = list.length === 0
+ ? '<p style="font-size:0.82rem; color:var(--text-muted);">Todavía no se subió ninguna foto.</p>'
+ : list.map(p => `
+ <div class="provider-photo-card">
+ <img src="${ST.escapeHtml(p.photo_url)}" alt="Foto de trabajo realizado" loading="lazy">
+ <button type="button" onclick="window.nexoBraApp.deleteAdminProviderBranchPhoto(${ST.escAttr(p.id)}, ${ST.escAttr(p.storage_path)})" title="Eliminar">&times;</button>
+ </div>
+ `).join('');
+ const btn = document.getElementById('btn-add-admin-provider-photo');
+ if (btn) btn.style.display = list.length >= 3 ? 'none' : 'inline-flex';
+}
+
+export async function handleAdminProviderPhotoFileChange(e) {
+ const file = e.target.files && e.target.files[0];
+ e.target.value = '';
+ if (!file) return;
+ await Provider.uploadProviderBranchPhoto(file, adminState.manageSelectedBranch, loadAdminProviderBranchPhotos);
+}
+
+export async function deleteAdminProviderBranchPhoto(id, storagePath) {
+ if (!confirm('¿Eliminar esta foto?')) return;
+ const { error: removeError } = await ST.supabaseClient.storage.from('provider-work-photos').remove([storagePath]);
+ if (removeError) console.warn('[NEXOBRA] No se pudo borrar el archivo de Storage (se borra igual el registro):', removeError);
+ const { error } = await ST.supabaseClient.from('provider_branch_photos').delete().eq('id', id);
+ if (error) { ST.showToast('No se pudo eliminar: ' + error.message); return; }
+ loadAdminProviderBranchPhotos();
 }
 
 // ============================================================

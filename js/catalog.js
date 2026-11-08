@@ -294,10 +294,7 @@ import * as ST from './state.js';
  if (sinFiltroActivo) {
  ST.visibleCount.textContent = NEXOBRA_DATA.length;
  ST.activeFilterLabel.textContent = '';
- ST.productsGrid.innerHTML = `
- <p style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 1rem 0;">Escribí lo que necesitás arriba, o elegí un rubro debajo.
- </p>
- `;
+ ST.productsGrid.innerHTML = '';
  ST.productsTableBody.innerHTML = '';
  if (btnLoadMoreCatalog) btnLoadMoreCatalog.style.display = 'none';
  if (catalogPaginationStatus) catalogPaginationStatus.textContent = '';

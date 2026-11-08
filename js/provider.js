@@ -86,6 +86,7 @@ import * as ST from './state.js';
  await loadProviderBroadcastStatus();
  await loadProviderKeywords();
  await loadProviderAnnouncements();
+ await loadProviderBranchPhotos();
  }
 
  let branchLocationMap = null;
@@ -958,6 +959,12 @@ import * as ST from './state.js';
  if (btnGeocodeAddress) btnGeocodeAddress.addEventListener('click', (e) => { e.preventDefault(); geocodeBranchAddress(); });
  const btnAddAnnouncement = document.getElementById('btn-add-provider-announcement');
  if (btnAddAnnouncement) btnAddAnnouncement.addEventListener('click', addProviderAnnouncement);
+ const btnAddProviderPhoto = document.getElementById('btn-add-provider-photo');
+ const providerPhotoInput = document.getElementById('provider-photo-input');
+ if (btnAddProviderPhoto && providerPhotoInput) {
+ btnAddProviderPhoto.addEventListener('click', () => providerPhotoInput.click());
+ providerPhotoInput.addEventListener('change', handleProviderPhotoFileChange);
+ }
  }
 
  export function setupNewMaterialListeners() {
@@ -1603,4 +1610,116 @@ import * as ST from './state.js';
  const { error } = await ST.supabaseClient.from('provider_announcements').delete().eq('id', id);
  if (error) { ST.showToast('No se pudo eliminar: ' + error.message); return; }
  loadProviderAnnouncements();
+ }
+
+ // ============================================================
+ // Fotos de trabajos realizados (06/11) -- hasta MAX_PROVIDER_WORK_PHOTOS
+ // por sucursal, para que la página pública se vea "más vistosa" (pedido
+ // del usuario). Se achican en el navegador antes de subir
+ // (ST.compressImageForUpload) para no pegarle fuerte al almacenamiento --
+ // ver migración 031_provider_branch_photos.sql (bucket "provider-work-photos").
+ // ============================================================
+
+ const MAX_PROVIDER_WORK_PHOTOS = 3;
+
+ export async function loadProviderBranchPhotos() {
+ const container = document.getElementById('provider-photos-grid');
+ if (!container) return;
+ if (!ST.providerState.branch) {
+ container.innerHTML = '<p style="font-size:0.82rem; color:var(--text-muted);">Guardá primero tus datos comerciales para poder subir fotos.</p>';
+ return;
+ }
+ const { data, error } = await ST.supabaseClient
+ .from('provider_branch_photos')
+ .select('id, photo_url, storage_path')
+ .eq('branch_id', ST.providerState.branch.id)
+ .order('sort_order');
+ if (error) {
+ container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.friendlyError(error, 'cargar tus fotos')}</p>`;
+ return;
+ }
+ renderProviderBranchPhotos(data || []);
+ }
+
+ function renderProviderBranchPhotos(list) {
+ const container = document.getElementById('provider-photos-grid');
+ if (!container) return;
+ container.innerHTML = list.length === 0
+ ? '<p style="font-size:0.82rem; color:var(--text-muted);">Todavía no subiste ninguna foto.</p>'
+ : list.map(p => `
+ <div class="provider-photo-card">
+ <img src="${ST.escapeHtml(p.photo_url)}" alt="Foto de trabajo realizado" loading="lazy">
+ <button type="button" onclick="window.nexoBraApp.deleteProviderBranchPhoto(${ST.escAttr(p.id)}, ${ST.escAttr(p.storage_path)})" title="Eliminar">&times;</button>
+ </div>
+ `).join('');
+ const btn = document.getElementById('btn-add-provider-photo');
+ if (btn) btn.style.display = list.length >= MAX_PROVIDER_WORK_PHOTOS ? 'none' : 'inline-flex';
+ }
+
+ export async function handleProviderPhotoFileChange(e) {
+ const file = e.target.files && e.target.files[0];
+ e.target.value = '';
+ if (!file) return;
+ await uploadProviderBranchPhoto(file, ST.providerState.branch, loadProviderBranchPhotos);
+ }
+
+ /** Reusada por admin.js (le pasa la sucursal del proveedor que está gestionando y su propio callback de refresco) para no duplicar toda esta lógica -- mismo patrón que searchMaterialsForCustomTask/Provider.searchMaterialsSimple. */
+ export async function uploadProviderBranchPhoto(file, branch, onDone) {
+ if (!branch) {
+ ST.showToast('Primero guardá los datos comerciales (sucursal) antes de subir fotos.');
+ return;
+ }
+ if (!file.type.startsWith('image/')) {
+ ST.showToast('Tiene que ser una imagen.');
+ return;
+ }
+ const { count, error: countError } = await ST.supabaseClient
+ .from('provider_branch_photos')
+ .select('id', { count: 'exact', head: true })
+ .eq('branch_id', branch.id);
+ if (countError) { ST.showToast('No se pudo verificar las fotos actuales: ' + countError.message); return; }
+ if ((count || 0) >= MAX_PROVIDER_WORK_PHOTOS) {
+ ST.showToast(`Ya hay el máximo de ${MAX_PROVIDER_WORK_PHOTOS} fotos -- eliminá una para subir otra.`);
+ return;
+ }
+
+ let blob;
+ try {
+ blob = await ST.compressImageForUpload(file);
+ } catch (err) {
+ ST.showToast(err.message);
+ return;
+ }
+
+ const path = `${branch.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+ const { error: uploadError } = await ST.supabaseClient.storage
+ .from('provider-work-photos')
+ .upload(path, blob, { contentType: 'image/jpeg' });
+ if (uploadError) {
+ ST.showToast('No se pudo subir la foto: ' + uploadError.message);
+ return;
+ }
+
+ const { data: publicUrlData } = ST.supabaseClient.storage.from('provider-work-photos').getPublicUrl(path);
+ const { error: insertError } = await ST.supabaseClient.from('provider_branch_photos').insert({
+ branch_id: branch.id,
+ photo_url: publicUrlData.publicUrl,
+ storage_path: path,
+ sort_order: count || 0
+ });
+ if (insertError) {
+ ST.showToast('La foto se subió pero no se pudo guardar: ' + insertError.message);
+ return;
+ }
+ ST.showToast('Foto agregada.');
+ if (onDone) onDone();
+ }
+
+ export async function deleteProviderBranchPhoto(id, storagePath) {
+ if (!confirm('¿Eliminar esta foto?')) return;
+ const { error: removeError } = await ST.supabaseClient.storage.from('provider-work-photos').remove([storagePath]);
+ if (removeError) console.warn('[NEXOBRA] No se pudo borrar el archivo de Storage (se borra igual el registro):', removeError);
+ const { error } = await ST.supabaseClient.from('provider_branch_photos').delete().eq('id', id);
+ if (error) { ST.showToast('No se pudo eliminar: ' + error.message); return; }
+ loadProviderBranchPhotos();
  }

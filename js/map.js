@@ -1768,12 +1768,21 @@ import * as ST from './state.js';
  categoryName = cat?.name || '';
  }
 
- const [{ data: ratingData }, { data: offers }, { data: keywordRows }, announcement] = await Promise.all([
+ const [{ data: ratingData }, { data: offers }, { data: keywordRows }, announcement, { data: photoRows }] = await Promise.all([
  ST.supabaseClient.from('provider_ratings_summary').select('avg_rating, review_count').eq('provider_id', branch.provider_id).maybeSingle(),
  ST.supabaseClient.from('provider_offers').select('amount, unit, brand, stock_status, materials(denomination)').eq('branch_id', branch.id).eq('status', 'approved').order('reported_at', { ascending: false }),
  ST.supabaseClient.from('provider_keywords').select('keyword').eq('provider_id', branch.provider_id),
  fetchLatestAnnouncement(branch.id),
+ ST.supabaseClient.from('provider_branch_photos').select('photo_url').eq('branch_id', branch.id).order('sort_order'),
  ]);
+
+ // Galería de fotos de trabajos realizados (06/11, a pedido del usuario:
+ // "que quede más vistoso su 'web' en nexobra") -- oculta por completo si
+ // el proveedor todavía no subió ninguna, mismo criterio que el resto de
+ // las secciones opcionales de esta página (anuncios, matrícula, etc.).
+ const photosGalleryHtml = (photoRows || []).length
+ ? `<div class="provider-public-photos-grid" style="margin-bottom:14px;">${photoRows.map(p => `<img src="${ST.escapeHtml(p.photo_url)}" alt="Trabajo realizado por ${ST.escapeHtml(provider.business_name)}" loading="lazy">`).join('')}</div>`
+ : '';
 
  // Mismo botón compacto que ya se usa en las tarjetas del Directorio
  // (antes era un link de texto más grande, "Contactar por WhatsApp" --
@@ -1841,6 +1850,7 @@ import * as ST from './state.js';
  </div>
  </div>
  <div style="margin: 6px 0 12px;">${renderStarRating(ratingData?.avg_rating, ratingData?.review_count)}</div>
+ ${photosGalleryHtml}
  ${renderBusinessHours(branch.business_hours)}
  ${provider.description ? `<p style="font-size:0.88rem; margin-bottom:14px;">${ST.escapeHtml(provider.description)}</p>` : ''}
  <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">${whatsappLink}${websiteLink}</div>

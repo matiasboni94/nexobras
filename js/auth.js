@@ -117,6 +117,7 @@ import * as ST from './state.js';
     const email = document.getElementById('register-email').value.trim();
     const password = document.getElementById('register-password').value;
     const role = document.querySelector('input[name="register-role"]:checked').value;
+    const referralSource = document.getElementById('register-referral-source').value;
     const btn = document.getElementById('btn-submit-register');
     btn.disabled = true;
     btn.textContent = 'Creando cuenta...';
@@ -124,7 +125,7 @@ import * as ST from './state.js';
     const { data, error } = await ST.supabaseClient.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName, role } }
+      options: { data: { full_name: fullName, role, referral_source: referralSource || null } }
     });
 
     btn.disabled = false;
@@ -137,6 +138,14 @@ import * as ST from './state.js';
 
     if (data.session) {
       // Confirmación de email desactivada en el proyecto: queda logueado directo.
+      // "Cómo nos conociste" (06/11) se guarda con un UPDATE directo en vez de
+      // confiar en que el trigger handle_new_user() (no trackeado en ninguna
+      // migración, ver advertencia #21/#29) lea este campo de los metadatos --
+      // mismo patrón ya usado en becomeProvider()/handleProfileSubmit() más
+      // abajo, no hace falta tocar esa función para nada.
+      if (referralSource) {
+        await ST.supabaseClient.from('profiles').update({ referral_source: referralSource }).eq('id', data.session.user.id);
+      }
       await refreshAuthUI();
       closeAuthModal();
       ST.showToast('¡Cuenta creada! Ya estás dentro.');

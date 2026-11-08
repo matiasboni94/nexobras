@@ -181,9 +181,11 @@ import * as ST from './state.js';
  }
  if (viewName === 'apu') {
  // A diferencia de "Mis Presupuestos de Obra", la calculadora en sí no
- // pide login -- se puede armar y exportar un presupuesto sin cuenta,
- // igual que el catálogo/Mi Cómputo. Guardar y compartir por link sí
- // piden login (lo resuelven Apu.saveApuBudget/shareApuBudget solas).
+ // pide login para entrar -- pero desde el 06/11 sin cuenta solo se puede
+ // calcular UNA tarea a la vez (ver Apu.enforceApuAnonSingleItemLimit):
+ // armar un presupuesto con varias tareas, fases, guardar y compartir por
+ // link/a un proveedor quedan ocultos hasta registrarse (Apu.updateApuGatingUI,
+ // que corre dentro de updateApuBudgetUI más abajo).
  Apu.loadApuCatalog().then(() => {
  Apu.renderTaskResults(ST.apuTaskSearch ? ST.apuTaskSearch.value : '');
  // Si ya había tareas en el carrito (localStorage) de una sesión
@@ -450,6 +452,8 @@ import * as ST from './state.js';
  if (btnMethodologyFromMap) btnMethodologyFromMap.addEventListener('click', () => switchView('about'));
  const btnStartComputoHome = document.getElementById('btn-start-computo-home');
  if (btnStartComputoHome) btnStartComputoHome.addEventListener('click', () =>Computo.openDrawer());
+ const btnStartApuHome = document.getElementById('btn-start-apu-home');
+ if (btnStartApuHome) btnStartApuHome.addEventListener('click', () => switchView('apu'));
 
  // Evolución histórica de un material
  const materialHistoryCloseBtn = document.getElementById('material-history-modal-close-btn');
@@ -748,7 +752,9 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
  deleteAdminOffer: Admin.deleteAdminOffer,
  removeAdminProviderKeyword: Admin.removeAdminProviderKeyword,
  deleteAdminProviderAnnouncement: Admin.deleteAdminProviderAnnouncement,
+ deleteAdminProviderBranchPhoto: Admin.deleteAdminProviderBranchPhoto,
  deleteProviderAnnouncement: Provider.deleteProviderAnnouncement,
+ deleteProviderBranchPhoto: Provider.deleteProviderBranchPhoto,
  deleteAdminApuTask: Admin.deleteAdminApuTask,
  editAdminApuTask: Admin.editAdminApuTask,
  addAdminApuMaterialDraft: Admin.addAdminApuMaterialDraft,
@@ -773,7 +779,9 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
  duplicateApuBudget: Apu.duplicateApuBudget,
  deleteApuBudget: Apu.deleteApuBudget,
  unshareApuBudget: Apu.unshareApuBudget,
- shareApuListToProvider: Apu.shareApuListToProvider,
+ toggleApuProviderPickerSelection: Apu.toggleApuProviderPickerSelection,
+ sendApuListToSelectedProviders: Apu.sendApuListToSelectedProviders,
+ openApuRegisterPrompt: Apu.openApuRegisterPrompt,
  addApuCustomComponentDraft: Apu.addApuCustomComponentDraft,
  removeApuCustomComponentDraft: Apu.removeApuCustomComponentDraft,
  openApuMaterialProviderPicker: Apu.openApuMaterialProviderPicker,

@@ -229,6 +229,42 @@
  }
 
  /**
+ * Achica una imagen en el navegador ANTES de subirla (06/11, para las fotos
+ * de trabajos realizados de los proveedores -- "reducir al máximo el
+ * impacto en el almacenamiento"): la redibuja en un <canvas> a como mucho
+ * `maxDim` px de lado más largo y la recodifica como JPEG a `quality`. El
+ * logo de proveedor (uploadProviderLogo en provider.js) no pasa por esto
+ * todavía -- solo chequea un tope de 2MB en crudo -- pero esta función
+ * queda genérica a propósito para poder reusarla ahí más adelante si hace
+ * falta.
+ */
+ export function compressImageForUpload(file, { maxDim = 1280, quality = 0.72 } = {}) {
+ return new Promise((resolve, reject) => {
+ const url = URL.createObjectURL(file);
+ const img = new Image();
+ img.onload = () => {
+ let { width, height } = img;
+ if (width > maxDim || height > maxDim) {
+ if (width >= height) { height = Math.round(height * (maxDim / width)); width = maxDim; }
+ else { width = Math.round(width * (maxDim / height)); height = maxDim; }
+ }
+ const canvas = document.createElement('canvas');
+ canvas.width = width;
+ canvas.height = height;
+ const ctx = canvas.getContext('2d');
+ ctx.drawImage(img, 0, 0, width, height);
+ URL.revokeObjectURL(url);
+ canvas.toBlob((blob) => {
+ if (blob) resolve(blob);
+ else reject(new Error('No se pudo procesar la imagen.'));
+ }, 'image/jpeg', quality);
+ };
+ img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen -- ¿es un archivo de imagen válido?')); };
+ img.src = url;
+ });
+ }
+
+ /**
  * Para mostrar un error de la base al usuario SIN exponer el mensaje
  * técnico crudo de Postgres/Supabase (que puede ser confuso o revelar de
  * más). El error real queda en la consola del navegador, para quien
@@ -650,6 +686,14 @@
  export const apuBudgetItemsEl = document.getElementById('apu-budget-items');
  export const apuBudgetEmpty = document.getElementById('apu-budget-empty');
  export const apuBudgetFooter = document.getElementById('apu-budget-footer');
+ export const apuBudgetDrawerActions = document.getElementById('apu-budget-drawer-actions');
+ export const apuAnonBanner = document.getElementById('apu-anon-banner');
+ // Gating a cuentas registradas (06/11) -- sin sesión, estos 3 bloques
+ // quedan ocultos (ver Apu.updateApuGatingUI): nombre+Guardar, datos de
+ // obra/factor K, y fases de obra.
+ export const apuBudgetMetaBar = document.getElementById('apu-budget-meta');
+ export const apuObraDataSection = document.getElementById('apu-obra-data');
+ export const apuPhasesSection = document.getElementById('apu-phases-section');
  export const apuBudgetName = document.getElementById('apu-budget-name');
  export const btnSaveApuBudget = document.getElementById('btn-save-apu-budget');
  export const btnSaveApuBudgetLabel = document.getElementById('btn-save-apu-budget-label');
@@ -672,6 +716,10 @@
  export const apuTotalGeneral = document.getElementById('apu-total-general');
  export const apuConsolidatedSection = document.getElementById('apu-consolidated-section');
  export const apuConsolidatedBody = document.getElementById('apu-consolidated-body');
+ // Resumen tipo planilla + curva de inversiones (06/11).
+ export const apuSummarySection = document.getElementById('apu-summary-section');
+ export const apuSummaryBody = document.getElementById('apu-summary-body');
+ export const apuCurvaInversionSection = document.getElementById('apu-curva-inversion-section');
  // Fases de obra (05/11) -- panel de gestión de fases + lista de
  // materiales agrupada por fase ("pedir materiales por fase").
  export const apuPhasesList = document.getElementById('apu-phases-list');
@@ -682,6 +730,8 @@
  export const apuProviderPickerBackdrop = document.getElementById('apu-provider-picker-backdrop');
  export const apuProviderPickerSearch = document.getElementById('apu-provider-picker-search');
  export const apuProviderPickerResults = document.getElementById('apu-provider-picker-results');
+ export const apuProviderPickerSelectedCount = document.getElementById('apu-provider-picker-selected-count');
+ export const btnSendApuProviderSelection = document.getElementById('btn-send-apu-provider-selection');
 
  // "Agregar material suelto" (sin APU, para consulta de precio a un proveedor) -- 04/11
  export const apuDirectMaterialSearch = document.getElementById('apu-direct-material-search');

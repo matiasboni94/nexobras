@@ -664,7 +664,17 @@ export function saveApuCart() {
  localStorage.setItem('nexobra_apu_budget', JSON.stringify(ST.state.apuBudgetItems));
 }
 
+/** Sin cuenta, el presupuesto solo puede tener UNA tarea/material a la vez (06/11, pedido del usuario: dar un motivo real para registrarse -- "mampostería de 30" como ejemplo de uso de a una). Se llama antes de agregar cualquier ítem nuevo: si ya había uno, lo reemplaza (no se acumula ni se bloquea, para que sirva igual como calculadora rápida de una sola tarea). Con sesión iniciada no hay ningún límite, como siempre. */
+function enforceApuAnonSingleItemLimit() {
+ if (ST.authState.user) return;
+ if (ST.state.apuBudgetItems.length > 0) {
+ ST.state.apuBudgetItems = [];
+ ST.showToast('Sin cuenta podés calcular una tarea a la vez -- registrate gratis para armar un presupuesto con varias.');
+ }
+}
+
 export function addItemToBudget(apuTaskId, quantity) {
+ enforceApuAnonSingleItemLimit();
  const item = buildBudgetItem(apuTaskId, quantity);
  ST.state.apuBudgetItems.push(item);
  saveApuCart();
@@ -704,6 +714,12 @@ export function getApuPhaseName(phaseLocalId) {
 }
 
 export function addApuPhase() {
+ if (!ST.authState.user) {
+ Auth.showAuthTab('login');
+ Auth.openAuthModal();
+ Auth.showAuthError('Registrate o iniciá sesión para organizar la obra en fases.');
+ return;
+ }
  const input = document.getElementById('apu-new-phase-name');
  const nombre = input ? input.value.trim() : '';
  if (!nombre) { ST.showToast('Poné un nombre para la fase.'); return; }
@@ -773,7 +789,7 @@ export function renderApuPhasesPanel() {
  const count = ST.state.apuBudgetItems.filter(i => i.phase_id === p.localId).length;
  return `
  <div class="apu-phase-row">
- <input type="text" class="form-select apu-phase-name-input" value="${ST.escAttr(p.nombre)}"
+ <input type="text" class="form-select apu-phase-name-input" value="${ST.escapeHtml(p.nombre)}"
  onchange="window.nexoBraApp.updateApuPhaseNombre('${p.localId}', this.value)">
  <select class="form-select apu-phase-estado-select" onchange="window.nexoBraApp.updateApuPhaseEstado('${p.localId}', this.value)">
  <option value="no_iniciada" ${p.estado === 'no_iniciada' ? 'selected' : ''}>No iniciada</option>
@@ -850,6 +866,7 @@ export function buildCustomBudgetItem({ nombre, unidad, rubro, desperdicio_pct, 
 }
 
 export function addCustomItemToBudget(data) {
+ enforceApuAnonSingleItemLimit();
  const item = buildCustomBudgetItem(data);
  ST.state.apuBudgetItems.push(item);
  saveApuCart();
@@ -890,6 +907,7 @@ export function buildMaterialDirectoItem(materialId, quantity) {
 }
 
 export function addMaterialDirectoToBudget(materialId, quantity) {
+ enforceApuAnonSingleItemLimit();
  const item = buildMaterialDirectoItem(materialId, quantity);
  ST.state.apuBudgetItems.push(item);
  saveApuCart();
@@ -1384,23 +1402,45 @@ export function addApuTaskToBudget(apuTaskId) {
 // =========================================================
 
 /** Recalcula todo el presupuesto en curso y vuelve a pintar items, consolidado y totales. Es el punto de entrada único después de cualquier cambio (cantidad, rendimiento, material, factor K, agregar/quitar tarea). */
+/** Gatea la gestión completa de obra a cuentas registradas (06/11, pedido del usuario): sin sesión, oculta nombre+Guardar, Datos de la obra/Factor K, Fases de obra y las 3 acciones del pie (compartir por link / Excel completo / compartir a un proveedor) -- todo lo que "administra" un presupuesto en vez de solo calcularlo. Se llama cada vez que se repinta el presupuesto, así que siempre refleja la sesión actual sin tener que escuchar el cambio de auth por separado (evita un import circular con auth.js). */
+function updateApuGatingUI() {
+ const loggedIn = !!ST.authState.user;
+ if (ST.apuAnonBanner) ST.apuAnonBanner.style.display = loggedIn ? 'none' : 'flex';
+ if (ST.apuBudgetMetaBar) ST.apuBudgetMetaBar.style.display = loggedIn ? '' : 'none';
+ if (ST.apuObraDataSection) ST.apuObraDataSection.style.display = loggedIn ? '' : 'none';
+ if (ST.apuPhasesSection) ST.apuPhasesSection.style.display = loggedIn ? '' : 'none';
+ if (ST.apuBudgetDrawerActions) ST.apuBudgetDrawerActions.style.display = loggedIn ? '' : 'none';
+}
+
+/** Abre el modal de registro desde el aviso de la Calculadora de Obra sin cuenta. */
+export function openApuRegisterPrompt() {
+ Auth.showAuthTab('register');
+ Auth.openAuthModal();
+}
+
 export function updateApuBudgetUI() {
  if (!ST.apuBudgetItemsEl) return;
+ updateApuGatingUI();
 
  const breakdown = calcBudgetBreakdown(ST.state.apuBudgetItems, { kFactor: ST.apuBudgetMeta.kFactor });
  renderBudgetItems(breakdown);
+ renderApuSummaryTable(breakdown);
  renderConsolidated(breakdown);
  renderApuPhasesPanel();
  renderApuMaterialesPorFase(breakdown);
+ renderApuCurvaInversion(breakdown);
 
  const hasItems = ST.state.apuBudgetItems.length > 0;
  if (ST.apuBudgetEmpty) ST.apuBudgetEmpty.style.display = hasItems ? 'none' : 'block';
  if (ST.apuBudgetFooter) ST.apuBudgetFooter.style.display = hasItems ? 'block' : 'none';
+ if (ST.apuSummarySection) ST.apuSummarySection.style.display = hasItems ? 'block' : 'none';
  if (ST.apuConsolidatedSection) ST.apuConsolidatedSection.style.display = hasItems ? 'block' : 'none';
- // La sección "Materiales por fase" solo tiene sentido si el usuario ya
- // creó al menos una fase -- si no, sería una copia exacta de la tabla
- // consolidada de arriba (todo cae en "Sin fase asignada").
+ // La sección "Materiales por fase" y la curva de inversiones solo tienen
+ // sentido si el usuario ya creó al menos una fase -- si no, serían una
+ // copia exacta de la tabla consolidada de arriba (todo cae en "Sin fase
+ // asignada") o un gráfico sin nada que graficar.
  if (ST.apuMaterialesPorFaseSection) ST.apuMaterialesPorFaseSection.style.display = (hasItems && ST.state.apuPhases.length > 0) ? 'block' : 'none';
+ if (ST.apuCurvaInversionSection) ST.apuCurvaInversionSection.style.display = (hasItems && ST.state.apuPhases.length > 0) ? 'block' : 'none';
 
  const totalMateriales = breakdown.perItem.reduce((s, b) => s + b.materialesCost, 0);
  const totalManoObra = breakdown.perItem.reduce((s, b) => s + b.manoObraCost, 0);
@@ -1659,7 +1699,7 @@ export function renderBudgetItems(breakdown) {
  const expanded = expandedRubroGroups.has(rubro);
  return `
  <div class="apu-rubro-group">
- <button type="button" class="apu-rubro-group-header" onclick="window.nexoBraApp.toggleApuRubroGroup('${rubroKey}')">
+ <button type="button" class="apu-rubro-group-header" onclick="window.nexoBraApp.toggleApuRubroGroup(${rubroKey})">
  <span>${expanded ? '▾' : '▸'} ${ST.escapeHtml(rubro)}</span>
  <span class="apu-rubro-group-meta">${entries.length} tarea${entries.length === 1 ? '' : 's'} · ${ST.formatMoney(subtotal)}</span>
  </button>
@@ -1670,6 +1710,147 @@ export function renderBudgetItems(breakdown) {
  breakdown.perItem.forEach(({ item }) => {
  if (expandedItemIds.has(item.localId)) populateApuItemComponentSelects(item.localId);
  });
+}
+
+/** Resumen de solo lectura tipo "planilla de cómputo y presupuesto" (06/11, a pedido del usuario, con el formato que le entregan al cliente): mismo agrupado por rubro y mismo orden que renderBudgetItems (para que la numeración R/I coincida entre las dos vistas), pero en una tabla compacta -- rubro (total + incidencia % sobre el total del presupuesto) y, debajo, cada tarea con unidad/cantidad/precio unitario/total. No es editable, es solo para tener el formato tradicional de un vistazo arriba de las tarjetas. */
+function renderApuSummaryTable(breakdown) {
+ if (!ST.apuSummaryBody) return;
+ const grandTotal = breakdown.total || 0;
+ const grupos = new Map();
+ breakdown.perItem.forEach((entry) => {
+ const key = entry.item.task_rubro_snapshot || 'Sin rubro';
+ if (!grupos.has(key)) grupos.set(key, []);
+ grupos.get(key).push(entry);
+ });
+
+ let html = '';
+ let rIdx = 0;
+ grupos.forEach((entries, rubro) => {
+ rIdx++;
+ const subtotalRubro = entries.reduce((s, e) => s + e.total, 0);
+ const incidencia = grandTotal > 0 ? (subtotalRubro / grandTotal * 100) : 0;
+ html += `
+ <tr class="apu-summary-rubro-row">
+ <td><strong>${rIdx}</strong></td>
+ <td><strong>${ST.escapeHtml(rubro)}</strong></td>
+ <td></td><td></td><td></td><td></td>
+ <td style="text-align:right;"><strong>${ST.formatMoney(subtotalRubro)}</strong></td>
+ <td style="text-align:right;"><strong>${incidencia.toFixed(2)}%</strong></td>
+ </tr>`;
+ entries.forEach((entry, j) => {
+ const item = entry.item;
+ const unitPrice = item.quantity > 0 ? entry.total / item.quantity : 0;
+ html += `
+ <tr>
+ <td>${rIdx}.${j + 1}</td>
+ <td>${ST.escapeHtml(item.task_nombre_snapshot)}</td>
+ <td>${ST.escapeHtml(item.task_unidad_snapshot)}</td>
+ <td>${item.quantity}</td>
+ <td style="text-align:right;">${ST.formatMoney(unitPrice)}</td>
+ <td style="text-align:right;">${ST.formatMoney(entry.total)}</td>
+ <td></td>
+ <td></td>
+ </tr>`;
+ });
+ });
+ html += `
+ <tr class="apu-summary-rubro-row" style="border-top:2px solid var(--border-color,#ddd);">
+ <td colspan="6" style="text-align:right;"><strong>TOTAL PRESUPUESTO</strong></td>
+ <td style="text-align:right;"><strong>${ST.formatMoney(grandTotal)}</strong></td>
+ <td style="text-align:right;"><strong>100%</strong></td>
+ </tr>`;
+ ST.apuSummaryBody.innerHTML = html;
+}
+
+/** Curva de inversiones (06/11, a pedido del usuario: "con las fases organizamos dónde está ubicada la tarea y se crea una curva de inversiones"). A partir de la fecha estimada de cada fase (ST.state.apuPhases) y el monto total de las tareas asignadas a ella (todo el costo del ítem, no solo materiales -- a diferencia de "Materiales por fase"), arma un gráfico combinado: barras con el gasto de cada fase y una línea con el gasto acumulado. Una tarea sin fase o cuya fase no tiene fecha estimada no se puede ubicar en el tiempo, así que queda afuera del gráfico (se avisa el monto total excluido en vez de ignorarlo en silencio). */
+let apuCurvaChartInstance = null;
+async function renderApuCurvaInversion(breakdown) {
+ const canvas = document.getElementById('apu-curva-inversion-chart');
+ const emptyMsg = document.getElementById('apu-curva-inversion-empty');
+ const noteEl = document.getElementById('apu-curva-inversion-note');
+ if (!canvas) return;
+
+ const porFase = {};
+ let sinFechaTotal = 0;
+ breakdown.perItem.forEach(entry => {
+ const phase = entry.item.phase_id ? ST.state.apuPhases.find(p => p.localId === entry.item.phase_id) : null;
+ if (!phase || !phase.fechaEstimada) {
+ sinFechaTotal += entry.total;
+ return;
+ }
+ porFase[phase.localId] = (porFase[phase.localId] || 0) + entry.total;
+ });
+
+ const fasesConFecha = ST.state.apuPhases
+ .filter(p => p.fechaEstimada && porFase[p.localId] > 0)
+ .sort((a, b) => a.fechaEstimada.localeCompare(b.fechaEstimada));
+
+ if (fasesConFecha.length === 0) {
+ canvas.style.display = 'none';
+ if (emptyMsg) emptyMsg.style.display = 'block';
+ if (noteEl) noteEl.textContent = '';
+ if (apuCurvaChartInstance) { apuCurvaChartInstance.destroy(); apuCurvaChartInstance = null; }
+ return;
+ }
+
+ try {
+ await ST.ensureChartJsLoaded();
+ } catch (err) {
+ console.warn(err.message);
+ return;
+ }
+
+ canvas.style.display = 'block';
+ if (emptyMsg) emptyMsg.style.display = 'none';
+
+ const labels = fasesConFecha.map(p => `${p.nombre} (${new Date(p.fechaEstimada + 'T00:00:00').toLocaleDateString('es-AR')})`);
+ const montosPorFase = fasesConFecha.map(p => porFase[p.localId]);
+ let acumulado = 0;
+ const acumulados = montosPorFase.map(m => { acumulado += m; return acumulado; });
+
+ if (apuCurvaChartInstance) {
+ apuCurvaChartInstance.destroy();
+ }
+ apuCurvaChartInstance = new Chart(canvas.getContext('2d'), {
+ data: {
+ labels,
+ datasets: [
+ {
+ type: 'bar',
+ label: 'Monto de la fase',
+ data: montosPorFase,
+ backgroundColor: 'rgba(245,176,0,0.55)',
+ order: 2
+ },
+ {
+ type: 'line',
+ label: 'Acumulado (curva de inversión)',
+ data: acumulados,
+ borderColor: '#1E2229',
+ backgroundColor: 'rgba(30,34,41,0.08)',
+ tension: 0.2,
+ fill: true,
+ order: 1
+ }
+ ]
+ },
+ options: {
+ responsive: true,
+ plugins: {
+ legend: { display: true },
+ tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ST.formatMoney(ctx.parsed.y)}` } }
+ },
+ scales: {
+ y: { ticks: { callback: (v) => ST.formatMoney(v) } }
+ }
+ }
+ });
+
+ if (noteEl) {
+ noteEl.textContent = sinFechaTotal > 0
+ ? `${ST.formatMoney(sinFechaTotal)} en tareas sin fase o sin fecha estimada no están incluidos en esta curva.`
+ : '';
+ }
 }
 
 /** Lista de materiales consolidada (todas las tareas sumadas por material) -- tabla + export viven en la misma vista. */
@@ -2866,15 +3047,47 @@ export function clearApuMaterialProviderOffer(itemLocalId, componentLocalId) {
 // =========================================================
 
 let apuProviderPickerCache = null;
+// Materiales consolidados del presupuesto abierto al momento de abrir el
+// modal (Set de material_id) -- se usa para calcular la "cobertura" de cada
+// proveedor (06/11, pedido del usuario: "qué materiales de mi lista ya tiene
+// un proveedor cercano").
+let apuProviderPickerMaterialIds = new Set();
+// branch_id de los proveedores tildados para el envío múltiple (06/11,
+// pedido del usuario: poder mandar a varios proveedores de una).
+let apuProviderPickerSelected = new Set();
 
 async function ensureApuProviderPickerCache() {
  if (apuProviderPickerCache !== null || !ST.supabaseClient) return;
  const { data, error } = await ST.supabaseClient
  .from('provider_branches')
- .select('id, name, locality, whatsapp_phone, provider_id, providers(business_name, active)')
+ .select('id, name, locality, whatsapp_phone, provider_id, providers(business_name, active, contact_phone)')
  .eq('active', true);
  if (error) { apuProviderPickerCache = []; return; }
  apuProviderPickerCache = (data || []).filter(b => b.providers && b.providers.active !== false);
+
+ // Trae de una sola vez qué materiales tiene cargados (oferta aprobada) cada
+ // sucursal del listado, para mostrar la cobertura por proveedor sin pegarle
+ // una consulta a Supabase por cada uno (patrón "bulk-fetch-and-merge" del
+ // proyecto -- ver advertencia #17: nunca reescribir una RPC no versionada,
+ // mejor una consulta aparte por los ids ya conocidos y mergear en cliente).
+ const branchIds = apuProviderPickerCache.map(b => b.id);
+ if (branchIds.length === 0) return;
+ const { data: offers, error: offersError } = await ST.supabaseClient
+ .from('provider_offers')
+ .select('branch_id, material_id')
+ .eq('status', 'approved')
+ .in('branch_id', branchIds);
+ if (offersError) {
+ console.warn('[NEXOBRA] No se pudo cargar la cobertura de materiales por proveedor.', offersError);
+ apuProviderPickerCache.forEach(b => { b.offeredMaterialIds = new Set(); });
+ return;
+ }
+ const byBranch = new Map();
+ (offers || []).forEach(o => {
+ if (!byBranch.has(o.branch_id)) byBranch.set(o.branch_id, new Set());
+ byBranch.get(o.branch_id).add(o.material_id);
+ });
+ apuProviderPickerCache.forEach(b => { b.offeredMaterialIds = byBranch.get(b.id) || new Set(); });
 }
 
 export async function openApuProviderPicker() {
@@ -2887,8 +3100,12 @@ export async function openApuProviderPicker() {
  ST.apuProviderPickerBackdrop.classList.add('open');
  document.body.style.overflow = 'hidden';
  if (ST.apuProviderPickerSearch) ST.apuProviderPickerSearch.value = '';
+ const breakdown = calcBudgetBreakdown(ST.state.apuBudgetItems, { kFactor: ST.apuBudgetMeta.kFactor });
+ apuProviderPickerMaterialIds = new Set(breakdown.materialesConsolidados.map(m => m.material_id));
+ apuProviderPickerSelected = new Set();
+ updateApuProviderPickerSelectionUI();
  await ensureApuProviderPickerCache();
- renderApuProviderPickerResults('');
+ renderApuProviderPickerResults(ST.apuProviderPickerSearch ? ST.apuProviderPickerSearch.value : '');
 }
 
 export function closeApuProviderPicker() {
@@ -2905,48 +3122,97 @@ export function renderApuProviderPickerResults(query) {
  return;
  }
  const tokens = ST.normalizeText(query || '').split(' ').filter(Boolean);
- const filtered = apuProviderPickerCache.filter(b => {
+ const totalMateriales = apuProviderPickerMaterialIds.size;
+ const coverageOf = (b) => {
+ if (totalMateriales === 0 || !b.offeredMaterialIds) return 0;
+ let n = 0;
+ b.offeredMaterialIds.forEach(id => { if (apuProviderPickerMaterialIds.has(id)) n++; });
+ return n;
+ };
+ let filtered = apuProviderPickerCache.filter(b => {
  const haystack = ST.normalizeText([b.providers?.business_name, b.name, b.locality].filter(Boolean).join(' '));
  return tokens.every(t => haystack.includes(t));
  });
+ // Ordenamos por cobertura descendente (06/11) -- así el proveedor que ya
+ // tiene cargados más materiales de esta lista queda primero, que es justo
+ // el criterio que pidió el usuario para elegir a quién conviene pedirle.
+ filtered = filtered.slice().sort((a, b) => coverageOf(b) - coverageOf(a));
  if (filtered.length === 0) {
  ST.apuProviderPickerResults.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">Ningún proveedor coincide con esa búsqueda.</p>';
  return;
  }
- ST.apuProviderPickerResults.innerHTML = filtered.map(b => `
+ ST.apuProviderPickerResults.innerHTML = filtered.map(b => {
+ const coverage = coverageOf(b);
+ const pct = totalMateriales > 0 ? Math.round((coverage / totalMateriales) * 100) : 0;
+ const coverageLabel = totalMateriales === 0 ? '' : (coverage === 0
+ ? '<span style="color:var(--text-muted);">Sin materiales de tu lista cargados todavía</span>'
+ : `<span style="color:var(--color-success,#2e7d32); font-weight:700;">${coverage}/${totalMateriales} materiales (${pct}%)</span>`);
+ const checked = apuProviderPickerSelected.has(b.id) ? 'checked' : '';
+ return `
  <div class="apu-provider-result-row">
+ <label style="display:flex; align-items:flex-start; gap:10px; flex:1; cursor:pointer; margin:0;">
+ <input type="checkbox" style="margin-top:3px;" ${checked} onchange="window.nexoBraApp.toggleApuProviderPickerSelection(${ST.escAttr(b.id)}, this.checked)">
  <div>
  <strong>${ST.escapeHtml(b.providers?.business_name || '')}</strong>
  <span>${ST.escapeHtml(b.name || '')}${b.locality ? ' · ' + ST.escapeHtml(b.locality) : ''}</span>
+ <br>${coverageLabel}
  </div>
- <button class="btn-computo" onclick="window.nexoBraApp.shareApuListToProvider(${ST.escAttr(b.id)})">Elegir</button>
+ </label>
  </div>
- `).join('');
+ `;
+ }).join('');
 }
 
-export function shareApuListToProvider(branchId) {
- const branch = (apuProviderPickerCache || []).find(b => b.id === branchId);
- if (!branch) return;
- // providers no tiene columna de teléfono propia -- el único teléfono de
- // contacto en toda esta cadena es provider_branches.whatsapp_phone (ver
- // corrección 05/11: el select anterior pedía providers.contact_phone, que
- // no existe en el schema real y rompía ensureApuProviderPickerCache entero).
- const whatsapp = branch.whatsapp_phone;
- if (!whatsapp) {
- ST.showToast('Ese proveedor todavía no cargó un WhatsApp de contacto.');
- return;
+function updateApuProviderPickerSelectionUI() {
+ const count = apuProviderPickerSelected.size;
+ if (ST.apuProviderPickerSelectedCount) {
+ ST.apuProviderPickerSelectedCount.textContent = count === 0
+ ? 'Ningún proveedor elegido'
+ : `${count} proveedor${count === 1 ? '' : 'es'} elegido${count === 1 ? '' : 's'}`;
  }
+ if (ST.btnSendApuProviderSelection) ST.btnSendApuProviderSelection.disabled = count === 0;
+}
 
- const breakdown = calcBudgetBreakdown(ST.state.apuBudgetItems, { kFactor: ST.apuBudgetMeta.kFactor });
+export function toggleApuProviderPickerSelection(branchId, checked) {
+ if (checked) apuProviderPickerSelected.add(branchId);
+ else apuProviderPickerSelected.delete(branchId);
+ updateApuProviderPickerSelectionUI();
+}
+
+function buildApuProviderShareMessage(breakdown) {
  let text = `Hola! Te escribo desde NEXOBRA para pedirte presupuesto de estos materiales:\n\n`;
  breakdown.materialesConsolidados.forEach(m => {
  text += `• ${m.denominacion} — ${m.cantidad.toFixed(2)} ${m.unidad}\n`;
  });
  text += `\n¿Me pasás precio y disponibilidad? Gracias!`;
+ return text;
+}
 
+/** Abre un wa.me por cada proveedor tildado (06/11, pedido del usuario: poder mandar a varios de una). Mismo fallback whatsapp_phone || providers.contact_phone que el resto del sitio (ver js/map.js). */
+export function sendApuListToSelectedProviders() {
+ const ids = Array.from(apuProviderPickerSelected);
+ if (ids.length === 0) return;
+ const breakdown = calcBudgetBreakdown(ST.state.apuBudgetItems, { kFactor: ST.apuBudgetMeta.kFactor });
+ const text = buildApuProviderShareMessage(breakdown);
+ const sinWhatsapp = [];
+ let abiertos = 0;
+ ids.forEach((branchId, i) => {
+ const branch = (apuProviderPickerCache || []).find(b => b.id === branchId);
+ if (!branch) return;
+ const whatsapp = branch.whatsapp_phone || branch.providers?.contact_phone;
+ if (!whatsapp) { sinWhatsapp.push(branch.providers?.business_name || branch.name); return; }
  const digits = whatsapp.replace(/\D/g, '');
- window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, '_blank');
- closeApuProviderPicker();
+ // Los abrimos con un pequeño espaciado (06/11) -- varias pestañas de
+ // WhatsApp Web disparadas en el mismo click pueden quedar bloqueadas
+ // como popup por el navegador; espaciarlas ayuda, aunque no lo
+ // garantiza del todo (depende de la configuración del navegador).
+ setTimeout(() => window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, '_blank'), i * 400);
+ abiertos++;
+ });
+ if (sinWhatsapp.length > 0) {
+ ST.showToast(`${sinWhatsapp.length} proveedor${sinWhatsapp.length === 1 ? '' : 'es'} sin WhatsApp de contacto, no se ${sinWhatsapp.length === 1 ? 'le' : 'les'} pudo mandar: ${sinWhatsapp.join(', ')}`);
+ }
+ if (abiertos > 0) closeApuProviderPicker();
 }
 
 // =========================================================
@@ -2993,6 +3259,7 @@ export function setupApuListeners() {
  if (apuProviderPickerCloseBtn) apuProviderPickerCloseBtn.addEventListener('click', closeApuProviderPicker);
  if (ST.apuProviderPickerBackdrop) ST.apuProviderPickerBackdrop.addEventListener('click', closeApuProviderPicker);
  if (ST.apuProviderPickerSearch) ST.apuProviderPickerSearch.addEventListener('input', (e) => renderApuProviderPickerResults(e.target.value));
+ if (ST.btnSendApuProviderSelection) ST.btnSendApuProviderSelection.addEventListener('click', sendApuListToSelectedProviders);
 
  // "Crear tu propia APU"
  if (ST.btnOpenApuCustomTask) ST.btnOpenApuCustomTask.addEventListener('click', openApuCustomTaskModal);
