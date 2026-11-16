@@ -804,7 +804,7 @@ import * as ST from './state.js';
  if (!row || row.length === 0) continue;
  const sku = skuIdx > -1 && row[skuIdx] ? row[skuIdx].toString().trim() : '';
  const name = nameIdx > -1 && row[nameIdx] ? row[nameIdx].toString().trim() : '';
- const price = priceIdx > -1 && row[priceIdx] ? parseFloat(row[priceIdx]) : 0;
+ const price = priceIdx > -1 && row[priceIdx] !== undefined && row[priceIdx] !== '' ? (ST.parseLocaleNumber(row[priceIdx]) || 0) : 0; // auditoría 12/11, falla 10: "12.000,50" ya no se lee como 12
  const requestedUnit = unidadIdx > -1 && row[unidadIdx] ? row[unidadIdx].toString().trim() : '';
  const stockRaw = stockIdx > -1 && row[stockIdx] ? ST.normalizeText(row[stockIdx].toString()) : '';
  let stock = 'en_stock';

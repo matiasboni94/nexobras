@@ -556,8 +556,8 @@ function processBulkPriceRows(rawRows) {
  .filter(r => r[0]) // tiene que traer al menos el código
  .map(r => ({
  material_id: String(r[0]).trim(),
- sale_amount: r[1] !== undefined && r[1] !== '' ? Number(r[1]) : null,
- measurement_amount: r[2] !== undefined && r[2] !== '' ? Number(r[2]) : null
+ sale_amount: r[1] !== undefined && r[1] !== '' ? ST.parseLocaleNumber(r[1]) : null,
+ measurement_amount: r[2] !== undefined && r[2] !== '' ? ST.parseLocaleNumber(r[2]) : null
  }))
  .filter(r => r.sale_amount !== null || r.measurement_amount !== null);
 
@@ -801,6 +801,7 @@ export async function deleteIndexValue(id) {
 
 export function setupAdminListeners() {
  if (!ST.supabaseClient) return;
+ setupAdminDashboardListeners();
  const btnOpenAdmin = document.getElementById('btn-open-admin');
  const materialSearch = document.getElementById('admin-material-search');
  const btnCloseEditor = document.getElementById('btn-close-material-editor');
@@ -908,6 +909,7 @@ export function setupAdminListeners() {
 }
 
 export function loadAdminPanel() {
+ loadAdminDashboard();
  loadMaterialsBrowse(true);
  loadAdminProviderList();
  loadPendingProviders();
@@ -2208,3 +2210,228 @@ export async function saveAdminApuTask() {
  if (btn) btn.disabled = false;
  }
 }
+
+// ============================================================
+// Tablero del sitio (16/11, a pedido del usuario a partir de la auditoría
+// del 12/11): los contadores que estaban en el home, ampliados con el
+// origen de las visitas, el recorrido (buscar → contactar → registrarse)
+// y lo que la gente busca. Todo sale de una sola función de Supabase,
+// get_admin_dashboard(días) -- migración 032 --, que valida adentro que
+// quien pregunta sea administrador.
+// ============================================================
+
+let adminDashChart = null;
+
+const DASH_REFERRAL_LABELS = {
+ instagram: 'Instagram', facebook: 'Facebook', whatsapp: 'WhatsApp',
+ recomendacion: 'Recomendación', proveedor: 'Un corralón o proveedor',
+ buscador: 'Google / internet', prensa: 'Diario, radio o TV',
+ colegio: 'Colegio o charla', otro: 'Otro', '(sin respuesta)': 'Sin respuesta'
+};
+const DASH_DEVICE_LABELS = { mobile: 'Celular', tablet: 'Tablet', desktop: 'Computadora', '(sin dato)': 'Sin dato' };
+const DASH_PAGE_LABELS = {
+ '/': 'Inicio', '/catalogo': 'Catálogo', '/proveedores': 'Proveedores', '/calculadora-de-obra': 'Calculadora de Obra',
+ '/mano-de-obra': 'Mano de Obra', '/guia-de-uso': 'Guía de Uso', '/quienes-somos': 'Quiénes Somos', '/contacto': 'Contacto',
+ '/mis-presupuestos': 'Mis Presupuestos', '/mis-presupuestos-de-obra': 'Mis Obras', '/mi-proveedor': 'Mi Proveedor', '/admin': 'Panel de Admin'
+};
+const DASH_EVENT_LABELS = {
+ search: 'Búsquedas de materiales', apu_task_added: 'Tareas agregadas a la Calculadora',
+ register_prompt: 'Toques en "Registrarme" desde la Calculadora', signup_start: 'Registros empezados',
+ signup: 'Registros terminados', provider_contact: 'Contactos a proveedores por WhatsApp',
+ save_budget: 'Presupuestos guardados', share_budget: 'Presupuestos compartidos por link', export: 'Excel descargados'
+};
+
+function dashPageLabel(path) {
+ if (DASH_PAGE_LABELS[path]) return DASH_PAGE_LABELS[path];
+ if (path && path.startsWith('/proveedor/')) return 'Ficha de proveedor: ' + path.slice('/proveedor/'.length);
+ return path || '/';
+}
+
+function dashDelta(actual, previo) {
+ if (!previo) return actual > 0 ? '<span class="admin-dash-delta up">nuevo</span>' : '';
+ const pct = Math.round(((actual - previo) / previo) * 100);
+ if (pct === 0) return '<span class="admin-dash-delta">igual</span>';
+ return `<span class="admin-dash-delta ${pct > 0 ? 'up' : 'down'}">${pct > 0 ? '+' : ''}${pct} %</span>`;
+}
+
+function dashKpi(valor, etiqueta, extra) {
+ return `<div class="admin-dash-kpi"><strong>${ST.formatInt(valor)}</strong><span>${etiqueta}</span>${extra ? `<small>${extra}</small>` : ''}</div>`;
+}
+
+/** Lista de barras horizontales (mismo estilo liviano que el tablero del proveedor). Las etiquetas pasan por escapeHtml: muchas vienen de lo que escriben los visitantes. */
+function dashBars(rows, labelFn, valueKey, emptyText) {
+ if (!rows || rows.length === 0) return `<p class="admin-dash-empty">${emptyText || 'Todavía no hay datos en este período.'}</p>`;
+ const max = Math.max(...rows.map(r => Number(r[valueKey]) || 0), 1);
+ return rows.map(r => {
+ const v = Number(r[valueKey]) || 0;
+ const pct = Math.max(3, Math.round((v / max) * 100));
+ const label = labelFn(r);
+ return `<div class="stats-bar-row"><span class="stats-bar-label admin-dash-bar-label" title="${ST.escapeHtml(label)}">${ST.escapeHtml(label)}</span><div class="stats-bar-track"><div class="stats-bar-fill" style="width:${pct}%;"></div></div><span class="stats-bar-value">${ST.formatInt(v)}</span></div>`;
+ }).join('');
+}
+
+function setDash(id, html) {
+ const el = document.getElementById(id);
+ if (el) el.innerHTML = html;
+}
+
+export async function loadAdminDashboard() {
+ const kpisEl = document.getElementById('admin-dash-kpis');
+ if (!kpisEl || !ST.supabaseClient) return;
+ const errEl = document.getElementById('admin-dash-error');
+ const days = parseInt(document.getElementById('admin-dash-period')?.value || '30', 10);
+ kpisEl.innerHTML = '<p class="admin-dash-empty">Cargando…</p>';
+ if (errEl) errEl.style.display = 'none';
+
+ const { data, error } = await ST.supabaseClient.rpc('get_admin_dashboard', { p_days: days });
+ if (error) {
+ kpisEl.innerHTML = '';
+ if (errEl) {
+ errEl.textContent = /get_admin_dashboard/.test(error.message)
+ ? 'Falta correr la migración 032 en Supabase para ver el tablero.'
+ : 'No se pudo cargar el tablero: ' + error.message;
+ errEl.style.display = 'block';
+ }
+ return;
+ }
+ renderAdminDashboard(data || {});
+}
+
+function renderAdminDashboard(d) {
+ const k = d.kpis || {};
+ const p = d.periodo || {};
+ const rangeEl = document.getElementById('admin-dash-range');
+ if (rangeEl && p.desde) {
+ const f = iso => new Date(`${iso}T00:00:00`).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+ rangeEl.textContent = `Del ${f(p.desde)} al ${f(p.hasta)} · comparado con los ${p.dias} días anteriores`;
+ }
+
+ setDash('admin-dash-kpis', [
+ dashKpi(k.visitas, 'Visitas', `${dashDelta(k.visitas, k.visitas_prev)} ${ST.formatInt(k.visitas_recurrentes)} volvieron`),
+ dashKpi(k.cuentas_nuevas, 'Cuentas nuevas', `${dashDelta(k.cuentas_nuevas, k.cuentas_nuevas_prev)} ${ST.formatInt(k.cuentas_total)} en total`),
+ dashKpi(k.contactos, 'Contactos a proveedores', dashDelta(k.contactos, k.contactos_prev)),
+ dashKpi(k.busquedas, 'Búsquedas', `${ST.formatInt(k.busquedas_sin_resultado)} sin resultado`),
+ dashKpi(k.proveedores_activos, 'Proveedores activos', `${ST.formatInt(k.proveedores_materiales)} de materiales · ${ST.formatInt(k.proveedores_servicios)} de servicios · ${ST.formatInt(k.proveedores_pendientes)} por aprobar`),
+ dashKpi(k.precios_aprobados, 'Precios de proveedores', `${ST.formatInt(k.precios_pendientes)} por aprobar`),
+ dashKpi(k.presupuestos_obra, 'Obras guardadas', `${ST.formatInt(k.presupuestos_obra_total)} en total · ${ST.formatInt(k.computos)} cómputos simples`),
+ dashKpi(k.resenas_periodo, 'Reseñas nuevas', `${ST.formatInt(k.resenas)} en total`)
+ ].join(''));
+
+ // Recorrido: cada paso como porcentaje de las visitas con dato de sesión.
+ const e = d.embudo || {};
+ const pasos = [
+ ['Visitas', e.visitas],
+ ['Buscaron un material o usaron la Calculadora', e.usaron_herramienta],
+ ['Contactaron a un proveedor', e.contactaron_proveedor],
+ ['Tocaron "Registrarme" o empezaron el registro', e.empezaron_registro],
+ ['Terminaron de crear la cuenta', e.se_registraron]
+ ];
+ const base = Number(e.visitas) || 0;
+ setDash('admin-dash-funnel', base === 0
+ ? '<p class="admin-dash-empty">Todavía no hay visitas con datos de recorrido en este período (empiezan a contarse después de correr la migración 032 y subir los archivos).</p>'
+ : pasos.map(([label, n]) => {
+ const v = Number(n) || 0;
+ const pct = Math.round((v / base) * 1000) / 10;
+ return `<div class="stats-bar-row admin-dash-funnel-row"><span class="stats-bar-label admin-dash-bar-label" title="${label}">${label}</span><div class="stats-bar-track"><div class="stats-bar-fill" style="width:${Math.max(2, Math.min(100, pct))}%;"></div></div><span class="stats-bar-value">${ST.formatInt(v)}</span><span class="admin-dash-pct">${ST.formatPct(pct, 1)} %</span></div>`;
+ }).join(''));
+
+ setDash('admin-dash-origen', dashBars(d.origen_visitas, r => r.origen, 'visitas'));
+ setDash('admin-dash-referral', dashBars(d.como_nos_conocieron, r => `${DASH_REFERRAL_LABELS[r.origen] || r.origen}${r.periodo ? ` (${r.periodo} en el período)` : ''}`, 'total', 'Todavía no hay cuentas.'));
+ setDash('admin-dash-paginas', dashBars(d.paginas_entrada, r => dashPageLabel(r.pagina), 'visitas'));
+ const recurrentes = Number(k.visitas_recurrentes) || 0;
+ const nuevas = Number(k.visitas_nuevas) || 0;
+ setDash('admin-dash-dispositivos', dashBars(d.dispositivos, r => DASH_DEVICE_LABELS[r.dispositivo] || r.dispositivo, 'visitas')
+ + (recurrentes + nuevas > 0 ? `<p class="admin-dash-note" style="margin-top:8px;">${ST.formatInt(nuevas)} visitas de primera vez · ${ST.formatInt(recurrentes)} de gente que ya había entrado.</p>` : ''));
+ setDash('admin-dash-busquedas', dashBars(d.busquedas_top, r => `${r.texto}${r.sin_resultado ? ` (${r.sin_resultado} sin resultado)` : ''}`, 'veces', 'Todavía no hay búsquedas en este período.'));
+ setDash('admin-dash-sin-resultado', dashBars(d.busquedas_sin_resultado, r => r.texto, 'veces', 'Ninguna búsqueda quedó sin resultado en este período.'));
+ setDash('admin-dash-tareas', dashBars(d.tareas_calculadora, r => r.tarea, 'veces', 'Todavía nadie agregó tareas en este período.'));
+ setDash('admin-dash-proveedores', dashBars(d.proveedores_top, r => `${r.proveedor} · ${ST.formatInt(r.vistas)} ${Number(r.vistas) === 1 ? 'vista' : 'vistas'} · WhatsApp:`, 'whatsapp', 'Todavía no hay consultas a proveedores en este período.'));
+ setDash('admin-dash-eventos', dashBars(d.eventos, r => DASH_EVENT_LABELS[r.evento] || r.evento, 'veces'));
+ setDash('admin-dash-campanas', dashBars(d.campanas, r => [r.campana, r.fuente, r.medio].filter(Boolean).join(' · '), 'visitas', 'Ninguna visita llegó con un link etiquetado todavía. Armá uno abajo.'));
+
+ renderAdminDashChart(d.serie_diaria || []);
+}
+
+async function renderAdminDashChart(serie) {
+ const canvas = document.getElementById('admin-dash-chart');
+ if (!canvas) return;
+ try {
+ await ST.ensureChartJsLoaded();
+ } catch (err) {
+ canvas.parentElement.innerHTML = `<p class="admin-dash-empty">${ST.escapeHtml(err.message)}</p>`;
+ return;
+ }
+ const css = getComputedStyle(document.documentElement);
+ const color = name => css.getPropertyValue(name).trim();
+ const yellow = color('--brand-yellow') || '#F5B000';
+ const ink = color('--text-main') || '#1E2229';
+ const muted = color('--text-muted') || '#5E6977';
+ const grid = color('--border-light') || '#e5e5e5';
+ const green = color('--color-success') || '#15803d';
+ const labels = serie.map(r => new Date(`${r.dia}T00:00:00`).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }));
+ if (adminDashChart) adminDashChart.destroy();
+ adminDashChart = new window.Chart(canvas, {
+ data: {
+ labels,
+ datasets: [
+ { type: 'bar', label: 'Visitas', data: serie.map(r => r.visitas), backgroundColor: yellow, borderRadius: 3, yAxisID: 'y', order: 2 },
+ { type: 'line', label: 'Cuentas nuevas', data: serie.map(r => r.cuentas), borderColor: green, backgroundColor: green, pointRadius: 2, tension: 0, yAxisID: 'y1', order: 1 },
+ { type: 'line', label: 'Contactos a proveedores', data: serie.map(r => r.contactos), borderColor: ink, backgroundColor: ink, pointRadius: 2, tension: 0, yAxisID: 'y1', order: 1 }
+ ]
+ },
+ options: {
+ responsive: true,
+ maintainAspectRatio: false,
+ interaction: { mode: 'index', intersect: false },
+ plugins: { legend: { labels: { color: ink, boxWidth: 12 } } },
+ scales: {
+ x: { ticks: { color: muted, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }, grid: { display: false } },
+ y: { beginAtZero: true, position: 'left', title: { display: true, text: 'Visitas', color: muted }, ticks: { color: muted, precision: 0 }, grid: { color: grid } },
+ y1: { beginAtZero: true, position: 'right', title: { display: true, text: 'Cuentas y contactos', color: muted }, ticks: { color: muted, precision: 0 }, grid: { display: false } }
+ }
+ }
+ });
+}
+
+function buildAdminUtmLink() {
+ const out = document.getElementById('admin-utm-result');
+ if (!out) return;
+ const clean = id => (document.getElementById(id)?.value || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-_]/g, '');
+ const params = new URLSearchParams();
+ const source = clean('admin-utm-source');
+ const medium = clean('admin-utm-medium');
+ const campaign = clean('admin-utm-campaign');
+ if (source) params.set('utm_source', source);
+ if (medium) params.set('utm_medium', medium);
+ if (campaign) params.set('utm_campaign', campaign);
+ const path = document.getElementById('admin-utm-path')?.value || '/';
+ const qs = params.toString();
+ out.value = `${window.location.origin}${path}${qs ? '?' + qs : ''}`;
+}
+
+function setupAdminDashboardListeners() {
+ const period = document.getElementById('admin-dash-period');
+ const refresh = document.getElementById('btn-admin-dash-refresh');
+ if (period) period.addEventListener('change', loadAdminDashboard);
+ if (refresh) refresh.addEventListener('click', loadAdminDashboard);
+ ['admin-utm-source', 'admin-utm-medium', 'admin-utm-campaign', 'admin-utm-path'].forEach(id => {
+ const el = document.getElementById(id);
+ if (el) el.addEventListener('input', buildAdminUtmLink);
+ if (el) el.addEventListener('change', buildAdminUtmLink);
+ });
+ buildAdminUtmLink();
+ const copy = document.getElementById('btn-admin-utm-copy');
+ if (copy) copy.addEventListener('click', () => {
+ const out = document.getElementById('admin-utm-result');
+ if (!out || !out.value) return;
+ if (!document.getElementById('admin-utm-source')?.value.trim()) {
+ ST.showToast('Completá al menos "Dónde" (ej. instagram) para que el link sirva de algo.');
+ return;
+ }
+ navigator.clipboard.writeText(out.value).then(
+ () => ST.showToast('Link copiado.'),
+ () => { out.select(); ST.showToast('Copialo a mano: ya está seleccionado.'); }
+ );
+ });
+}
+

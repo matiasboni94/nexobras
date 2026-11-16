@@ -261,8 +261,8 @@ import * as ST from './state.js';
  if (ST.mapState.map) ST.mapState.map.invalidateSize();
  MapModule.loadNearbyBranchesOnMap();
  }, 50);
- // Contadores del home (proveedores, usuarios, visitas) -- se refrescan
- // cada vez que se vuelve al home, mismo criterio que el mapa.
+ // Datos del home (materiales, análisis de obra, mes de precios) -- los
+ // contadores de proveedores/usuarios/visitas pasaron al Panel de Admin (16/11).
  MapModule.loadHomeStats();
  }
  window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -338,7 +338,7 @@ import * as ST from './state.js';
  MapModule.loadNearbyBranchesOnMap();
  }, 300);
 
- // Contadores del home + registro de la visita (una vez por pestaña,
+ // Datos del home + registro de la visita (una vez por pestaña,
  // ver ST.logSiteVisit) -- el home es la vista por defecto al cargar,
  // así que esto también va acá, no solo dentro de switchView('home').
  MapModule.loadHomeStats();
@@ -738,6 +738,7 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
  submitReview: MapModule.submitReview,
  showToast: ST.showToast,
  logProviderInteraction: ST.logProviderInteraction,
+logEvent: ST.logEvent,
  unshareComputation: Computo.unshareComputation,
  approveTechSuggestion: Admin.approveTechSuggestion,
  rejectTechSuggestion: Admin.rejectTechSuggestion,

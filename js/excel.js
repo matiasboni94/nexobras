@@ -136,7 +136,7 @@ import * as Pricing from './pricing.js';
  const requestedCode = codeIdx > -1 && row[codeIdx] ? row[codeIdx].toString().trim() : '';
  const requestedDesc = row[descIdx] ? row[descIdx].toString().trim() : '';
  const requestedUnit = unidadIdx > -1 && row[unidadIdx] ? row[unidadIdx].toString().trim() : '';
- let qty = qtyIdx > -1 && row[qtyIdx] ? parseFloat(row[qtyIdx]) || 1 : 1;
+ let qty = qtyIdx > -1 && row[qtyIdx] ? ST.parseLocaleNumber(row[qtyIdx]) || 1 : 1; // misma lectura en formato argentino que la carga de precios (auditoría 12/11)
 
  const matchResult = findBestMaterialMatch(requestedCode, requestedDesc);
 

@@ -237,7 +237,7 @@ import * as ST from './state.js';
  ST.mapState.markers.push(centerMarker);
 
  const conCoordenadas = (data || []).filter(o => o.latitude && o.longitude);
- ST.logSearch(materialName, conCoordenadas.length);
+ ST.logSearch(materialName, conCoordenadas.length, 'mapa');
  conCoordenadas.forEach(offer => {
  const marker = L.marker([offer.latitude, offer.longitude]).addTo(ST.mapState.map);
  // Sin popup propio de Leaflet: el detalle se muestra siempre en el panel
@@ -461,29 +461,33 @@ import * as ST from './state.js';
  }
 
  /**
- * Contadores del home ("proveedores de materiales", "proveedores de
- * servicios", "usuarios registrados", "visitas a la web"). Se llama al
- * arrancar la app y cada vez que se vuelve al home (mismo criterio que el
- * mapa, que también se refresca en los dos casos) -- así el número de
- * visitas se ve actualizado sin tener que recargar la página entera.
- * Si algo falla, deja los contadores en "–" en vez de romper el home.
+ * Datos del home (16/11, auditoría 12/11 falla 4). Antes mostraba
+ * proveedores, usuarios registrados y visitas -- con 1 · 1 · 4 · 178, la
+ * prueba social jugaba en contra, y esos números ahora viven en el tablero
+ * del Panel de Administración (uso interno). En su lugar el home muestra
+ * lo que el sitio ya ofrece: materiales con precio, análisis de costos de
+ * obra y el mes de los precios. Si algo falla, quedan los valores escritos
+ * en el HTML (943 / 80) en vez de romper el home.
  */
- export async function loadHomeStats() {
- if (!ST.supabaseClient) return;
- const ids = ['home-stat-materiales', 'home-stat-servicios', 'home-stat-usuarios', 'home-stat-visitas'];
- if (!ids.every(id => document.getElementById(id))) return;
+ export async function loadHomeStats(retry = true) {
+ const matEl = document.getElementById('home-fact-materiales');
+ const apuEl = document.getElementById('home-fact-apu');
+ const periodoEl = document.getElementById('home-fact-periodo');
+ if (!matEl || !apuEl || !periodoEl) return;
 
- const { data, error } = await ST.supabaseClient.rpc('get_home_stats');
- if (error) {
- console.warn('No se pudieron cargar los contadores del home:', error.message);
- return;
+ if (typeof NEXOBRA_DATA !== 'undefined' && NEXOBRA_DATA.length) {
+ matEl.textContent = ST.formatInt(NEXOBRA_DATA.length);
  }
-
- const stats = data || {};
- document.getElementById('home-stat-materiales').textContent = ST.formatInt(stats.proveedores_materiales);
- document.getElementById('home-stat-servicios').textContent = ST.formatInt(stats.proveedores_servicios);
- document.getElementById('home-stat-usuarios').textContent = ST.formatInt(stats.usuarios_registrados);
- document.getElementById('home-stat-visitas').textContent = ST.formatInt(stats.visitas_web);
+ if (ST.state.priceMonth) {
+ periodoEl.textContent = ST.monthLabel(ST.state.priceMonth).replace(' de ', ' ');
+ } else if (retry) {
+ // El mes de precios se define cuando termina de sincronizar el
+ // catálogo; si todavía no está, se vuelve a mirar en un rato.
+ setTimeout(() => loadHomeStats(false), 2500);
+ }
+ if (!ST.supabaseClient) return;
+ const { count, error } = await ST.supabaseClient.from('apu_tasks').select('id', { count: 'exact', head: true });
+ if (!error && count) apuEl.textContent = ST.formatInt(count);
  }
 
  export async function loadNearbyBranchesOnMap() {

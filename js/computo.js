@@ -686,7 +686,7 @@ import * as ST from './state.js';
  <div class="provider-group">
  <div class="provider-group-header">
  <h4> ${ST.escapeHtml(group.businessName)} — ${ST.escapeHtml(group.branchName)}</h4>
- ${group.whatsapp ? `<a class="whatsapp-mini-btn" target="_blank" href="${buildProviderWhatsappUrl(group)}">Mandar pedido a este proveedor</a>` : '<span style="font-size:0.72rem; color:var(--text-muted);">Sin WhatsApp cargado</span>'}
+ ${group.whatsapp ? `<a class="whatsapp-mini-btn" target="_blank" href="${buildProviderWhatsappUrl(group)}" onclick="window.nexoBraApp.logEvent('provider_contact', 'pedido desde Mi Cómputo')">Mandar pedido a este proveedor</a>` : '<span style="font-size:0.72rem; color:var(--text-muted);">Sin WhatsApp cargado</span>'}
  </div>
  <div class="provider-group-body">
  ${group.items.map(({ item, idx }) => renderCartItemRow(item, idx)).join('')}

@@ -715,6 +715,7 @@ export function getApuPhaseName(phaseLocalId) {
 
 export function addApuPhase() {
  if (!ST.authState.user) {
+ ST.logEvent('register_prompt', 'fases');
  Auth.showAuthTab('login');
  Auth.openAuthModal();
  Auth.showAuthError('Registrate o iniciá sesión para organizar la obra en fases.');
@@ -951,7 +952,8 @@ export function addApuDirectMaterial(materialId) {
  const quantity = qtyInput ? Math.max(0.0001, parseFloat(qtyInput.value) || 0) : 0;
  if (quantity <= 0) { ST.showToast('Ingresá una cantidad válida.'); return; }
  const item = addMaterialDirectoToBudget(materialId, quantity);
- updateApuBudgetUI();
+ revealApuBudgetItem(item);
+ ST.logEvent('apu_task_added', 'Material suelto: ' + item.task_nombre_snapshot);
  ST.showToast(`+ Agregado: ${item.task_nombre_snapshot}`);
 }
 
@@ -1128,7 +1130,8 @@ export function confirmApuCustomTask() {
  });
 
  closeApuCustomTaskModal();
- updateApuBudgetUI();
+ revealApuBudgetItem(item);
+ ST.logEvent('apu_task_added', 'Tarea personalizada');
  ST.showToast(`+ Agregada tu tarea personalizada: ${item.task_nombre_snapshot}`);
 }
 
@@ -1317,7 +1320,7 @@ export function applyApuDimensions(taskId, mode) {
  if (cantidad <= 0) { ST.showToast('Completá las medidas para calcular la cantidad.'); return; }
  const qtyInput = document.getElementById(`apu-task-qty-${taskId}`);
  if (qtyInput) qtyInput.value = cantidad.toFixed(2);
- ST.showToast(`Cantidad calculada: ${cantidad.toFixed(2)}`);
+ ST.showToast(`Cantidad calculada: ${ST.formatQty(cantidad)}`);
  toggleApuDimensionPanel(taskId, mode);
 }
 
@@ -1391,9 +1394,10 @@ export function addApuTaskToBudget(apuTaskId) {
  const qtyInput = document.getElementById(`apu-task-qty-${apuTaskId}`);
  const qty = qtyInput ? Math.max(0.01, parseFloat(qtyInput.value) || 1) : 1;
  const item = addItemToBudget(apuTaskId, qty);
- updateApuBudgetUI();
  const panel = document.getElementById(`apu-add-panel-${apuTaskId}`);
  if (panel) panel.style.display = 'none';
+ revealApuBudgetItem(item);
+ ST.logEvent('apu_task_added', item.task_nombre_snapshot);
  ST.showToast(`+ Agregado: ${item.task_nombre_snapshot}`);
 }
 
@@ -1414,6 +1418,7 @@ function updateApuGatingUI() {
 
 /** Abre el modal de registro desde el aviso de la Calculadora de Obra sin cuenta. */
 export function openApuRegisterPrompt() {
+ ST.logEvent('register_prompt', 'aviso calculadora');
  Auth.showAuthTab('register');
  Auth.openAuthModal();
 }
@@ -1487,7 +1492,7 @@ function renderApuComponentSection(titulo, lineas, subtotal, item, herramientas 
  <tr class="apu-component-virtual">
  <td> ${ST.escapeHtml(herramientas.descripcion_snapshot)}</td>
  <td>-</td>
- <td>${herramientas.cantidadNecesaria.toFixed(3)} ${ST.escapeHtml(herramientas.unidad_snapshot)}</td>
+ <td>${ST.formatQty(herramientas.cantidadNecesaria)} ${ST.escapeHtml(herramientas.unidad_snapshot)}</td>
  <td>${herramientas.disponible ? ST.formatMoney(herramientas.unitPriceConK) : '<span style="color:#b91c1c;">s/d</span>'}</td>
  <td style="text-align:right;">${ST.formatMoney(herramientas.costo)}</td>
  <td></td>
@@ -1516,7 +1521,7 @@ function renderComponentRow(item, l) {
  ? `<span class="apu-badge-modificado" title="Referencia NEXOBRA: ${l.rendimiento_referencia}">modificado</span><button class="apu-badge-reset" title="Volver al rendimiento de referencia" onclick="window.nexoBraApp.resetApuComponentRendimiento('${item.localId}', '${l.localId}')">↺</button>`
  : ''}
  </td>
- <td>${l.cantidadNecesaria.toFixed(3)} ${ST.escapeHtml(l.unidad_snapshot)}</td>
+ <td>${ST.formatQty(l.cantidadNecesaria)} ${ST.escapeHtml(l.unidad_snapshot)}</td>
  <td>${l.disponible ? ST.formatMoney(l.unitPriceConK) : '<span style="color:#b91c1c;">s/d</span>'}</td>
  <td style="text-align:right;">${ST.formatMoney(l.costo)}</td>
  <td><button class="apu-item-remove" title="Quitar este componente" onclick="window.nexoBraApp.removeApuItemComponent('${item.localId}', '${l.localId}')">&times;</button></td>
@@ -1559,7 +1564,7 @@ function renderMaterialDirectoCard(item, nro, lineas, total) {
  const unitPrice = l ? l.unitPriceConK : 0;
  const disponible = l ? l.disponible : false;
  return `
- <div class="apu-item-card apu-item-card-simple">
+ <div class="apu-item-card apu-item-card-simple" id="apu-item-${item.localId}">
  <div class="apu-item-header">
  <div class="apu-item-header-info">
  <span class="apu-item-nro">${nro}</span>
@@ -1607,12 +1612,12 @@ function renderApuItemCard({ item, lineas, herramientas, materialesCost, manoObr
  // esa planilla.
  const manoObraUnit = item.quantity > 0 ? manoObraCost / item.quantity : 0;
  return `
- <div class="apu-item-card">
+ <div class="apu-item-card" id="apu-item-${item.localId}">
  <div class="apu-item-header">
  <div class="apu-item-header-info">
  <span class="apu-item-nro">${nro}</span>
  <strong>${ST.escapeHtml(item.task_nombre_snapshot)}</strong>
- <span>${ST.escapeHtml(item.task_rubro_snapshot || 'Sin rubro')} · cant: ${item.quantity} ${ST.escapeHtml(item.task_unidad_snapshot)} · precio unit: ${ST.formatMoney(unitPrice)} · subtotal: ${ST.formatMoney(total)}${item.item_kind === 'custom' ? ' · <span class="apu-badge-modificado">personalizada</span>' : ''}</span>
+ <span>${ST.escapeHtml(item.task_rubro_snapshot || 'Sin rubro')} · cant: ${ST.formatQty(item.quantity)} ${ST.escapeHtml(item.task_unidad_snapshot)} · precio unit: ${ST.formatMoney(unitPrice)} · subtotal: ${ST.formatMoney(total)}${item.item_kind === 'custom' ? ' · <span class="apu-badge-modificado">personalizada</span>' : ''}</span>
  <span style="display:block; margin-top:2px; font-size:0.78rem; color:var(--text-muted);">materiales: ${ST.formatMoney(materialesCost)} · mano de obra: ${ST.formatMoney(manoObraCost)} (${ST.formatMoney(manoObraUnit)}/${ST.escapeHtml(item.task_unidad_snapshot)}) · equipos/herramientas: ${ST.formatMoney(equiposCost)}</span>
  ${catalogTask && catalogTask.descripcion ? `<span style="display:block; margin-top:4px; white-space:pre-line;"><strong>Incluye:</strong> ${ST.escapeHtml(catalogTask.descripcion)}</span>` : ''}
  </div>
@@ -1677,6 +1682,29 @@ export function toggleApuRubroGroup(rubroKey) {
  updateApuBudgetUI();
 }
 
+/**
+ * Auditoría 12/11, falla 3: al agregar una tarea, el resultado quedaba abajo
+ * y plegado dos veces (grupo de rubro + detalle), así que quien probaba la
+ * Calculadora sin cuenta nunca veía la lista de materiales que vino a
+ * buscar. Ahora, después de agregar: se despliega el grupo de su rubro, se
+ * despliega el detalle de la tarea si es la única del presupuesto (siempre
+ * pasa sin cuenta, que calcula de a una), y se lleva la vista a su tarjeta.
+ * Con varias tareas cargadas el detalle queda plegado, para no estirar la
+ * pantalla con cada agregado.
+ */
+function revealApuBudgetItem(item) {
+ if (!item) return;
+ expandedRubroGroups.add(item.task_rubro_snapshot || 'Sin rubro');
+ if (ST.state.apuBudgetItems.length === 1 && item.item_kind !== 'material_directo') {
+ expandedItemIds.add(item.localId);
+ }
+ updateApuBudgetUI();
+ requestAnimationFrame(() => {
+ const card = document.getElementById(`apu-item-${item.localId}`);
+ if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+ });
+}
+
 export function renderBudgetItems(breakdown) {
  if (!ST.apuBudgetItemsEl) return;
 
@@ -1735,7 +1763,7 @@ function renderApuSummaryTable(breakdown) {
  <td><strong>${ST.escapeHtml(rubro)}</strong></td>
  <td></td><td></td><td></td><td></td>
  <td style="text-align:right;"><strong>${ST.formatMoney(subtotalRubro)}</strong></td>
- <td style="text-align:right;"><strong>${incidencia.toFixed(2)}%</strong></td>
+ <td style="text-align:right;"><strong>${ST.formatPct(incidencia)} %</strong></td>
  </tr>`;
  entries.forEach((entry, j) => {
  const item = entry.item;
@@ -1745,7 +1773,7 @@ function renderApuSummaryTable(breakdown) {
  <td>${rIdx}.${j + 1}</td>
  <td>${ST.escapeHtml(item.task_nombre_snapshot)}</td>
  <td>${ST.escapeHtml(item.task_unidad_snapshot)}</td>
- <td>${item.quantity}</td>
+ <td>${ST.formatQty(item.quantity)}</td>
  <td style="text-align:right;">${ST.formatMoney(unitPrice)}</td>
  <td style="text-align:right;">${ST.formatMoney(entry.total)}</td>
  <td></td>
@@ -1867,7 +1895,7 @@ function renderApuPurchaseCell(m) {
  const estadoColor = pendiente <= 0 && info.total > 0 ? 'var(--color-success)' : 'var(--text-muted)';
  const estadoTexto = info.total === 0
  ? 'Sin pedidos todavía'
- : (pendiente <= 0 ? `Pedido completo (${info.total} ${ST.escapeHtml(m.unidadCompra)})` : `Pedido: ${info.total} · Pendiente: ${pendiente.toFixed(2)} ${ST.escapeHtml(m.unidadCompra)}`);
+ : (pendiente <= 0 ? `Pedido completo (${ST.formatQty(info.total)} ${ST.escapeHtml(m.unidadCompra)})` : `Pedido: ${ST.formatQty(info.total)} · Pendiente: ${ST.formatQty(pendiente)} ${ST.escapeHtml(m.unidadCompra)}`);
  const historial = info.rows.length === 0 ? '' : `
  <div style="margin:8px 0; max-height:120px; overflow-y:auto;">
  ${info.rows.map(r => `
@@ -1901,8 +1929,8 @@ export function renderConsolidated(breakdown) {
  ST.apuConsolidatedBody.innerHTML = breakdown.materialesConsolidados.map(m => `
  <tr>
  <td>${ST.escapeHtml(m.denominacion)}</td>
- <td>${m.cantidad.toFixed(2)} ${ST.escapeHtml(m.unidad)}</td>
- <td><strong>${m.cantidadAPedir}</strong> × ${ST.escapeHtml(m.unidadCompra)}</td>
+ <td>${ST.formatQty(m.cantidad)} ${ST.escapeHtml(m.unidad)}</td>
+ <td><strong>${ST.formatQty(m.cantidadAPedir)}</strong> × ${ST.escapeHtml(m.unidadCompra)}</td>
  <td>${renderApuPurchaseCell(m)}</td>
  <td style="text-align:right;">${ST.formatMoney(m.costo)}</td>
  </tr>
@@ -1934,8 +1962,8 @@ export function renderApuMaterialesPorFase(breakdown) {
  ${g.materiales.map(m => `
  <tr>
  <td>${ST.escapeHtml(m.denominacion)}</td>
- <td>${m.cantidad.toFixed(2)} ${ST.escapeHtml(m.unidad)}</td>
- <td><strong>${m.cantidadAPedir}</strong> × ${ST.escapeHtml(m.unidadCompra)}</td>
+ <td>${ST.formatQty(m.cantidad)} ${ST.escapeHtml(m.unidad)}</td>
+ <td><strong>${ST.formatQty(m.cantidadAPedir)}</strong> × ${ST.escapeHtml(m.unidadCompra)}</td>
  <td style="text-align:right;">${ST.formatMoney(m.costo)}</td>
  </tr>
  `).join('')}
@@ -2025,7 +2053,7 @@ export function updateApuKCoefficients() {
  iva: ST.apuBudgetMeta.kIva
  });
  ST.apuBudgetMeta.kFactor = k;
- if (ST.apuKFactorDisplay) ST.apuKFactorDisplay.value = k != null ? k.toFixed(3) : '';
+ if (ST.apuKFactorDisplay) ST.apuKFactorDisplay.value = k != null ? ST.formatPct(k, 3) : '';
  updateApuBudgetUI();
 }
 
@@ -2040,7 +2068,7 @@ function renderApuKCoefficientsUI() {
  // a mano, pero ningún coeficiente -- se sigue mostrando ese K legacy en
  // el campo de solo lectura hasta que el usuario cargue los 4 coeficientes
  // (en ese momento se recalcula y reemplaza, ver updateApuKCoefficients).
- ST.apuKFactorDisplay.value = ST.apuBudgetMeta.kFactor != null ? Number(ST.apuBudgetMeta.kFactor).toFixed(3) : '';
+ ST.apuKFactorDisplay.value = ST.apuBudgetMeta.kFactor != null ? ST.formatPct(ST.apuBudgetMeta.kFactor, 3) : '';
  }
 }
 
@@ -2268,6 +2296,7 @@ export async function saveApuBudget() {
  updateApuBudgetNameUI();
  await loadApuPurchasesForCurrentBudget(); // primer guardado: ya tiene budget_id real, la fila "registrar pedido" puede aparecer
  updateApuBudgetUI();
+ ST.logEvent('save_budget', 'calculadora');
  ST.showToast('Presupuesto de obra guardado.');
  } catch (err) {
  ST.showToast('No se pudo guardar: ' + err.message);
@@ -2568,6 +2597,7 @@ export async function shareApuBudget() {
  }
 
  const url = `${window.location.origin}/?apu_share=${token}`;
+ ST.logEvent('share_budget', 'calculadora');
  showApuShareLinkBox(url);
 }
 
@@ -2653,7 +2683,7 @@ export async function renderSharedApuBudget(token) {
  <div class="apu-item-header">
  <div class="apu-item-header-info">
  <strong>${ST.escapeHtml(it.task_nombre_snapshot)}</strong>
- <span>${it.quantity} ${ST.escapeHtml(it.task_unidad_snapshot)} · ${ST.formatMoney(itemTotal)} total</span>
+ <span>${ST.formatQty(it.quantity)} ${ST.escapeHtml(it.task_unidad_snapshot)} · ${ST.formatMoney(itemTotal)} total</span>
  </div>
  </div>
  <div class="apu-item-body">
@@ -2663,14 +2693,14 @@ export async function renderSharedApuBudget(token) {
  ${lineas.map(l => `
  <tr>
  <td>${ST.escapeHtml(l.denomination_snapshot)}</td>
- <td>${l.cantidadNecesaria.toFixed(3)} ${ST.escapeHtml(l.unidad_snapshot)}</td>
+ <td>${ST.formatQty(l.cantidadNecesaria)} ${ST.escapeHtml(l.unidad_snapshot)}</td>
  <td>${ST.formatMoney(l.unitPriceConK)}</td>
  <td style="text-align:right;">${ST.formatMoney(l.costo)}</td>
  </tr>
  `).join('')}
  <tr class="apu-component-virtual">
  <td>Herramientas Manuales</td>
- <td>${herramientasHoras.toFixed(3)} ${ST.escapeHtml(herramientasUnidad)}</td>
+ <td>${ST.formatQty(herramientasHoras)} ${ST.escapeHtml(herramientasUnidad)}</td>
  <td>${ST.formatMoney(herramientasUnitPriceConK)}</td>
  <td style="text-align:right;">${ST.formatMoney(herramientasCosto)}</td>
  </tr>
@@ -2772,6 +2802,7 @@ export async function exportApuFull() {
  XLSX.utils.book_append_sheet(wb, ws, 'Presupuesto_de_Obra');
  const safeName = nombre.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '_') || 'Presupuesto_Obra';
  XLSX.writeFile(wb, `${safeName}_Presupuesto_de_Obra.xlsx`);
+ ST.logEvent('export', 'presupuesto completo');
  ST.showToast('Presupuesto de obra descargado.');
 }
 
@@ -2816,6 +2847,7 @@ export async function exportApuItem(itemLocalId) {
  XLSX.utils.book_append_sheet(wb, ws, 'APU');
  const safeName = item.task_nombre_snapshot.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '_') || 'APU';
  XLSX.writeFile(wb, `${safeName}.xlsx`);
+ ST.logEvent('export', 'una tarea');
  ST.showToast('APU descargado.');
 }
 
@@ -2906,6 +2938,7 @@ export async function exportApuConsolidated() {
 
  const safeName = nombre.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '_') || 'Materiales';
  XLSX.writeFile(wb, `${safeName}_Materiales_Consolidado.xlsx`);
+ ST.logEvent('export', 'lista de materiales');
  ST.showToast('Lista de materiales descargada.');
 }
 
@@ -3182,7 +3215,7 @@ export function toggleApuProviderPickerSelection(branchId, checked) {
 function buildApuProviderShareMessage(breakdown) {
  let text = `Hola! Te escribo desde NEXOBRA para pedirte presupuesto de estos materiales:\n\n`;
  breakdown.materialesConsolidados.forEach(m => {
- text += `• ${m.denominacion} — ${m.cantidad.toFixed(2)} ${m.unidad}\n`;
+ text += `• ${m.denominacion} — ${ST.formatQty(m.cantidad)} ${m.unidad}\n`;
  });
  text += `\n¿Me pasás precio y disponibilidad? Gracias!`;
  return text;
@@ -3212,7 +3245,10 @@ export function sendApuListToSelectedProviders() {
  if (sinWhatsapp.length > 0) {
  ST.showToast(`${sinWhatsapp.length} proveedor${sinWhatsapp.length === 1 ? '' : 'es'} sin WhatsApp de contacto, no se ${sinWhatsapp.length === 1 ? 'le' : 'les'} pudo mandar: ${sinWhatsapp.join(', ')}`);
  }
- if (abiertos > 0) closeApuProviderPicker();
+ if (abiertos > 0) {
+ ST.logEvent('provider_contact', `lista de la calculadora a ${abiertos} proveedor${abiertos === 1 ? '' : 'es'}`);
+ closeApuProviderPicker();
+ }
 }
 
 // =========================================================

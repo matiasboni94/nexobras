@@ -282,11 +282,12 @@
  * momento antes de guardar, para no llenar la tabla con cada letra.
  */
  let searchLogTimeout = null;
- export function logSearch(query, resultsCount) {
+ export function logSearch(query, resultsCount, source = 'catalogo') {
  if (!query || query.trim().length < 2) return;
  clearTimeout(searchLogTimeout);
  searchLogTimeout = setTimeout(() => {
  if (!supabaseClient) return;
+ logEvent('search', source);
  supabaseClient.from('search_log').insert({
  query: query.trim(),
  results_count: resultsCount,
@@ -307,6 +308,7 @@
  */
  export function logProviderInteraction(branchId, providerId, eventType, materialId, materialName, distanceKm) {
  if (!supabaseClient || !branchId || !providerId || !eventType) return;
+ if (eventType === 'whatsapp_click') logEvent('provider_contact', 'whatsapp');
  supabaseClient.from('provider_interaction_events').insert({
  branch_id: branchId,
  provider_id: providerId,
@@ -337,8 +339,81 @@
  // Si sessionStorage no está disponible (privado/bloqueado), se sigue
  // igual -- en el peor caso esa visita se cuenta de más, no rompe nada.
  }
- supabaseClient.from('site_visits').insert({ path: window.location.pathname }).then(({ error }) => {
- if (error) console.warn('No se pudo registrar la visita:', error.message);
+ // (16/11, tablero del administrador) Además del path, se guarda de
+ // dónde llegó la visita -- solo el dominio del sitio anterior (nunca la
+ // URL completa), las etiquetas utm_* del link si las trae, el tipo de
+ // pantalla, si el navegador ya había entrado antes y un id de sesión
+ // al azar que no identifica a la persona (sirve para armar el embudo:
+ // cuántas visitas buscaron algo, cuántas contactaron a un proveedor).
+ // Si la migración 032 todavía no se corrió, esas columnas no existen:
+ // se reintenta con el path solo, como antes, para no perder la visita.
+ const row = { path: window.location.pathname, ...getVisitOrigin() };
+ supabaseClient.from('site_visits').insert(row).then(({ error }) => {
+ if (!error) return;
+ supabaseClient.from('site_visits').insert({ path: window.location.pathname }).then(({ error: e2 }) => {
+ if (e2) console.warn('No se pudo registrar la visita:', e2.message);
+ });
+ });
+ }
+
+ /** Id de sesión al azar (uno por pestaña), compartido entre la visita y los eventos. No identifica a la persona ni se guarda entre visitas. */
+ export function getSessionId() {
+ try {
+ let sid = sessionStorage.getItem('nexobra_sid');
+ if (!sid) {
+ sid = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2));
+ sessionStorage.setItem('nexobra_sid', sid);
+ }
+ return sid;
+ } catch (err) {
+ return null;
+ }
+ }
+
+ function getVisitOrigin() {
+ const clip = (v, n) => (v ? String(v).slice(0, n) : null);
+ let referrerHost = null;
+ try {
+ if (document.referrer) {
+ const host = new URL(document.referrer).hostname;
+ if (host && host !== window.location.hostname) referrerHost = host;
+ }
+ } catch (err) { /* referrer ilegible: se deja vacío */ }
+ const params = new URLSearchParams(window.location.search);
+ let isReturning = false;
+ try {
+ isReturning = !!localStorage.getItem('nexobra_seen');
+ localStorage.setItem('nexobra_seen', '1');
+ } catch (err) { /* sin localStorage: se cuenta como nueva */ }
+ const w = window.innerWidth || 0;
+ return {
+ session_id: getSessionId(),
+ referrer_host: clip(referrerHost, 120),
+ utm_source: clip(params.get('utm_source'), 60),
+ utm_medium: clip(params.get('utm_medium'), 60),
+ utm_campaign: clip(params.get('utm_campaign'), 60),
+ device: w < 768 ? 'mobile' : (w < 1024 ? 'tablet' : 'desktop'),
+ is_returning: isReturning
+ };
+ }
+
+ /**
+  * (16/11, tablero del administrador) Registra un paso del recorrido de una
+  * visita: buscó, agregó una tarea a la Calculadora, contactó a un
+  * proveedor, empezó o terminó un registro, guardó/compartió/exportó un
+  * presupuesto. Fire-and-forget como el resto: si falla (por ejemplo,
+  * porque la migración 032 todavía no se corrió) no rompe nada visible.
+  */
+ const SITE_EVENTS = ['search', 'apu_task_added', 'register_prompt', 'signup_start', 'signup', 'provider_contact', 'save_budget', 'share_budget', 'export'];
+ export function logEvent(event, detail) {
+ if (!supabaseClient || !SITE_EVENTS.includes(event)) return;
+ supabaseClient.from('site_events').insert({
+ session_id: getSessionId(),
+ event,
+ detail: detail ? String(detail).slice(0, 120) : null,
+ user_id: authState.user?.id || null
+ }).then(({ error }) => {
+ if (error) console.warn('No se pudo registrar el evento:', error.message);
  });
  }
 
@@ -346,6 +421,58 @@
  export function formatInt(n) {
  if (n === null || n === undefined || isNaN(n)) return '0';
  return new Intl.NumberFormat('es-AR').format(n);
+ }
+
+ /**
+  * Auditoría 12/11, falla 2: cantidades con coma decimal y punto de miles,
+  * como se leen en Argentina. Antes se mostraban con toFixed(3) -- "441.220
+  * un" se leía cuatrocientos cuarenta y un mil. Hasta 3 decimales por
+  * debajo de 1 (0,362 m³), 2 por encima (441,22 un), sin ceros sobrantes
+  * (30 hs, no 30,000). Solo para MOSTRAR: los <input type="number"> y los
+  * Excel siguen recibiendo el número crudo.
+  */
+ const qtyFormatSmall = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 3 });
+ const qtyFormatLarge = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 });
+ export function formatQty(n) {
+ const v = Number(n);
+ if (!isFinite(v)) return '0';
+ return (Math.abs(v) < 1 ? qtyFormatSmall : qtyFormatLarge).format(v);
+ }
+
+ /** Porcentaje con coma decimal (ej. 12,5 %), para incidencias y similares. */
+ export function formatPct(n, decimals = 2) {
+ const v = Number(n);
+ if (!isFinite(v)) return '0';
+ return new Intl.NumberFormat('es-AR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(v);
+ }
+
+ /**
+  * Auditoría 12/11, falla 10: lee un número escrito como texto en una
+  * planilla, en formato argentino o internacional. parseFloat("12.000,50")
+  * daba 12. Reglas: si hay punto Y coma, el último de los dos es el
+  * decimal; con solo coma, la coma es decimal (12,5); con solo punto, si
+  * hay varios o exactamente 3 dígitos después, es separador de miles
+  * (12.000 → 12000), si no es decimal (12.5). Las celdas que la planilla ya
+  * guarda como número se devuelven tal cual. Devuelve NaN si no hay número.
+  */
+ export function parseLocaleNumber(value) {
+ if (typeof value === 'number') return value;
+ if (value === null || value === undefined) return NaN;
+ let txt = String(value).trim().replace(/[^\d.,-]/g, '');
+ if (!txt || !/\d/.test(txt)) return NaN;
+ const lastDot = txt.lastIndexOf('.');
+ const lastComma = txt.lastIndexOf(',');
+ if (lastDot !== -1 && lastComma !== -1) {
+ if (lastComma > lastDot) txt = txt.replace(/\./g, '').replace(',', '.');
+ else txt = txt.replace(/,/g, '');
+ } else if (lastComma !== -1) {
+ txt = (txt.match(/,/g).length > 1) ? txt.replace(/,/g, '') : txt.replace(',', '.');
+ } else if (lastDot !== -1) {
+ const dots = txt.match(/\./g).length;
+ const after = txt.length - lastDot - 1;
+ if (dots > 1 || after === 3) txt = txt.replace(/\./g, '');
+ }
+ return parseFloat(txt);
  }
 
  // (22/09) Comparte una URL usando el selector nativo del celular/navegador

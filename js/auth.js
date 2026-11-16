@@ -65,7 +65,7 @@ import * as ST from './state.js';
     if (ST.authState.user) {
       const { data: profile } = await ST.supabaseClient
         .from('profiles')
-        .select('full_name, public_nickname, role, phone, locality, matricula, rubro_habitual, role_confirmed')
+        .select('full_name, public_nickname, role, phone, locality, matricula, rubro_habitual, role_confirmed, referral_source')
         .eq('id', ST.authState.user.id)
         .single();
       ST.authState.profile = profile || null;
@@ -79,8 +79,24 @@ import * as ST from './state.js';
       MapModule.loadAlertIds();
       MapModule.loadOfferSubscriptionIds();
 
-      if (profile && profile.role_confirmed === false) {
-        openRoleModal();
+      // (16/11, auditoría 12/11 falla 8) "¿Cómo nos conociste?" para TODAS
+      // las cuentas, no solo las que se registran con email:
+      //  - Si se registró con email y el dato quedó en los metadatos de la
+      //    cuenta (confirmación por mail, o la carrera entre este refresco y
+      //    el UPDATE de handleRegister), se copia solo al perfil, sin preguntar.
+      //  - Si entró con Google por primera vez (role_confirmed = false), se
+      //    pregunta junto con el rol, obligatorio.
+      //  - Cuentas que ya existían sin el dato: se pregunta una vez, con
+      //    "Ahora no" para saltearlo (queda guardado en este navegador).
+      if (profile) {
+        const metaReferral = ST.authState.user.user_metadata?.referral_source;
+        if (!profile.referral_source && metaReferral) {
+          const { error: refError } = await ST.supabaseClient.from('profiles').update({ referral_source: metaReferral }).eq('id', ST.authState.user.id);
+          if (!refError) profile.referral_source = metaReferral;
+        }
+        const needsRole = profile.role_confirmed === false;
+        const needsReferral = !profile.referral_source && !isReferralSkipped(ST.authState.user.id);
+        if (needsRole || needsReferral) openRoleModal({ needsRole, needsReferral });
       }
     } else {
       ST.authHeaderLabel.textContent = 'Ingresar';
@@ -121,6 +137,7 @@ import * as ST from './state.js';
     const btn = document.getElementById('btn-submit-register');
     btn.disabled = true;
     btn.textContent = 'Creando cuenta...';
+    ST.logEvent('signup_start', 'email');
 
     const { data, error } = await ST.supabaseClient.auth.signUp({
       email,
@@ -136,6 +153,7 @@ import * as ST from './state.js';
       return;
     }
 
+    ST.logEvent('signup', 'email');
     if (data.session) {
       // Confirmación de email desactivada en el proyecto: queda logueado directo.
       // "Cómo nos conociste" (06/11) se guarda con un UPDATE directo en vez de
@@ -173,6 +191,10 @@ import * as ST from './state.js';
 
   export async function handleGoogleAuth() {
     hideAuthMessages();
+    // Para el embudo del tablero: solo cuenta como "empezó a registrarse" si
+    // tocó Google con la pestaña Registrarme abierta (el mismo botón se usa
+    // para ingresar a una cuenta que ya existe).
+    if (ST.authFormRegister && ST.authFormRegister.style.display !== 'none') ST.logEvent('signup_start', 'google');
     const { error } = await ST.supabaseClient.auth.signInWithOAuth({ provider: 'google' });
     if (error) {
       showAuthError('El login con Google no está disponible todavía. Probá con email y contraseña.');
@@ -333,7 +355,27 @@ import * as ST from './state.js';
   // El registro manual ya pregunta el rol en el propio formulario. Google no
   // permite mandar ese dato antes de redirigir, así que se lo preguntamos acá
   // apenas vuelve con sesión, una única vez (profiles.role_confirmed lo controla).
-  export function openRoleModal() {
+  let onboardingMode = { needsRole: true, needsReferral: true };
+
+  function referralSkipKey(userId) { return `nexobra_ref_skip_${userId}`; }
+  function isReferralSkipped(userId) {
+    try { return localStorage.getItem(referralSkipKey(userId)) === '1'; } catch (err) { return false; }
+  }
+
+  export function openRoleModal(mode = { needsRole: true, needsReferral: true }) {
+    onboardingMode = mode;
+    const roleBlock = document.getElementById('onboarding-role-block');
+    const referralBlock = document.getElementById('onboarding-referral-block');
+    const referralSelect = document.getElementById('onboarding-referral-source');
+    const skipBtn = document.getElementById('btn-skip-onboarding');
+    const title = document.getElementById('modal-role-title');
+    if (roleBlock) roleBlock.style.display = mode.needsRole ? '' : 'none';
+    if (referralBlock) referralBlock.style.display = mode.needsReferral ? '' : 'none';
+    if (referralSelect) referralSelect.required = !!mode.needsReferral;
+    // Solo se puede saltear cuando es la pregunta suelta a una cuenta que ya
+    // existía; en el primer ingreso con Google el rol hace falta igual.
+    if (skipBtn) skipBtn.style.display = mode.needsRole ? 'none' : '';
+    if (title) title.textContent = mode.needsRole ? '¡Bienvenido a NEXOBRA!' : 'Una pregunta rápida';
     ST.roleErrorMsg.style.display = 'none';
     ST.roleModal.classList.add('open');
     ST.roleModalBackdrop.classList.add('open');
@@ -348,14 +390,27 @@ import * as ST from './state.js';
 
   export async function handleRoleSubmit(e) {
     e.preventDefault();
-    const role = document.querySelector('input[name="onboarding-role"]:checked').value;
+    const update = {};
+    if (onboardingMode.needsRole) {
+      update.role = document.querySelector('input[name="onboarding-role"]:checked').value;
+      update.role_confirmed = true;
+    }
+    if (onboardingMode.needsReferral) {
+      const referral = document.getElementById('onboarding-referral-source').value;
+      if (!referral) {
+        ST.roleErrorMsg.textContent = 'Elegí cómo nos conociste para seguir.';
+        ST.roleErrorMsg.style.display = 'block';
+        return;
+      }
+      update.referral_source = referral;
+    }
     const btn = document.getElementById('btn-submit-role');
     btn.disabled = true;
     btn.textContent = 'Guardando...';
 
     const { error } = await ST.supabaseClient
       .from('profiles')
-      .update({ role, role_confirmed: true })
+      .update(update)
       .eq('id', ST.authState.user.id);
 
     btn.disabled = false;
@@ -367,14 +422,24 @@ import * as ST from './state.js';
       return;
     }
 
-    await refreshAuthUI();
+    if (onboardingMode.needsRole) ST.logEvent('signup', 'google');
     closeRoleModal();
-    ST.showToast('¡Listo! Ya podés usar NEXOBRA.');
+    await refreshAuthUI();
+    ST.showToast(onboardingMode.needsRole ? '¡Listo! Ya podés usar NEXOBRA.' : '¡Gracias!');
+  }
+
+  export function skipOnboardingQuestion() {
+    if (ST.authState.user) {
+      try { localStorage.setItem(referralSkipKey(ST.authState.user.id), '1'); } catch (err) { /* sin localStorage: se vuelve a preguntar la próxima vez */ }
+    }
+    closeRoleModal();
   }
 
   export function setupRoleListeners() {
     if (!ST.supabaseClient) return;
     ST.roleForm.addEventListener('submit', handleRoleSubmit);
+    const skipBtn = document.getElementById('btn-skip-onboarding');
+    if (skipBtn) skipBtn.addEventListener('click', skipOnboardingQuestion);
     // A propósito NO se cierra clickeando el backdrop: es un paso obligatorio
     // la primera vez, para no dejar perfiles a medio configurar.
   }
