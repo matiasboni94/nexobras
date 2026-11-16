@@ -9,3 +9,12 @@
 wrangler.jsonc
 worker.js
 .assetsignore
+# Archivos internos del repo: no son parte del sitio.
+supabase
+scripts
+*.md
+*.sql
+.gitignore
+supabase-config.example.js
+functions
+_redirects
