@@ -10,6 +10,7 @@
 //     despliegue, de la técnica clásica de Pages con el archivo _redirects
 //     (esa técnica clásica generaba un loop infinito acá, ver bug del
 //     17/09).
+//     (16/11: reemplazado por el Worker para todas las páginas, ver abajo.)
 //  2. La vista previa personalizada de /proveedor/<slug> (para cuando se
 //     comparte el link en WhatsApp/Instagram) siga funcionando: este
 //     proyecto se despliega como Worker (con "static assets"), no como
@@ -27,7 +28,25 @@
   "assets": {
     "directory": ".",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application",
-    "run_worker_first": ["/proveedor/*"]
+    // (16/11, SEO) Antes: "single-page-application" + solo /proveedor/*
+    // por el Worker. Ahora TODAS las páginas pasan por worker.js (que pone
+    // el título/descripción de cada una, arma /sitemap.xml y /robots.txt, y
+    // devuelve 404 de verdad para las URLs que no existen). Los archivos
+    // estáticos de abajo (los "!") siguen yendo directo, sin gastar
+    // invocaciones del Worker. Un archivo que no existe responde 404.
+    "not_found_handling": "none",
+    "run_worker_first": [
+      "/*",
+      "!/js/*",
+      "!/assets/*",
+      "!/.well-known/*",
+      "!/style.css",
+      "!/data.js",
+      "!/sw.js",
+      "!/manifest.json",
+      "!/supabase-config.js",
+      "!/privacidad.html",
+      "!/terminos.html"
+    ]
   }
 }

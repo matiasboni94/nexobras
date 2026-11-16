@@ -5,6 +5,17 @@
  <meta name="viewport" content="width=device-width, initial-scale=1.0">
  <title>NEXOBRA | Comparador técnico de precios para la construcción</title>
  <meta name="description" content="Comparador técnico de precios, materiales y cómputos para la construcción en Argentina. Consultá valores de referencia trazables y ofertas de proveedores locales.">
+ <!-- Vista previa al compartir el link (WhatsApp, redes). worker.js las
+ reemplaza por las de cada página (catálogo, un material, un proveedor). -->
+ <meta property="og:type" content="website">
+ <meta property="og:site_name" content="NEXOBRA">
+ <meta property="og:locale" content="es_AR">
+ <meta property="og:title" content="NEXOBRA | Comparador técnico de precios para la construcción">
+ <meta property="og:description" content="Comparador técnico de precios, materiales y cómputos para la construcción en Argentina. Consultá valores de referencia trazables y ofertas de proveedores locales.">
+ <meta property="og:image" content="/assets/og-nexobra.png">
+ <meta property="og:image:width" content="1200">
+ <meta property="og:image:height" content="630">
+ <meta name="twitter:card" content="summary_large_image">
  <link rel="icon" type="image/png" href="/assets/nexobra-icon.png">
  <link rel="apple-touch-icon" href="/assets/icon-192.png">
  <!-- Modo offline / instalable (PWA): manifest + metadatos para iOS. El
@@ -1399,7 +1410,7 @@
  </div>
  </div>
 
- <p class="pilar-text" style="margin-top: 1rem;">Dentro de cada presupuesto de la Calculadora de Obra, en "Datos de la obra + factor K", cargás estos 4 coeficientes y NEXOBRA te muestra el Factor K ya calculado — se aplica multiplicando el precio de cada material, mano de obra y equipo del presupuesto. Si dejás los 4 vacíos, el presupuesto queda a costo puro, sin Factor K.</p>
+ <p class="pilar-text" style="margin-top: 1rem;">Dentro de cada presupuesto de la Calculadora de Obra, en "Datos de la obra + factor K", cargás estos 4 coeficientes y NEXOBRA te muestra el Factor K ya calculado — se aplica multiplicando el precio de cada material, mano de obra y equipo del presupuesto. Si dejás los 4 vacíos, el presupuesto queda a costo puro, sin Factor K. Todos los precios que da NEXOBRA (materiales y jornales UOCRA de mano de obra) son sin cargas sociales ni impuestos: las cargas sociales y cualquier otro costo indirecto los sumás vos con los porcentajes que consideres correctos, por ejemplo dentro de Gastos Generales.</p>
  </div>
  </div>
 
@@ -1633,7 +1644,7 @@
  <div class="summary-row"><span>Mano de obra:</span><strong id="apu-total-mano-obra">$ 0,00</strong></div>
  <div class="summary-row"><span>Equipos + Herramientas:</span><strong id="apu-total-equipos">$ 0,00</strong></div>
  <div class="summary-row total-row"><span>Total Estimado:</span><span id="apu-total-general" style="color: var(--brand-yellow); text-shadow: 0 0 1px #000;">$ 0,00</span></div>
- <p style="font-size: 0.7rem; color: var(--text-subtle); margin: 6px 0 0; line-height: 1.4;">Valores orientativos con precios de referencia NEXOBRA. No incluyen impuestos, cargas sociales ni fletes.</p>
+ <p style="font-size: 0.7rem; color: var(--text-subtle); margin: 6px 0 0; line-height: 1.4;">Valores orientativos: materiales con precio de referencia NEXOBRA y mano de obra con el jornal UOCRA del mes. No incluyen cargas sociales, impuestos ni fletes: sumalos con tu Factor K.</p>
 
  <div class="drawer-actions" id="apu-budget-drawer-actions">
  <button class="btn-action-drawer" id="btn-share-apu-budget" style="background: var(--color-accent, #3b82f6); color: #fff;">Compartir por link</button>
@@ -2081,6 +2092,16 @@
  </div>
  </details>
 
+ <!-- (16/11, auditoría 12/11: "sin pruebas automáticas") Chequeo rápido del sitio en vivo, para correr después de cada subida a GitHub. -->
+ <details class="provider-section">
+ <summary>Diagnóstico del sitio</summary>
+ <div class="provider-section-body">
+ <p class="admin-dash-note">Revisa en el sitio publicado que lo importante siga en su lugar: páginas, buscadores (sitemap, robots, 404), archivos internos ocultos, conexión con la base y Calculadora. Correlo después de cada subida a GitHub.</p>
+ <button class="btn-computo" id="btn-admin-diagnostics" type="button">Correr diagnóstico</button>
+ <div id="admin-diagnostics-result" class="admin-diag-list"></div>
+ </div>
+ </details>
+
  <!-- F2: EDITOR DE MATERIALES -->
  <details class="provider-section" open>
  <summary>Editor de materiales</summary>
@@ -2419,6 +2440,15 @@
  </div>
  <div id="admin-prov-add-results" class="provider-search-results" style="margin-bottom:24px;"></div>
 
+ <h4 class="provider-subsection-title">Importar una lista de precios (Excel)</h4>
+ <p class="admin-dash-note">Cargá la lista que te mandó el proveedor, en su nombre. Mismo formato que la plantilla de "Mi Proveedor" (columnas Nombre, Precio y, si las tiene, SKU, Unidad y Stock). Entra aprobada directo. Si un material ya estaba en su catálogo, se le actualiza el precio en vez de duplicarlo.</p>
+ <div class="admin-prov-excel-actions">
+ <input type="file" id="admin-prov-excel-input" accept=".xlsx,.xls,.csv">
+ <button class="btn-action-drawer" id="btn-admin-prov-excel-template" type="button">Bajar plantilla</button>
+ </div>
+ <div id="admin-prov-excel-preview" class="admin-prov-excel-preview"></div>
+ <button class="btn-computo" id="btn-admin-prov-excel-confirm" type="button" style="display:none; margin:10px 0 24px;">Cargar al catálogo del proveedor</button>
+
  <h4 class="provider-subsection-title">Catálogo cargado</h4>
  <div id="admin-prov-catalog-list" class="provider-catalog-list"></div>
 
@@ -2469,17 +2499,34 @@
  </div>
  </details>
 
- <!-- CATÁLOGO DE APUs (análisis de precios unitarios) -- 04/11 -->
- <details class="provider-section" open>
- <summary>Catálogo de APUs (análisis de precios)</summary>
+ <!-- ADMINISTRAR APUs (16/11, pedido del usuario): habilitar cada tarea a medida que se revisa, con descripción, imagen de referencia y rubro. Solo las habilitadas aparecen en la Calculadora (migración 033). -->
+ <details class="provider-section admin-apu-panel" open>
+ <summary>Administrar APUs de la Calculadora</summary>
  <div class="provider-section-body">
- <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">Tareas de referencia que aparecen en la búsqueda de la Calculadora de Obra, con sus rendimientos técnicos. Agregá una nueva o eliminá alguna que esté mal cargada (no afecta presupuestos que los usuarios ya guardaron, esos quedan con su propia copia).
- </p>
- <button class="btn-choose-provider" id="btn-open-admin-apu-task" type="button" style="margin: 0 0 14px;">
- + Agregar un APU nuevo
- </button>
- <input type="text" id="admin-apu-search" class="form-select" placeholder="Buscar en el catálogo por nombre o rubro..." style="margin-bottom:12px;">
- <div id="admin-apu-list" class="provider-search-results"></div>
+ <p class="admin-dash-note">Solo las tareas <strong>habilitadas</strong> aparecen en la Calculadora de Obra. Abrí cada una con "Revisar": corregí rubro, descripción y componentes, sumale una imagen si querés, mirá el costo por unidad que va a ver la gente, y habilitala cuando esté lista. Los presupuestos que los usuarios ya guardaron no cambian.</p>
+ <div id="admin-apu-summary" class="admin-apu-summary"></div>
+ <div class="admin-apu-toolbar">
+ <input type="text" id="admin-apu-search" class="form-select" placeholder="Buscar por nombre o rubro...">
+ <select id="admin-apu-filter-rubro" class="form-select" aria-label="Filtrar por rubro"><option value="">Todos los rubros</option></select>
+ <select id="admin-apu-filter-estado" class="form-select" aria-label="Filtrar por estado">
+ <option value="">Todas</option>
+ <option value="pendientes">Sin habilitar</option>
+ <option value="habilitadas">Habilitadas</option>
+ <option value="faltantes">Con componentes sin precio</option>
+ <option value="sin-descripcion">Sin descripción</option>
+ <option value="revisar">Marcadas para revisar</option>
+ </select>
+ </div>
+ <div class="admin-apu-actions">
+ <button class="btn-choose-provider" id="btn-open-admin-apu-task" type="button">+ Agregar un APU nuevo</button>
+ <button class="btn-action-drawer" id="btn-admin-apu-rename-rubro" type="button">Renombrar un rubro</button>
+ </div>
+ <div id="admin-apu-rename-box" class="admin-apu-rename" style="display:none;">
+ <label>Rubro actual<select id="admin-apu-rename-from" class="form-select"></select></label>
+ <label>Nombre nuevo<input type="text" id="admin-apu-rename-to" class="form-select" placeholder="Ej: INSTALACIÓN SANITARIA"></label>
+ <button class="btn-computo" id="btn-admin-apu-rename-confirm" type="button">Renombrar en todas sus tareas</button>
+ </div>
+ <div id="admin-apu-list" class="admin-apu-list"></div>
  </div>
  </details>
  </div>
@@ -2530,7 +2577,7 @@
 
  <!-- JAVASCRIPT LOGIC -->
  <!-- Cliente y configuración pública: sin claves secretas. -->
- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+ <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0" defer></script>
  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
  <script src="/supabase-config.js" defer></script>
@@ -2709,6 +2756,21 @@
  <button class="modal-close-btn" id="admin-apu-task-close-btn">&times;</button>
  </div>
  <div class="excel-modal-body">
+ <div class="admin-apu-status-box">
+ <label class="admin-apu-check"><input type="checkbox" id="admin-apu-habilitada"> <span><strong>Habilitada en la Calculadora de Obra</strong><small>La ven todos los visitantes.</small></span></label>
+ <label class="admin-apu-check"><input type="checkbox" id="admin-apu-revisar"> <span><strong>Marcar para revisar</strong><small>Queda como recordatorio en tu lista.</small></span></label>
+ </div>
+ <div class="config-field admin-apu-image-field">
+ <label for="admin-apu-image-input">Imagen de referencia (opcional)</label>
+ <div class="admin-apu-image">
+ <img id="admin-apu-image-preview" alt="Imagen de referencia de la tarea" style="display:none;">
+ <div>
+ <input type="file" id="admin-apu-image-input" accept="image/*">
+ <button type="button" class="btn-action-drawer" id="btn-admin-apu-image-remove" style="display:none;">Quitar imagen</button>
+ <p class="admin-dash-note" style="margin-top:6px;">Se achica sola antes de subir (hasta 1280 px). Se muestra al elegir la tarea en la Calculadora.</p>
+ </div>
+ </div>
+ </div>
  <div class="excel-config-grid">
  <div class="config-field">
  <label for="admin-apu-nombre">Nombre de la tarea</label>
@@ -2720,7 +2782,8 @@
  </div>
  <div class="config-field">
  <label for="admin-apu-rubro">Rubro (opcional)</label>
- <input type="text" id="admin-apu-rubro" class="form-select" placeholder="Ej: Revoques">
+ <input type="text" id="admin-apu-rubro" class="form-select" placeholder="Ej: Revoques" list="admin-apu-rubros-list">
+ <datalist id="admin-apu-rubros-list"></datalist>
  </div>
  <div class="config-field">
  <label for="admin-apu-desperdicio">% Desperdicio de materiales</label>
@@ -2733,7 +2796,11 @@
  </div>
  <div class="config-field" style="margin-bottom:14px;">
  <label for="admin-apu-descripcion">Descripción breve (qué contempla esta tarea)</label>
- <textarea id="admin-apu-descripcion" class="form-select" rows="2" placeholder="Ej: Incluye azotado, grueso y fino a la cal sobre mampostería, sin terminación final."></textarea>
+ <textarea id="admin-apu-descripcion" class="form-select" rows="3" placeholder="Ej: Incluye azotado, grueso y fino a la cal sobre mampostería, sin terminación final."></textarea>
+ </div>
+ <div class="config-field" style="margin-bottom:14px;">
+ <label for="admin-apu-notas">Notas internas (solo las ves vos)</label>
+ <textarea id="admin-apu-notas" class="form-select" rows="2" placeholder="Ej: revisar rendimiento de arena; falta precio del ladrillo"></textarea>
  </div>
 
  <details class="provider-section" open style="margin-bottom:14px;">
@@ -2776,6 +2843,9 @@
 
  <h4 style="font-size:0.9rem; font-weight:800; margin: 14px 0 8px;">Componentes agregados</h4>
  <div id="admin-apu-draft-list" class="apu-task-results"></div>
+
+ <h4 style="font-size:0.9rem; font-weight:800; margin: 16px 0 8px;">Cómo la va a ver la gente: costo por unidad</h4>
+ <div id="admin-apu-preview" class="admin-apu-preview"></div>
 
  <button class="btn-action-drawer" id="btn-admin-apu-save" style="background: var(--color-success); color:#fff; margin-top:16px;">Guardar en el catálogo de NEXOBRA</button>
  </div>

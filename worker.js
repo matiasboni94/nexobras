@@ -1,30 +1,84 @@
 // NEXOBRA — Worker principal del sitio.
 //
-// Contexto (17/09): el sitio se despliega acá como Cloudflare Worker "con
-// static assets" (comando de build: npx wrangler deploy), NO como Cloudflare
-// Pages clásico. Por eso functions/proveedor/[slug].js (pensado para Pages,
-// que arma rutas solo a partir del nombre de archivo) nunca se llegó a
-// ejecutar en este despliegue -- este archivo lo reemplaza, con la MISMA
-// lógica de siempre, pero como corresponde para este tipo de proyecto.
+// El sitio se despliega como Cloudflare Worker "con static assets" (comando
+// de build: npx wrangler deploy), NO como Cloudflare Pages clásico.
 //
-// Qué hace (ver wrangler.jsonc → "run_worker_first": ["/proveedor/*"], que
-// es lo que hace que SOLO esas URLs pasen por acá -- todo el resto del
-// sitio lo sirve Cloudflare directo desde los archivos estáticos, sin gastar
-// invocaciones de Worker):
-//  - Para /proveedor/<slug>: le sirve al visitante la MISMA app de siempre
-//    (index.html) -- el sitio sigue siendo el mismo SPA, js/main.js ya sabe
-//    leer "/proveedor/<slug>" en la URL y mostrar la ficha correcta (ver
-//    loadProviderPublicPage en js/map.js). Lo único que agrega este Worker
-//    es reescribir el <title> y los meta tags "og:" (Open Graph) del <head>
-//    ANTES de mandar la respuesta, con los datos reales del proveedor --
-//    así, al pegar el link en WhatsApp/Instagram, la vista previa muestra el
-//    nombre y el logo del proveedor en vez de la genérica de NEXOBRA.
-//  - Si algo falla (proveedor no encontrado, Supabase caído, etc.) o la URL
-//    no matchea /proveedor/<slug>: se sirve el sitio estático tal cual, sin
+// Qué pasa por acá (ver wrangler.jsonc → "run_worker_first"): todas las
+// páginas del sitio (las URLs sin extensión: /, /catalogo, /proveedor/...,
+// /material/..., etc.) y /robots.txt y /sitemap.xml. Los archivos estáticos
+// (js/, assets/, style.css, data.js, sw.js...) los sigue sirviendo Cloudflare
+// directo, sin pasar por el Worker.
+//
+// Qué hace (SEO, auditoría del 12/11 -- ronda del 16/11):
+//  - Cada página le llega al buscador con su propio <title>, descripción,
+//    URL canónica y vista previa (og:) -- antes todas eran "NEXOBRA |
+//    Comparador técnico..." porque el sitio es una sola página (SPA).
+//  - /proveedor/<slug>: título, descripción y logo del proveedor (lo de
+//    siempre, desde el 17/09).
+//  - /material/<ID>-<nombre>: (nuevo) una URL por material, con su nombre en
+//    el título. La app la abre como el catálogo filtrado a ese material.
+//  - /sitemap.xml: (nuevo) se arma solo con las páginas públicas, todos los
+//    proveedores activos y todos los materiales activos.
+//  - /robots.txt: (nuevo) deja indexar todo menos las páginas privadas.
+//  - Una URL que no existe devuelve la app con status 404 y "noindex" (antes
+//    devolvía 200 y Google la podía indexar como copia del inicio).
+//  - Si algo falla (Supabase caído, etc.) se sirve la app tal cual, sin
 //    romper nada.
 
 const SUPABASE_URL = 'https://ibwqkfdfyfdmteheacjz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_3-UVWAW7oH2NVTd-I5A-aw_Q-BQi67_';
+
+const DEFAULT_TITLE = 'NEXOBRA | Comparador técnico de precios para la construcción';
+const DEFAULT_DESCRIPTION = 'Comparador técnico de precios, materiales y cómputos para la construcción en Argentina. Consultá valores de referencia trazables y ofertas de proveedores locales.';
+const OG_IMAGE_PATH = '/assets/og-nexobra.png';
+
+// Páginas fijas del sitio -- mismas rutas que VIEW_ROUTES en js/main.js.
+// "index: false" = página personal (requiere sesión): no se indexa ni va al
+// sitemap.
+const ROUTES = {
+  '/': { title: DEFAULT_TITLE, description: DEFAULT_DESCRIPTION, index: true, priority: '1.0' },
+  '/catalogo': {
+    title: 'Catálogo de materiales de construcción con precios de referencia | NEXOBRA',
+    description: 'Buscá entre cientos de materiales de construcción con precio de referencia actualizado mes a mes, trazable, y compará con ofertas de proveedores de tu zona.',
+    index: true, priority: '0.9'
+  },
+  '/calculadora-de-obra': {
+    title: 'Calculadora de Obra: presupuesto por tareas con análisis de precios | NEXOBRA',
+    description: 'Armá el presupuesto de tu obra por tareas (mampostería, revoques, contrapisos...) con materiales, mano de obra UOCRA y equipos calculados por unidad.',
+    index: true, priority: '0.9'
+  },
+  '/mano-de-obra': {
+    title: 'Mano de obra UOCRA: valor de la hora por categoría | NEXOBRA',
+    description: 'Valor de la hora de la mano de obra de la construcción por categoría (UOCRA), actualizado mes a mes, sin cargas sociales.',
+    index: true, priority: '0.8'
+  },
+  '/proveedores': {
+    title: 'Proveedores de materiales de construcción | NEXOBRA',
+    description: 'Corralones, ferreterías y proveedores de materiales de construcción: listas de precios, ubicación y contacto.',
+    index: true, priority: '0.8'
+  },
+  '/guia-de-uso': {
+    title: 'Guía de uso | NEXOBRA',
+    description: 'Cómo usar NEXOBRA: buscar materiales, armar cómputos y presupuestos de obra, comparar proveedores y entender los precios de referencia.',
+    index: true, priority: '0.5'
+  },
+  '/quienes-somos': {
+    title: 'Quiénes somos | NEXOBRA',
+    description: 'NEXOBRA es un comparador técnico de precios para la construcción en Argentina, con valores de referencia trazables.',
+    index: true, priority: '0.4'
+  },
+  '/contacto': {
+    title: 'Contacto | NEXOBRA',
+    description: 'Escribinos: consultas, sugerencias o sumá tu negocio como proveedor en NEXOBRA.',
+    index: true, priority: '0.4'
+  },
+  '/mis-presupuestos': { title: 'Mis cómputos | NEXOBRA', index: false },
+  '/mis-presupuestos-de-obra': { title: 'Mis presupuestos de obra | NEXOBRA', index: false },
+  '/mi-proveedor': { title: 'Panel de proveedor | NEXOBRA', index: false },
+  '/favoritos': { title: 'Favoritos | NEXOBRA', index: false },
+  '/alertas': { title: 'Alertas | NEXOBRA', index: false },
+  '/admin': { title: 'Administración | NEXOBRA', index: false },
+};
 
 function escapeHtml(str) {
   return String(str)
@@ -35,81 +89,191 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-async function buildProviderPreview(slug, request, originalResponse) {
+// Igual que slugify() de js/state.js: "Cemento Portland 50 kg" → "cemento-portland-50-kg".
+export function slugify(text) {
+  return String(text || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80)
+    .replace(/-+$/g, '');
+}
+
+export function materialPath(id, denomination) {
+  const slug = slugify(denomination);
+  return `/material/${id}${slug ? '-' + slug : ''}`;
+}
+
+async function supabaseGet(path) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+    // Cloudflare guarda la respuesta 10 minutos: un material o un proveedor
+    // no cambian tan seguido, y así no se le pega a Supabase en cada visita.
+    cf: { cacheTtl: 600, cacheEverything: true },
+  });
+  if (!res.ok) throw new Error(`Supabase ${res.status}`);
+  return res.json();
+}
+
+/** La app (index.html) con los meta tags de esta página. status 404 para las que no existen. */
+async function servePage(request, env, meta, status = 200) {
+  const original = await env.ASSETS.fetch(new Request(new URL('/', request.url), request));
+  if (!original.ok) return original;
+  const origin = new URL(request.url).origin;
+  const title = meta.title || DEFAULT_TITLE;
+  const description = (meta.description || DEFAULT_DESCRIPTION).slice(0, 300);
+  const image = meta.image || `${origin}${OG_IMAGE_PATH}`;
+  const canonical = meta.canonical ? `${origin}${meta.canonical}` : null;
+  const tags = `
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}">
+    ${meta.index === false ? '<meta name="robots" content="noindex">' : ''}
+    ${canonical ? `<link rel="canonical" href="${escapeHtml(canonical)}">` : ''}
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="NEXOBRA">
+    <meta property="og:locale" content="es_AR">
+    <meta property="og:title" content="${escapeHtml(title)}">
+    <meta property="og:description" content="${escapeHtml(description)}">
+    <meta property="og:image" content="${escapeHtml(image)}">
+    ${canonical ? `<meta property="og:url" content="${escapeHtml(canonical)}">` : ''}
+    <meta name="twitter:card" content="summary_large_image">
+  `;
+  const transformed = new HTMLRewriter()
+    .on('title', { element(el) { el.remove(); } })
+    .on('meta[name="description"]', { element(el) { el.remove(); } })
+    .on('meta[name="robots"]', { element(el) { el.remove(); } })
+    .on('meta[property^="og:"]', { element(el) { el.remove(); } })
+    .on('meta[name^="twitter:"]', { element(el) { el.remove(); } })
+    .on('link[rel="canonical"]', { element(el) { el.remove(); } })
+    .on('head', { element(el) { el.append(tags, { html: true }); } })
+    .transform(original);
+  const headers = new Headers(transformed.headers);
+  if (meta.index === false) headers.set('X-Robots-Tag', 'noindex');
+  return new Response(transformed.body, { status, headers });
+}
+
+const NOT_FOUND_META = {
+  title: 'Página no encontrada | NEXOBRA',
+  description: 'Esta página no existe o se movió. Buscá materiales, proveedores y precios de referencia en NEXOBRA.',
+  index: false,
+};
+
+async function serveProvider(request, env, slug) {
   try {
-    const apiUrl = `${SUPABASE_URL}/rest/v1/provider_branches`
-      + `?slug=eq.${encodeURIComponent(slug)}&active=eq.true`
-      + `&select=name,locality,providers(business_name,description,logo_url)`;
-
-    const apiRes = await fetch(apiUrl, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-    });
-    if (!apiRes.ok) return originalResponse;
-
-    const rows = await apiRes.json();
+    const rows = await supabaseGet(`provider_branches?slug=eq.${encodeURIComponent(slug)}&active=eq.true`
+      + `&select=name,locality,providers(business_name,description,logo_url)`);
     const branch = Array.isArray(rows) ? rows[0] : null;
-    if (!branch || !branch.providers) return originalResponse;
-
+    if (!branch || !branch.providers) return servePage(request, env, NOT_FOUND_META, 404);
     const provider = branch.providers;
-    const title = `${provider.business_name} | NEXOBRA`;
-    const description = (provider.description ? provider.description.slice(0, 160) : '')
-      || `Lista de precios y contacto de ${provider.business_name} en ${branch.locality || 'tu zona'}, en NEXOBRA — comparador técnico de precios de la construcción.`;
-    const image = provider.logo_url || `${new URL(request.url).origin}/assets/icon-512.png`;
-    const pageUrl = request.url;
-
-    const newHeadTags = `
-      <title>${escapeHtml(title)}</title>
-      <meta name="description" content="${escapeHtml(description)}">
-      <meta property="og:type" content="website">
-      <meta property="og:title" content="${escapeHtml(title)}">
-      <meta property="og:description" content="${escapeHtml(description)}">
-      <meta property="og:image" content="${escapeHtml(image)}">
-      <meta property="og:url" content="${escapeHtml(pageUrl)}">
-      <meta name="twitter:card" content="summary_large_image">
-    `;
-
-    return new HTMLRewriter()
-      .on('title', { element(el) { el.remove(); } })
-      .on('meta[name="description"]', { element(el) { el.remove(); } })
-      .on('head', { element(el) { el.append(newHeadTags, { html: true }); } })
-      .transform(originalResponse);
+    return servePage(request, env, {
+      title: `${provider.business_name}${branch.locality ? ' en ' + branch.locality : ''} | NEXOBRA`,
+      description: (provider.description ? provider.description.slice(0, 160) : '')
+        || `Lista de precios y contacto de ${provider.business_name} en ${branch.locality || 'tu zona'}, en NEXOBRA — comparador técnico de precios de la construcción.`,
+      image: provider.logo_url || null,
+      canonical: `/proveedor/${slug}`,
+    });
   } catch (err) {
-    // Cualquier error (Supabase caído, red, lo que sea): se sirve la app
-    // normal, sin vista previa personalizada, pero sin romper la página.
-    return originalResponse;
+    return servePage(request, env, { canonical: `/proveedor/${slug}` });
   }
+}
+
+async function serveMaterial(request, env, id, slugGiven) {
+  try {
+    const rows = await supabaseGet(`materials?id=eq.${encodeURIComponent(id)}&active=eq.true`
+      + `&select=id,denomination,rubro,category,sale_unit`);
+    const m = Array.isArray(rows) ? rows[0] : null;
+    if (!m) return servePage(request, env, NOT_FOUND_META, 404);
+    const canonical = materialPath(m.id, m.denomination);
+    // Un solo URL por material: si llegó con otro nombre (o sin nombre),
+    // redirige al definitivo.
+    const url = new URL(request.url);
+    if (url.pathname !== canonical) {
+      return Response.redirect(`${url.origin}${canonical}${url.search}`, 301);
+    }
+    return servePage(request, env, {
+      title: `${m.denomination}: precio de referencia | NEXOBRA`,
+      description: `Precio de referencia de ${m.denomination} (${[m.rubro, m.category].filter(Boolean).join(' · ')}), actualizado mes a mes y trazable, y ofertas de proveedores locales en NEXOBRA.`,
+      canonical,
+    });
+  } catch (err) {
+    return servePage(request, env, {});
+  }
+}
+
+function robotsTxt(origin) {
+  const privadas = Object.entries(ROUTES).filter(([, r]) => r.index === false).map(([p]) => `Disallow: ${p}`);
+  return [
+    'User-agent: *',
+    'Allow: /',
+    ...privadas,
+    'Disallow: /*?share=',
+    'Disallow: /*?apu_share=',
+    '',
+    `Sitemap: ${origin}/sitemap.xml`,
+    '',
+  ].join('\n');
+}
+
+async function sitemapXml(origin) {
+  const urls = Object.entries(ROUTES)
+    .filter(([, r]) => r.index)
+    .map(([p, r]) => ({ loc: `${origin}${p === '/' ? '/' : p}`, priority: r.priority }));
+  try {
+    const branches = await supabaseGet('provider_branches?active=eq.true&slug=not.is.null&select=slug');
+    branches.forEach(b => urls.push({ loc: `${origin}/proveedor/${encodeURIComponent(b.slug)}`, priority: '0.6' }));
+  } catch (err) { /* sin proveedores si Supabase no responde */ }
+  try {
+    // PostgREST devuelve hasta 1000 filas por pedido: se piden de a 1000.
+    for (let from = 0; from < 20000; from += 1000) {
+      const rows = await supabaseGet(`materials?active=eq.true&select=id,denomination,updated_at&order=id&offset=${from}&limit=1000`);
+      rows.forEach(m => urls.push({
+        loc: `${origin}${materialPath(m.id, m.denomination)}`,
+        lastmod: m.updated_at ? String(m.updated_at).slice(0, 10) : null,
+        priority: '0.5',
+      }));
+      if (rows.length < 1000) break;
+    }
+  } catch (err) { /* sin materiales si Supabase no responde */ }
+  const body = urls.map(u => `  <url><loc>${escapeHtml(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}${u.priority ? `<priority>${u.priority}</priority>` : ''}</url>`).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
 }
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const match = url.pathname.match(/^\/proveedor\/([^/]+)\/?$/);
+    const path = url.pathname;
 
-    if (match) {
-      const slug = decodeURIComponent(match[1]);
-      // OJO (22/09): acá antes decía new URL('/index.html', request.url) --
-      // eso era el bug real de "/proveedor/<slug> redirige al home". Cloudflare
-      // normaliza automáticamente /index.html -> / (redirect 308) en el
-      // manejo de assets estáticos (el mismo comportamiento que ya había
-      // roto el archivo _redirects el 17/09, ver advertencia #26 del estado
-      // del proyecto) -- así que env.ASSETS.fetch() para "/index.html" NO
-      // devolvía el HTML de la página, devolvía un redirect a "/". Ese
-      // redirect (no el HTML) es lo que buildProviderPreview() terminaba
-      // reenviando tal cual al visitante -- por eso la URL se perdía ANTES
-      // de que corriera cualquier JS, tanto con un slug real como con uno
-      // inventado (nunca llegaba a importar si Supabase encontraba el
-      // proveedor o no). Pidiendo "/" en vez de "/index.html" se evita la
-      // normalización y esto sirve el HTML real, con status 200, sin redirect.
-      const assetUrl = new URL('/', request.url);
-      const originalResponse = await env.ASSETS.fetch(new Request(assetUrl, request));
-      return buildProviderPreview(slug, request, originalResponse);
+    if (request.method !== 'GET' && request.method !== 'HEAD') return env.ASSETS.fetch(request);
+
+    if (path === '/robots.txt') {
+      return new Response(robotsTxt(url.origin), { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
+    }
+    if (path === '/sitemap.xml') {
+      return new Response(await sitemapXml(url.origin), { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=21600' } });
     }
 
-    // No debería pasar (wrangler.jsonc solo manda /proveedor/* acá), pero
-    // por las dudas: servir el sitio estático tal cual.
-    return env.ASSETS.fetch(request);
+    // Archivos (cualquier cosa con extensión): tal cual, sin tocar.
+    if (/\.[a-z0-9]{1,8}$/i.test(path)) return env.ASSETS.fetch(request);
+
+    // "/catalogo/" → "/catalogo": una sola URL por página.
+    if (path.length > 1 && path.endsWith('/')) {
+      return Response.redirect(`${url.origin}${path.replace(/\/+$/, '')}${url.search}`, 301);
+    }
+
+    if (ROUTES[path]) {
+      const r = ROUTES[path];
+      // Los links compartidos (?share= / ?apu_share=) son de una persona: no se indexan.
+      const privado = r.index === false || url.searchParams.has('share') || url.searchParams.has('apu_share');
+      return servePage(request, env, { ...r, index: !privado, canonical: path });
+    }
+
+    const prov = path.match(/^\/proveedor\/([^/]+)$/);
+    if (prov) return serveProvider(request, env, decodeURIComponent(prov[1]));
+
+    const mat = path.match(/^\/material\/([A-Za-z]+-\d+)(?:-([a-z0-9-]*))?$/);
+    if (mat) return serveMaterial(request, env, mat[1].toUpperCase(), mat[2] || '');
+
+    return servePage(request, env, NOT_FOUND_META, 404);
   },
 };
