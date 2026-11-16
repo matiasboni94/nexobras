@@ -77,6 +77,28 @@ import * as ST from './state.js';
  };
  const PATH_TO_VIEW = Object.fromEntries(Object.entries(VIEW_ROUTES).map(([view, path]) => [path, view]));
 
+ // <title> de cada vista (SEO/pestañas, 16/11) -- los mismos que pone
+ // worker.js en el HTML que reciben los buscadores.
+ const VIEW_TITLES = {
+ home: 'NEXOBRA | Comparador técnico de precios para la construcción',
+ catalog: 'Catálogo de materiales de construcción con precios de referencia | NEXOBRA',
+ labor: 'Mano de obra UOCRA: valor de la hora por categoría | NEXOBRA',
+ 'my-computations': 'Mis cómputos | NEXOBRA',
+ apu: 'Calculadora de Obra: presupuesto por tareas con análisis de precios | NEXOBRA',
+ 'my-apu-budgets': 'Mis presupuestos de obra | NEXOBRA',
+ provider: 'Panel de proveedor | NEXOBRA',
+ favorites: 'Favoritos | NEXOBRA',
+ alerts: 'Alertas | NEXOBRA',
+ admin: 'Administración | NEXOBRA',
+ about: 'Quiénes somos | NEXOBRA',
+ guide: 'Guía de uso | NEXOBRA',
+ contact: 'Contacto | NEXOBRA',
+ 'providers-directory': 'Proveedores de materiales de construcción | NEXOBRA',
+ };
+ const MATERIAL_PATH_RE = /^\/material\/([A-Za-z]+-\d+)(?:-[a-z0-9-]*)?\/?$/;
+ const PROVIDER_PATH_RE = /^\/proveedor\/([a-z0-9-]+)\/?$/i;
+ let openingMaterialPage = false; // true solo mientras openMaterialPage() llama a switchView()
+
  export function switchView(viewName, rubroFilter = null, searchString = null) {
  ST.state.currentView = viewName;
 
@@ -86,9 +108,14 @@ import * as ST from './state.js';
  // esa URL (ej. porque esta llamada vino de resolver el link al cargar,
  // o de un popstate del propio botón "atrás"), no duplicamos entrada.
  const targetPath = VIEW_ROUTES[viewName];
- if (targetPath && window.location.pathname !== targetPath) {
+ // La página de un material (/material/...) también es la vista "catalog":
+ // ahí no se cambia la URL. Cualquier otra entrada al catálogo sale de esa ficha.
+ const enFichaMaterial = viewName === 'catalog' && openingMaterialPage;
+ if (!enFichaMaterial) ST.state.materialFocusId = null;
+ if (targetPath && window.location.pathname !== targetPath && !enFichaMaterial) {
  history.pushState({ view: viewName }, '', targetPath);
  }
+ if (VIEW_TITLES[viewName] && !enFichaMaterial) document.title = VIEW_TITLES[viewName];
 
  ST.homeView.style.display = viewName === 'home' ? 'block' : 'none';
  ST.catalogView.style.display = viewName === 'catalog' ? 'block' : 'none';
@@ -275,6 +302,39 @@ import * as ST from './state.js';
  // (lleva un slug dinámico, no una ruta fija), así que arma el pushState a
  // mano y llama directo a loadProviderPublicPage -- mismo resultado que
  // entrar de cero al link, pero sin recargar la página.
+ /**
+ * Página de un material (/material/<ID>-<nombre>, SEO 16/11): el catálogo
+ * mostrando solo ese material. Desde el título de cada tarjeta del catálogo
+ * (un link real, para que Google lo siga) o al entrar directo a la URL.
+ * Con Ctrl/Cmd o la rueda del mouse se deja que el navegador abra otra
+ * pestaña, como cualquier link.
+ */
+ export function openMaterialPage(id, event = null, { push = true } = {}) {
+ if (event && (event.ctrlKey || event.metaKey || event.shiftKey || event.button === 1)) return true;
+ if (event) event.preventDefault();
+ const item = (typeof NEXOBRA_DATA !== 'undefined' ? NEXOBRA_DATA : []).find(m => m.id === id);
+ if (!item) {
+ ST.showToast('Ese material ya no está en el catálogo.');
+ history.replaceState({ view: 'catalog' }, '', '/catalogo');
+ switchView('catalog');
+ return false;
+ }
+ const path = ST.materialPath(item.id, item.denominacion);
+ if (push && window.location.pathname !== path) history.pushState({ view: 'catalog', material: id }, '', path);
+ else if (window.location.pathname !== path) history.replaceState({ view: 'catalog', material: id }, '', path);
+ ST.state.searchQuery = '';
+ if (ST.catalogSearchInput) ST.catalogSearchInput.value = '';
+ ST.state.activeRubro = 'Todos';
+ ST.state.materialFocusId = id;
+ openingMaterialPage = true;
+ try { switchView('catalog'); } finally { openingMaterialPage = false; }
+ Catalog.renderRubroPills();
+ Catalog.renderProducts();
+ document.title = `${item.denominacion}: precio de referencia | NEXOBRA`;
+ window.scrollTo({ top: 0 });
+ return false;
+ }
+
  export function goToProviderPublicPage(slug) {
  if (!slug) return;
  const targetPath = `/proveedor/${slug}`;
@@ -314,6 +374,10 @@ import * as ST from './state.js';
  Promise.all([Pricing.loadIndexSeries(), Pricing.loadLaborSeries()]).then(() => {
  Pricing.reconcilePriceMonth();
  Excel.setupExcelPeriodPicker();
+ // La mano de obra de la Calculadora sale de la serie UOCRA (16/11): si
+ // el presupuesto ya estaba en pantalla antes de que la serie cargara,
+ // se recalcula con los jornales del mes.
+ if (ST.state.apuBudgetItems && ST.state.apuBudgetItems.length) Apu.updateApuBudgetUI();
  });
  Auth.setupAuthListeners();
  Auth.setupProfileListeners();
@@ -665,9 +729,30 @@ import * as ST from './state.js';
  // evento, así que switchView() no vuelve a apilar una entrada (ver el
  // chequeo de "ya estamos ahí" adentro de switchView).
  window.addEventListener('popstate', () => {
- const view = PATH_TO_VIEW[window.location.pathname] || 'home';
+ const path = window.location.pathname;
+ const mat = path.match(MATERIAL_PATH_RE);
+ if (mat) { openMaterialPage(mat[1].toUpperCase(), null, { push: false }); return; }
+ const prov = path.match(PROVIDER_PATH_RE);
+ if (prov) { switchView('provider-public'); MapModule.loadProviderPublicPage(prov[1]); return; }
+ const view = PATH_TO_VIEW[path] || 'home';
  switchView(view);
  });
+
+ // Página de un material, entrando directo al link.
+ const materialMatch = window.location.pathname.match(MATERIAL_PATH_RE);
+ if (materialMatch) openMaterialPage(materialMatch[1].toUpperCase(), null, { push: false });
+
+ // URL que no existe (el Worker ya la devolvió con status 404 para los
+ // buscadores): a la persona se le avisa y se la lleva al inicio.
+ const pathDesconocido = !PATH_TO_VIEW[window.location.pathname]
+ && !materialMatch
+ && !PROVIDER_PATH_RE.test(window.location.pathname)
+ && !/\.[a-z0-9]{1,8}$/i.test(window.location.pathname);
+ if (pathDesconocido && !deepLinkView) {
+ history.replaceState({ view: 'home' }, '', '/' + window.location.search);
+ document.title = VIEW_TITLES.home;
+ ST.showToast('Esa página no existe. Te llevamos al inicio.');
+ }
 
  // Página pública de un proveedor (nexoobra.com.ar/proveedor/<slug>) --
  // a diferencia de ?share=TOKEN, esta sí corre TODO el init() de arriba
@@ -675,7 +760,7 @@ import * as ST from './state.js';
  // el link de un proveedor pueda seguir navegando el resto del sitio
  // normalmente -- el objetivo es que también descubra NEXOBRA, no solo
  // esa ficha puntual.
- const providerSlugMatch = window.location.pathname.match(/^\/proveedor\/([a-z0-9-]+)\/?$/i);
+ const providerSlugMatch = window.location.pathname.match(PROVIDER_PATH_RE);
  if (providerSlugMatch) {
  switchView('provider-public');
  MapModule.loadProviderPublicPage(providerSlugMatch[1]);
@@ -687,6 +772,7 @@ import * as ST from './state.js';
  window.nexoBraApp = {
  switchView,
  goToProviderPublicPage,
+ openMaterialPage,
 addToComputo: Computo.addToComputo,
 changeCardQty: Computo.changeCardQty,
 updateItemQtyInCart: Computo.updateItemQtyInCart,
@@ -758,6 +844,8 @@ logEvent: ST.logEvent,
  deleteProviderBranchPhoto: Provider.deleteProviderBranchPhoto,
  deleteAdminApuTask: Admin.deleteAdminApuTask,
  editAdminApuTask: Admin.editAdminApuTask,
+toggleAdminApuHabilitada: Admin.toggleAdminApuHabilitada,
+updateAdminApuDraftRend: Admin.updateAdminApuDraftRend,
  addAdminApuMaterialDraft: Admin.addAdminApuMaterialDraft,
  removeAdminApuComponentDraft: Admin.removeAdminApuComponentDraft,
  addApuTaskToBudget: Apu.addApuTaskToBudget,

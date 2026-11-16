@@ -241,6 +241,9 @@ import * as ST from './state.js';
  // y puede matchear en cualquier campo (denominación, tags, categoría, etc.), no necesariamente
  // en el mismo. Así "ladrillo hueco" encuentra "Ladrillos huecos" sin que el usuario tenga que
  // escribir el texto exacto.
+ // Página de un material (/material/<ID>-<nombre>): solo ese.
+ if (ST.state.materialFocusId) return NEXOBRA_DATA.filter(item => item.id === ST.state.materialFocusId);
+
  const tokens = ST.normalizeText(ST.state.searchQuery).split(' ').filter(Boolean);
 
  let items = NEXOBRA_DATA.filter(item => {
@@ -277,7 +280,12 @@ import * as ST from './state.js';
  // desde la página 1 -- así nunca te quedás "perdido" en la página 5 de un
  // filtro que ya no aplica. Cambiar el mes o el modo de precio NO resetea
  // la página, porque esos cambios no alteran qué materiales aparecen.
- const filterSignature = `${ST.state.searchQuery}|${ST.state.activeRubro}|${ST.state.sortBy}`;
+ // Si estaba abierta la página de un material y el usuario buscó otra cosa
+ // o eligió un rubro, se sale de esa página y se vuelve al catálogo.
+ if (ST.state.materialFocusId && (ST.state.searchQuery.trim() || ST.state.activeRubro !== 'Todos')) {
+ leaveMaterialFocus();
+ }
+ const filterSignature = `${ST.state.searchQuery}|${ST.state.activeRubro}|${ST.state.sortBy}|${ST.state.materialFocusId || ''}`;
  if (filterSignature !== lastCatalogFilterSignature) {
  ST.state.catalogPage = 1;
  lastCatalogFilterSignature = filterSignature;
@@ -290,7 +298,7 @@ import * as ST from './state.js';
  // entrada, mostramos los rubros (más abajo en la página) e invitamos a
  // buscar. Los materiales aparecen recién cuando hay una intención clara
  // (buscaste algo, o elegiste un rubro puntual).
- const sinFiltroActivo = !ST.state.searchQuery.trim() && ST.state.activeRubro === 'Todos';
+ const sinFiltroActivo = !ST.state.searchQuery.trim() && ST.state.activeRubro === 'Todos' && !ST.state.materialFocusId;
  if (sinFiltroActivo) {
  ST.visibleCount.textContent = NEXOBRA_DATA.length;
  ST.activeFilterLabel.textContent = '';
@@ -327,8 +335,14 @@ import * as ST from './state.js';
  return;
  }
 
+ const focusBanner = ST.state.materialFocusId ? `
+ <div class="material-focus-banner">
+ <span>Estás viendo la ficha de un material.</span>
+ <button class="btn-action-drawer" type="button" onclick="window.nexoBraApp.clearCatalogSearch()">Ver todo el catálogo</button>
+ </div>` : '';
+
  // Grid HTML
- ST.productsGrid.innerHTML = visible.map(item => {
+ ST.productsGrid.innerHTML = focusBanner + visible.map(item => {
  const isVentaMode = ST.state.pricingMode === 'venta';
  const mainTrace = Pricing.getReferencePrice(item, ST.state.pricingMode);
  const secondaryTrace = Pricing.getReferencePrice(item, isVentaMode ? 'computo' : 'venta');
@@ -378,7 +392,7 @@ import * as ST from './state.js';
  <span class="card-code">${item.id}</span>
  <span class="card-rubro-badge">${ST.escapeHtml(item.rubro)}</span>
  </div>
- <h3 class="product-title">${ST.escapeHtml(item.denominacion)}</h3>
+ <h3 class="product-title"><a class="product-title-link" href="${ST.materialPath(item.id, item.denominacion)}" onclick="return window.nexoBraApp.openMaterialPage('${ST.escapeHtml(item.id)}', event)">${ST.escapeHtml(item.denominacion)}</a></h3>
  <div class="product-category-tree">${ST.escapeHtml(item.categoria)} &rsaquo; ${ST.escapeHtml(item.subcategoria)}</div>
  ${item.brand || item.technical_description || item.yield_value ? `
  <div class="card-tech-info">
@@ -513,7 +527,17 @@ import * as ST from './state.js';
  renderProducts();
  }
 
+ /** Sale de la página de un material (vuelve a /catalogo en la barra de direcciones). */
+ function leaveMaterialFocus() {
+ ST.state.materialFocusId = null;
+ if (window.location.pathname.startsWith('/material/')) {
+ history.replaceState({ view: 'catalog' }, '', '/catalogo');
+ document.title = 'Catálogo de materiales de construcción con precios de referencia | NEXOBRA';
+ }
+ }
+
  export function clearCatalogSearch() {
+ leaveMaterialFocus();
  ST.catalogSearchInput.value = '';
  ST.state.searchQuery = '';
  ST.state.activeRubro = 'Todos';

@@ -849,6 +849,14 @@ export function setupAdminListeners() {
  const btnAddProvKeyword = document.getElementById('btn-admin-add-prov-keyword');
 
  if (provManageSearch) provManageSearch.addEventListener('input', () => renderAdminProviderList());
+ const btnAdminDiagnostics = document.getElementById('btn-admin-diagnostics');
+ if (btnAdminDiagnostics) btnAdminDiagnostics.addEventListener('click', runAdminDiagnostics);
+ const adminProvExcelInput = document.getElementById('admin-prov-excel-input');
+ if (adminProvExcelInput) adminProvExcelInput.addEventListener('change', (e) => { if (e.target.files[0]) handleAdminProvExcelFile(e.target.files[0]); });
+ const btnAdminProvExcelConfirm = document.getElementById('btn-admin-prov-excel-confirm');
+ if (btnAdminProvExcelConfirm) btnAdminProvExcelConfirm.addEventListener('click', confirmAdminProvExcel);
+ const btnAdminProvExcelTemplate = document.getElementById('btn-admin-prov-excel-template');
+ if (btnAdminProvExcelTemplate) btnAdminProvExcelTemplate.addEventListener('click', () => Provider.generateProviderTemplate());
  if (btnProvNew) btnProvNew.addEventListener('click', () => openAdminProviderEditor(null));
  if (btnProvBack) btnProvBack.addEventListener('click', closeAdminProviderEditor);
  if (provManageForm) provManageForm.addEventListener('submit', handleAdminProviderProfileSubmit);
@@ -898,7 +906,26 @@ export function setupAdminListeners() {
  const btnAdminApuAddEquipment = document.getElementById('btn-admin-apu-add-equipment');
  const btnAdminApuSave = document.getElementById('btn-admin-apu-save');
 
- if (adminApuSearch) adminApuSearch.addEventListener('input', () => renderAdminApuList(adminApuSearch.value));
+ if (adminApuSearch) adminApuSearch.addEventListener('input', () => renderAdminApuList());
+ ['admin-apu-filter-rubro', 'admin-apu-filter-estado'].forEach(id => {
+ const el = document.getElementById(id);
+ if (el) el.addEventListener('change', () => renderAdminApuList());
+ });
+ const btnRenameRubro = document.getElementById('btn-admin-apu-rename-rubro');
+ if (btnRenameRubro) btnRenameRubro.addEventListener('click', () => {
+ const box = document.getElementById('admin-apu-rename-box');
+ if (box) box.style.display = box.style.display === 'none' ? '' : 'none';
+ });
+ const btnRenameConfirm = document.getElementById('btn-admin-apu-rename-confirm');
+ if (btnRenameConfirm) btnRenameConfirm.addEventListener('click', renameAdminApuRubro);
+ const apuImageInput = document.getElementById('admin-apu-image-input');
+ if (apuImageInput) apuImageInput.addEventListener('change', handleAdminApuImageChange);
+ const apuImageRemove = document.getElementById('btn-admin-apu-image-remove');
+ if (apuImageRemove) apuImageRemove.addEventListener('click', removeAdminApuImage);
+ ['admin-apu-desperdicio', 'admin-apu-herramientas', 'admin-apu-unidad'].forEach(id => {
+ const el = document.getElementById(id);
+ if (el) el.addEventListener('input', renderAdminApuPreview);
+ });
  if (btnOpenAdminApuTask) btnOpenAdminApuTask.addEventListener('click', openAdminApuTaskModal);
  if (adminApuTaskCloseBtn) adminApuTaskCloseBtn.addEventListener('click', closeAdminApuTaskModal);
  if (adminApuTaskBackdrop) adminApuTaskBackdrop.addEventListener('click', closeAdminApuTaskModal);
@@ -1189,6 +1216,7 @@ export async function openAdminProviderEditor(providerId) {
  document.getElementById('admin-prov-announcement-expires').value = '';
  document.getElementById('admin-prov-add-results').innerHTML = '';
  document.getElementById('admin-prov-add-search').value = '';
+ resetAdminProvExcel();
  initAdminBranchLocationMap(null, null);
  return;
  }
@@ -1249,6 +1277,7 @@ export async function openAdminProviderEditor(providerId) {
 
  document.getElementById('admin-prov-add-search').value = '';
  document.getElementById('admin-prov-add-results').innerHTML = '';
+ resetAdminProvExcel();
  await loadAdminProviderKeywords();
  await loadAdminProviderCatalog();
  await loadAdminProviderAnnouncements();
@@ -1502,6 +1531,201 @@ export function renderAdminProviderAddResults() {
  </div>
  </div>
  `).join('') + proponerBtn;
+}
+
+// --- (16/11) Diagnóstico del sitio ---
+// Prueba automática "liviana": pide al sitio publicado lo mismo que pediría
+// un visitante o un buscador y compara con lo esperado. No cambia nada.
+async function runAdminDiagnostics() {
+ const out = document.getElementById('admin-diagnostics-result');
+ const btn = document.getElementById('btn-admin-diagnostics');
+ if (!out) return;
+ if (btn) btn.disabled = true;
+ out.innerHTML = '<p class="admin-dash-empty">Revisando...</p>';
+ const results = [];
+ const check = async (name, fn) => {
+ try {
+ const r = await fn();
+ results.push({ name, ok: r === true || (r && r.ok !== false), detail: r && r.detail ? r.detail : '' });
+ } catch (err) {
+ results.push({ name, ok: false, detail: err.message });
+ }
+ };
+ const get = (path) => fetch(path, { cache: 'no-store', redirect: 'manual' });
+ const titleOf = (html) => (html.match(/<title>([^<]*)<\/title>/i) || [])[1] || '';
+
+ await check('Inicio responde', async () => {
+ const r = await get('/');
+ const html = await r.text();
+ return { ok: r.status === 200 && html.includes('og:image'), detail: `status ${r.status}` + (html.includes('og:image') ? ', con vista previa (og:image)' : ', SIN og:image') };
+ });
+ await check('Cada página tiene su propio título', async () => {
+ const r = await get('/catalogo');
+ const t = titleOf(await r.text());
+ return { ok: r.status === 200 && /Catálogo/.test(t), detail: `/catalogo → "${t}"` };
+ });
+ await check('Una URL inventada devuelve 404', async () => {
+ const r = await get('/esta-pagina-no-existe-' + Date.now());
+ return { ok: r.status === 404, detail: `status ${r.status}` };
+ });
+ await check('robots.txt', async () => {
+ const r = await get('/robots.txt');
+ const txt = await r.text();
+ return { ok: r.status === 200 && /Sitemap:/i.test(txt) && !/<html/i.test(txt), detail: `status ${r.status}` };
+ });
+ await check('sitemap.xml', async () => {
+ const r = await get('/sitemap.xml');
+ const xml = await r.text();
+ const urls = (xml.match(/<loc>/g) || []).length;
+ const materiales = (xml.match(/\/material\//g) || []).length;
+ const proveedores = (xml.match(/\/proveedor\//g) || []).length;
+ return { ok: r.status === 200 && urls > 5, detail: `${urls} páginas (${materiales} materiales, ${proveedores} proveedores)` };
+ });
+ await check('Página de un material', async () => {
+ const m = (typeof NEXOBRA_DATA !== 'undefined' ? NEXOBRA_DATA : [])[0];
+ if (!m) return { ok: false, detail: 'catálogo vacío' };
+ const r = await get(ST.materialPath(m.id, m.denominacion));
+ const t = titleOf(await r.text());
+ return { ok: r.status === 200 && t.includes(m.denominacion.slice(0, 15)), detail: `${m.id} → "${t}"` };
+ });
+ await check('Archivos internos ocultos', async () => {
+ const paths = ['/README.md', '/supabase/migrations/001_initial_schema.sql', '/.gitignore', '/worker.js', '/wrangler.jsonc'];
+ const visibles = [];
+ for (const p of paths) {
+ const r = await get(p);
+ if (r.status === 200) visibles.push(p);
+ }
+ return { ok: visibles.length === 0, detail: visibles.length ? 'Se ven: ' + visibles.join(', ') : 'ninguno visible' };
+ });
+ await check('Conexión con la base (Supabase)', async () => {
+ const { error, count } = await ST.supabaseClient.from('materials').select('id', { count: 'exact', head: true }).eq('active', true);
+ if (error) throw error;
+ return { ok: count > 0, detail: `${count} materiales activos` };
+ });
+ await check('Calculadora de Obra', async () => {
+ await refreshApuCatalogCache();
+ const tasks = ST.apuCatalogState.tasks || [];
+ const hab = tasks.filter(t => t.habilitada === true).length;
+ if (tasks.length && tasks.every(t => t.habilitada === undefined)) return { ok: false, detail: 'falta correr la migración 033' };
+ return { ok: tasks.length > 0, detail: `${hab} de ${tasks.length} tareas habilitadas para el público` + (hab === 0 ? ' (la Calculadora se ve vacía)' : '') };
+ });
+ await check('Versión instalada (service worker)', async () => {
+ const r = await get('/sw.js');
+ const v = ((await r.text()).match(/SW_VERSION\s*=\s*'([^']+)'/) || [])[1];
+ return { ok: !!v, detail: v ? `publicada: ${v}` : 'no se pudo leer' };
+ });
+
+ const fallas = results.filter(r => !r.ok).length;
+ out.innerHTML = `<p class="admin-dash-note"><strong>${fallas ? `${fallas} con problemas` : 'Todo en orden'}</strong> · ${new Date().toLocaleString('es-AR')}</p>`
+ + results.map(r => `<div class="admin-diag-row ${r.ok ? 'ok' : 'bad'}"><span class="admin-diag-icon">${r.ok ? '✓' : '✗'}</span><strong>${ST.escapeHtml(r.name)}</strong><span>${ST.escapeHtml(r.detail)}</span></div>`).join('');
+ if (btn) btn.disabled = false;
+}
+
+// --- (16/11) Importar una lista Excel EN NOMBRE del proveedor ---
+// Misma lectura y emparejamiento que la carga masiva de "Mi Proveedor"
+// (Provider.parseProviderExcelRows), pero sobre la sucursal elegida por el
+// admin, aprobada directo, y actualizando el precio de los materiales que
+// la sucursal ya tenía cargados (en vez de duplicarlos).
+let adminProvExcelPending = [];
+
+function resetAdminProvExcel() {
+ adminProvExcelPending = [];
+ const preview = document.getElementById('admin-prov-excel-preview');
+ const input = document.getElementById('admin-prov-excel-input');
+ const btn = document.getElementById('btn-admin-prov-excel-confirm');
+ if (preview) preview.innerHTML = '';
+ if (input) input.value = '';
+ if (btn) btn.style.display = 'none';
+}
+
+async function handleAdminProvExcelFile(file) {
+ if (!adminState.manageSelectedBranch) { ST.showToast('Primero guardá los datos comerciales (sucursal) arriba.'); return; }
+ try {
+ const rows = await Provider.readExcelFileRows(file);
+ adminProvExcelPending = Provider.parseProviderExcelRows(rows);
+ } catch (err) {
+ ST.showToast('No se pudo leer el archivo: ' + err.message);
+ return;
+ }
+ renderAdminProvExcelPreview();
+}
+
+function renderAdminProvExcelPreview() {
+ const preview = document.getElementById('admin-prov-excel-preview');
+ const btn = document.getElementById('btn-admin-prov-excel-confirm');
+ if (!preview || !btn) return;
+ if (adminProvExcelPending.length === 0) {
+ preview.innerHTML = '<p class="admin-dash-empty">El archivo no tiene filas de datos.</p>';
+ btn.style.display = 'none';
+ return;
+ }
+ const validas = adminProvExcelPending.filter(r => r.matchedItem && r.price > 0);
+ preview.innerHTML = `<p class="admin-dash-note"><strong>${validas.length}</strong> de ${adminProvExcelPending.length} filas se van a cargar (emparejadas con un material y con precio). Las demás se ignoran.</p>`
+ + adminProvExcelPending.map(row => {
+ const unidad = row.matchedItem ? (row.mode === 'venta' ? row.matchedItem.unidadVenta : row.matchedItem.unidadComputo) : '';
+ const ok = row.matchedItem && row.price > 0;
+ return `<div class="excel-preview-row status-${ok ? row.status : 'none'}">
+ <div><strong>${ST.escapeHtml(row.name || row.sku)}</strong> ${row.matchedItem ? `→ ${ST.escapeHtml(row.matchedItem.denominacion)} (${ST.escapeHtml(row.matchedItem.id)})` : '→ sin coincidencia, no se carga'}</div>
+ <div>${row.price > 0 ? ST.formatMoney(row.price) : 'sin precio'}${unidad ? ' / ' + ST.escapeHtml(unidad) : ''}${row.unitAmbiguous ? ` (la unidad "${ST.escapeHtml(row.requestedUnit)}" no coincide: se toma por unidad de compra)` : ''} · ${row.stock.replace('_', ' ')}</div>
+ </div>`;
+ }).join('');
+ btn.style.display = validas.length ? '' : 'none';
+ btn.textContent = `Cargar ${validas.length} material${validas.length === 1 ? '' : 'es'} al catálogo del proveedor`;
+}
+
+async function confirmAdminProvExcel() {
+ const branch = adminState.manageSelectedBranch;
+ if (!branch) { ST.showToast('Primero guardá los datos comerciales (sucursal) arriba.'); return; }
+ const rows = adminProvExcelPending.filter(r => r.matchedItem && r.price > 0);
+ if (rows.length === 0) return;
+ const providerName = adminState.manageSelectedProvider ? adminState.manageSelectedProvider.business_name : 'este proveedor';
+ if (!confirm(`¿Cargar ${rows.length} materiales al catálogo de ${providerName}? Entran aprobados y se ven en el sitio enseguida.`)) return;
+ const btn = document.getElementById('btn-admin-prov-excel-confirm');
+ if (btn) btn.disabled = true;
+ try {
+ const { data: existentes, error: exErr } = await ST.supabaseClient
+ .from('provider_offers').select('id, material_id, price_kind').eq('branch_id', branch.id);
+ if (exErr) throw exErr;
+ const byKey = new Map((existentes || []).map(o => [`${o.material_id}|${o.price_kind}`, o.id]));
+ const now = new Date().toISOString();
+ const inserts = [];
+ const updates = [];
+ // Si la lista trae dos veces el mismo material, vale la última fila.
+ const vistos = new Map();
+ rows.forEach(row => vistos.set(`${row.matchedItem.id}|${row.mode === 'venta' ? 'sale' : 'measurement'}`, row));
+ vistos.forEach((row, key) => {
+ const fields = {
+ amount: row.price,
+ unit: row.mode === 'venta' ? row.matchedItem.unidadVenta : row.matchedItem.unidadComputo,
+ provider_sku: row.sku || null,
+ stock_status: row.stock,
+ status: 'approved',
+ approved_at: now,
+ reported_at: now
+ };
+ if (byKey.has(key)) updates.push({ id: byKey.get(key), fields });
+ else inserts.push({ branch_id: branch.id, material_id: row.matchedItem.id, price_kind: key.endsWith('|sale') ? 'sale' : 'measurement', ...fields });
+ });
+ if (inserts.length) {
+ const { error } = await ST.supabaseClient.from('provider_offers').insert(inserts);
+ if (error) throw error;
+ }
+ let fallidas = 0;
+ for (let i = 0; i < updates.length; i += 20) {
+ const results = await Promise.all(updates.slice(i, i + 20).map(u => ST.supabaseClient.from('provider_offers').update(u.fields).eq('id', u.id)));
+ fallidas += results.filter(r => r.error).length;
+ }
+ ST.showToast(`Listo: ${inserts.length} nuevos y ${updates.length - fallidas} actualizados${fallidas ? ` (${fallidas} no se pudieron actualizar)` : ''}.`);
+ adminProvExcelPending = [];
+ document.getElementById('admin-prov-excel-preview').innerHTML = '';
+ document.getElementById('admin-prov-excel-input').value = '';
+ if (btn) btn.style.display = 'none';
+ loadAdminProviderCatalog();
+ } catch (err) {
+ ST.showToast('No se pudo cargar la lista: ' + err.message);
+ } finally {
+ if (btn) btn.disabled = false;
+ }
 }
 
 export async function addAdminOfferFromSearch(materialId) {
@@ -1858,7 +2082,12 @@ export async function deleteAdminProviderBranchPhoto(id, storagePath) {
 
 const adminApuState = {
  draft: null, // { components: [] } mientras el modal "Agregar un APU al catálogo" está abierto
- editingTaskId: null // id del apu_tasks que se está editando, o null si el modal está en modo "agregar nuevo"
+ editingTaskId: null, // id del apu_tasks que se está editando, o null si el modal está en modo "agregar nuevo"
+ // (16/11) Imagen de referencia: se elige en el modal pero se sube recién
+ // al guardar (una tarea nueva todavía no tiene id para armar la ruta).
+ pendingImage: null, // Blob ya achicado, o null
+ pendingImageUrl: null, // URL local para la vista previa
+ removeImage: false // true si tocó "Quitar imagen" sobre una que ya estaba guardada
 };
 
 let adminApuLocalSeq = 0;
@@ -1873,37 +2102,140 @@ async function refreshApuCatalogCache() {
 }
 
 export async function loadAdminApuTasks() {
- await Apu.loadApuCatalog();
- renderAdminApuList(document.getElementById('admin-apu-search')?.value || '');
+ // Siempre se recarga: si el catálogo se cargó antes de iniciar sesión como
+ // administrador, solo trae las tareas habilitadas (es lo que ve el público).
+ await refreshApuCatalogCache();
+ populateAdminApuRubroFilters();
+ renderAdminApuList();
 }
 
-export function renderAdminApuList(query) {
+function adminApuRubros() {
+ return [...new Set((ST.apuCatalogState.tasks || []).map(t => t.rubro || 'Sin rubro'))].sort((a, b) => a.localeCompare(b));
+}
+
+function populateAdminApuRubroFilters() {
+ const rubros = adminApuRubros();
+ const filter = document.getElementById('admin-apu-filter-rubro');
+ if (filter) {
+ const current = filter.value;
+ filter.innerHTML = '<option value="">Todos los rubros</option>' + rubros.map(r => `<option value="${ST.escapeHtml(r)}">${ST.escapeHtml(r)}</option>`).join('');
+ if (rubros.includes(current)) filter.value = current;
+ }
+ const renameFrom = document.getElementById('admin-apu-rename-from');
+ if (renameFrom) renameFrom.innerHTML = rubros.map(r => `<option value="${ST.escapeHtml(r)}">${ST.escapeHtml(r)}</option>`).join('');
+ const datalist = document.getElementById('admin-apu-rubros-list');
+ if (datalist) datalist.innerHTML = rubros.filter(r => r !== 'Sin rubro').map(r => `<option value="${ST.escapeHtml(r)}"></option>`).join('');
+}
+
+/** Costo de UNA unidad de la tarea con los precios del mes, igual que lo calcula la Calculadora para el público. */
+function adminApuUnitCost(task) {
+ try {
+ const breakdown = Apu.calcItemBreakdown(Apu.buildBudgetItem(task.id, 1));
+ const faltantes = breakdown.lineas.filter(l => !l.disponible).length + (breakdown.herramientas && !breakdown.herramientas.disponible && breakdown.herramientas.cantidadNecesaria > 0 ? 1 : 0);
+ return { total: breakdown.total, faltantes };
+ } catch (err) {
+ return { total: 0, faltantes: 0 };
+ }
+}
+
+export function renderAdminApuList() {
  const container = document.getElementById('admin-apu-list');
  if (!container) return;
- const q = ST.normalizeText(query || '');
- const tasks = (ST.apuCatalogState.tasks || []).filter(t =>
- !q || ST.normalizeText(t.nombre).includes(q) || ST.normalizeText(t.rubro || '').includes(q)
- );
- if (tasks.length === 0) {
- container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">No hay ningún APU cargado todavía (o ninguno coincide con la búsqueda).</p>';
+ const q = ST.normalizeText(document.getElementById('admin-apu-search')?.value || '');
+ const rubroFiltro = document.getElementById('admin-apu-filter-rubro')?.value || '';
+ const estado = document.getElementById('admin-apu-filter-estado')?.value || '';
+ const all = (ST.apuCatalogState.tasks || []).map(t => ({ t, cost: adminApuUnitCost(t) }));
+
+ // Resumen arriba de la lista: cuánto falta revisar.
+ const habilitadas = all.filter(x => x.t.habilitada === true).length;
+ const conFaltantes = all.filter(x => x.cost.faltantes > 0).length;
+ const sinDescripcion = all.filter(x => !x.t.descripcion).length;
+ const conImagen = all.filter(x => x.t.imagen_url).length;
+ const summary = document.getElementById('admin-apu-summary');
+ if (summary) {
+ const sinColumna = all.length > 0 && all.every(x => x.t.habilitada === undefined);
+ summary.innerHTML = sinColumna
+ ? '<p class="auth-error" style="display:block;">Falta correr la migración 033 en Supabase: sin ella no se puede habilitar ni deshabilitar tareas, y la Calculadora muestra todas.</p>'
+ : `<div class="admin-apu-summary-item"><strong>${habilitadas}</strong><span>de ${all.length} habilitadas</span></div>
+ <div class="admin-apu-summary-item"><strong>${conFaltantes}</strong><span>con componentes sin precio</span></div>
+ <div class="admin-apu-summary-item"><strong>${sinDescripcion}</strong><span>sin descripción</span></div>
+ <div class="admin-apu-summary-item"><strong>${conImagen}</strong><span>con imagen</span></div>`;
+ }
+
+ const rows = all.filter(({ t, cost }) => {
+ if (q && !ST.normalizeText(t.nombre).includes(q) && !ST.normalizeText(t.rubro || '').includes(q)) return false;
+ if (rubroFiltro && (t.rubro || 'Sin rubro') !== rubroFiltro) return false;
+ if (estado === 'habilitadas' && t.habilitada !== true) return false;
+ if (estado === 'pendientes' && t.habilitada === true) return false;
+ if (estado === 'faltantes' && cost.faltantes === 0) return false;
+ if (estado === 'sin-descripcion' && t.descripcion) return false;
+ if (estado === 'revisar' && !t.necesita_revision) return false;
+ return true;
+ });
+
+ if (rows.length === 0) {
+ container.innerHTML = '<p class="admin-dash-empty">Ninguna tarea coincide con estos filtros.</p>';
  return;
  }
- container.innerHTML = tasks.map(t => {
+ container.innerHTML = rows.map(({ t, cost }) => {
  const compCount = (ST.apuCatalogState.componentsByTask[t.id] || []).length;
+ const on = t.habilitada === true;
+ const badges = [
+ cost.faltantes ? `<span class="admin-apu-badge warn">${cost.faltantes} sin precio</span>` : '',
+ !t.descripcion ? '<span class="admin-apu-badge">Sin descripción</span>' : '',
+ t.necesita_revision ? '<span class="admin-apu-badge warn">Para revisar</span>' : '',
+ t.imagen_url ? '<span class="admin-apu-badge ok">Con imagen</span>' : '',
+ compCount === 0 ? '<span class="admin-apu-badge warn">Sin componentes</span>' : ''
+ ].join('');
  return `
- <div class="provider-search-row">
- <div class="provider-search-row-info">
- <strong>${ST.escapeHtml(t.nombre)}</strong><br>
- <span style="color:var(--text-muted); font-size:0.75rem;">${ST.escapeHtml(t.rubro || 'Sin rubro')} · unidad: ${ST.escapeHtml(t.unidad)} · ${compCount} componente${compCount === 1 ? '' : 's'}</span>
- ${t.descripcion ? `<br><span style="font-size:0.78rem;">${ST.escapeHtml(t.descripcion)}</span>` : ''}
+ <div class="admin-apu-row ${on ? 'is-on' : ''}">
+ ${t.imagen_url ? `<img class="admin-apu-thumb" src="${ST.escapeHtml(t.imagen_url)}" alt="" loading="lazy">` : '<div class="admin-apu-thumb admin-apu-thumb-empty" aria-hidden="true"></div>'}
+ <div class="admin-apu-row-main">
+ <div class="admin-apu-row-title"><span class="admin-apu-status ${on ? 'on' : 'off'}">${on ? 'Habilitada' : 'Sin habilitar'}</span><strong>${ST.escapeHtml(t.nombre)}</strong></div>
+ <div class="admin-apu-row-meta">#${t.id} · ${ST.escapeHtml(t.rubro || 'Sin rubro')} · ${ST.escapeHtml(t.unidad)} · ${compCount} componente${compCount === 1 ? '' : 's'} · <strong>${ST.formatMoney(cost.total)} por ${ST.escapeHtml(t.unidad)}</strong></div>
+ ${t.notas_admin ? `<div class="admin-apu-row-notes">${ST.escapeHtml(t.notas_admin)}</div>` : ''}
+ <div class="admin-apu-badges">${badges}</div>
  </div>
- <div class="provider-search-row-controls">
- <button class="btn-computo" style="padding: 6px 12px; font-size: 0.75rem;" onclick="window.nexoBraApp.editAdminApuTask(${t.id})">Editar</button>
- <button class="btn-computo" style="padding: 6px 12px; font-size: 0.75rem; background:#dc2626;" onclick="window.nexoBraApp.deleteAdminApuTask(${t.id})">Eliminar</button>
+ <div class="admin-apu-row-actions">
+ <button class="btn-action-drawer" type="button" onclick="window.nexoBraApp.editAdminApuTask(${t.id})">Revisar</button>
+ <button class="${on ? 'btn-action-drawer' : 'btn-computo'}" type="button" onclick="window.nexoBraApp.toggleAdminApuHabilitada(${t.id})">${on ? 'Deshabilitar' : 'Habilitar'}</button>
+ <button class="admin-apu-delete" type="button" title="Eliminar del catálogo" onclick="window.nexoBraApp.deleteAdminApuTask(${t.id})">Eliminar</button>
  </div>
- </div>
- `;
+ </div>`;
  }).join('');
+}
+
+/** Habilita o deshabilita una tarea desde la lista, sin abrir el editor. */
+export async function toggleAdminApuHabilitada(id) {
+ const task = Apu.getTask(id);
+ if (!task) return;
+ const habilitar = task.habilitada !== true;
+ if (habilitar) {
+ const cost = adminApuUnitCost(task);
+ if (cost.faltantes > 0 && !confirm(`"${task.nombre}" tiene ${cost.faltantes} componente${cost.faltantes === 1 ? '' : 's'} sin precio: en la Calculadora van a sumar $0. ¿Habilitarla igual?`)) return;
+ }
+ const update = { habilitada: habilitar, updated_at: new Date().toISOString() };
+ if (habilitar) update.revisada_at = new Date().toISOString();
+ const { error } = await ST.supabaseClient.from('apu_tasks').update(update).eq('id', id);
+ if (error) { ST.showToast('No se pudo cambiar: ' + error.message); return; }
+ task.habilitada = habilitar;
+ if (habilitar) task.revisada_at = update.revisada_at;
+ renderAdminApuList();
+ ST.showToast(habilitar ? `Habilitada en la Calculadora: ${task.nombre}` : `Deshabilitada: ${task.nombre}`);
+}
+
+async function renameAdminApuRubro() {
+ const from = document.getElementById('admin-apu-rename-from')?.value;
+ const to = (document.getElementById('admin-apu-rename-to')?.value || '').trim();
+ if (!to) { ST.showToast('Escribí el nombre nuevo del rubro.'); return; }
+ const cuantas = (ST.apuCatalogState.tasks || []).filter(t => (t.rubro || 'Sin rubro') === from).length;
+ if (!confirm(`¿Cambiar el rubro "${from}" por "${to}" en ${cuantas} tarea${cuantas === 1 ? '' : 's'}?`)) return;
+ const { data, error } = await ST.supabaseClient.rpc('admin_rename_apu_rubro', { p_old: from === 'Sin rubro' ? '' : from, p_new: to });
+ if (error) { ST.showToast('No se pudo renombrar: ' + error.message); return; }
+ ST.showToast(`Rubro renombrado en ${data} tarea${data === 1 ? '' : 's'}.`);
+ document.getElementById('admin-apu-rename-to').value = '';
+ document.getElementById('admin-apu-rename-box').style.display = 'none';
+ await loadAdminApuTasks();
 }
 
 export async function deleteAdminApuTask(id) {
@@ -1913,9 +2245,9 @@ export async function deleteAdminApuTask(id) {
  if (compErr) { ST.showToast('No se pudo eliminar: ' + compErr.message); return; }
  const { error } = await ST.supabaseClient.from('apu_tasks').delete().eq('id', id);
  if (error) { ST.showToast('No se pudo eliminar: ' + error.message); return; }
+ if (task && task.imagen_path) await ST.supabaseClient.storage.from('apu-images').remove([task.imagen_path]);
  ST.showToast('APU eliminado del catálogo.');
- await refreshApuCatalogCache();
- renderAdminApuList(document.getElementById('admin-apu-search')?.value || '');
+ await loadAdminApuTasks();
 }
 
 // --- Modal "Agregar un APU al catálogo" ---
@@ -1952,6 +2284,52 @@ function setAdminApuModalMode(mode, nombreTarea) {
  }
 }
 
+function resetAdminApuImageState(task) {
+ if (adminApuState.pendingImageUrl) URL.revokeObjectURL(adminApuState.pendingImageUrl);
+ adminApuState.pendingImage = null;
+ adminApuState.pendingImageUrl = null;
+ adminApuState.removeImage = false;
+ const input = document.getElementById('admin-apu-image-input');
+ if (input) input.value = '';
+ showAdminApuImagePreview(task && task.imagen_url ? task.imagen_url : null);
+}
+
+function showAdminApuImagePreview(url) {
+ const img = document.getElementById('admin-apu-image-preview');
+ const removeBtn = document.getElementById('btn-admin-apu-image-remove');
+ if (img) {
+ if (url) { img.src = url; img.style.display = 'block'; }
+ else { img.removeAttribute('src'); img.style.display = 'none'; }
+ }
+ if (removeBtn) removeBtn.style.display = url ? '' : 'none';
+}
+
+async function handleAdminApuImageChange(e) {
+ const file = e.target.files && e.target.files[0];
+ if (!file) return;
+ if (!file.type.startsWith('image/')) { ST.showToast('Tiene que ser una imagen.'); return; }
+ try {
+ const blob = await ST.compressImageForUpload(file);
+ if (adminApuState.pendingImageUrl) URL.revokeObjectURL(adminApuState.pendingImageUrl);
+ adminApuState.pendingImage = blob;
+ adminApuState.pendingImageUrl = URL.createObjectURL(blob);
+ adminApuState.removeImage = false;
+ showAdminApuImagePreview(adminApuState.pendingImageUrl);
+ } catch (err) {
+ ST.showToast(err.message);
+ }
+}
+
+function removeAdminApuImage() {
+ if (adminApuState.pendingImageUrl) URL.revokeObjectURL(adminApuState.pendingImageUrl);
+ adminApuState.pendingImage = null;
+ adminApuState.pendingImageUrl = null;
+ adminApuState.removeImage = true;
+ const input = document.getElementById('admin-apu-image-input');
+ if (input) input.value = '';
+ showAdminApuImagePreview(null);
+}
+
 export async function openAdminApuTaskModal() {
  const modal = document.getElementById('admin-apu-task-modal');
  const backdrop = document.getElementById('admin-apu-task-backdrop');
@@ -1967,6 +2345,11 @@ export async function openAdminApuTaskModal() {
  document.getElementById('admin-apu-herramientas').value = '0';
  document.getElementById('admin-apu-material-search').value = '';
  document.getElementById('admin-apu-material-results').innerHTML = '';
+ document.getElementById('admin-apu-notas').value = '';
+ document.getElementById('admin-apu-habilitada').checked = false;
+ document.getElementById('admin-apu-revisar').checked = false;
+ resetAdminApuImageState(null);
+ populateAdminApuRubroFilters();
  populateAdminApuSelects();
  renderAdminApuDraftList();
  setAdminApuModalMode('create');
@@ -2008,6 +2391,11 @@ export async function editAdminApuTask(id) {
  document.getElementById('admin-apu-herramientas').value = task.herramientas_pct_mo ?? 0;
  document.getElementById('admin-apu-material-search').value = '';
  document.getElementById('admin-apu-material-results').innerHTML = '';
+ document.getElementById('admin-apu-notas').value = task.notas_admin || '';
+ document.getElementById('admin-apu-habilitada').checked = task.habilitada === true;
+ document.getElementById('admin-apu-revisar').checked = !!task.necesita_revision;
+ resetAdminApuImageState(task);
+ populateAdminApuRubroFilters();
  populateAdminApuSelects();
  renderAdminApuDraftList();
  setAdminApuModalMode('edit', task.nombre);
@@ -2125,17 +2513,96 @@ function renderAdminApuDraftList() {
  return;
  }
  const iconByTipo = { material: '', mano_obra: '', equipo: '' };
+ const tipoLabel = { material: 'Material', mano_obra: 'Mano de obra', equipo: 'Equipo' };
  container.innerHTML = components.map(c => `
  <div class="apu-task-row">
  <div class="apu-task-row-info" style="flex:1;">
  <strong>${iconByTipo[c.tipo] || ''} ${ST.escapeHtml(c.denominacion)}</strong>
- <span>${c.rendimiento} ${ST.escapeHtml(c.unidad_snapshot)} por unidad de tarea</span>
+ <span>${tipoLabel[c.tipo] || ''} · ${ST.escapeHtml(c.unidad_snapshot || '')} por unidad de tarea</span>
  </div>
  <div class="apu-task-row-add">
+ <input type="number" value="${c.rendimiento}" min="0" step="any" title="Rendimiento: cantidad por unidad de tarea" aria-label="Rendimiento de ${ST.escapeHtml(c.denominacion)}" onchange="window.nexoBraApp.updateAdminApuDraftRend('${c.localId}', this.value)">
  <button class="apu-item-remove" title="Quitar" onclick="window.nexoBraApp.removeAdminApuComponentDraft('${c.localId}')">&times;</button>
  </div>
  </div>
  `).join('');
+ renderAdminApuPreview();
+}
+
+/** Cambia el rendimiento de un componente del borrador sin tener que sacarlo y volver a agregarlo. */
+export function updateAdminApuDraftRend(localId, value) {
+ if (!adminApuState.draft) return;
+ const comp = adminApuState.draft.components.find(c => c.localId === localId);
+ const v = ST.parseLocaleNumber(value);
+ if (!comp || !isFinite(v) || v < 0) { ST.showToast('Poné un rendimiento válido.'); return; }
+ comp.rendimiento = v;
+ renderAdminApuPreview();
+}
+
+/**
+ * (16/11) Vista previa del costo de UNA unidad de la tarea tal como está en
+ * el editor, con el mismo cálculo y los mismos precios (mes actual) que usa
+ * la Calculadora para el público: así se ve, antes de habilitarla, si algún
+ * componente quedó sin precio o si el total por unidad tiene sentido.
+ */
+function renderAdminApuPreview() {
+ const el = document.getElementById('admin-apu-preview');
+ if (!el) return;
+ const components = adminApuState.draft ? adminApuState.draft.components : [];
+ if (components.length === 0) { el.innerHTML = '<p class="admin-dash-empty">Agregá componentes para ver el costo.</p>'; return; }
+ const unidad = document.getElementById('admin-apu-unidad')?.value.trim() || 'unidad';
+ const item = {
+ quantity: 1,
+ desperdicio_pct_snapshot: ST.parseLocaleNumber(document.getElementById('admin-apu-desperdicio')?.value) || 0,
+ herramientas_pct_mo_snapshot: ST.parseLocaleNumber(document.getElementById('admin-apu-herramientas')?.value) || 0,
+ components: components.map(c => ({
+ tipo: c.tipo,
+ material_id: c.tipo === 'material' ? c.material_id : null,
+ labor_rate_id: c.tipo === 'mano_obra' ? c.labor_rate_id : null,
+ equipment_rate_id: c.tipo === 'equipo' ? c.equipment_rate_id : null,
+ rendimiento: Number(c.rendimiento) || 0,
+ descripcion_snapshot: c.denominacion,
+ unidad_snapshot: c.unidad_snapshot,
+ source_kind: 'reference',
+ price_snapshot: null
+ }))
+ };
+ let b;
+ try { b = Apu.calcItemBreakdown(item); } catch (err) { el.innerHTML = `<p class="admin-dash-empty">${ST.escapeHtml(err.message)}</p>`; return; }
+ const lineas = [...b.lineas, ...(b.herramientas && b.herramientas.cantidadNecesaria > 0 ? [b.herramientas] : [])];
+ const faltan = lineas.filter(l => !l.disponible).length;
+ const mes = ST.state.apuMonth || ST.state.priceMonth;
+ el.innerHTML = `
+ ${faltan ? `<p class="admin-apu-warning">${faltan} componente${faltan === 1 ? '' : 's'} sin precio: en la Calculadora van a sumar $0. Vinculalos a un material del catálogo o cargá el precio.</p>` : ''}
+ <div class="admin-apu-preview-table">
+ <div class="admin-apu-preview-row head"><span>Componente</span><span>Cantidad</span><span>Precio unit.</span><span>Costo</span></div>
+ ${lineas.map(l => `<div class="admin-apu-preview-row ${l.disponible ? '' : 'missing'}"><span>${ST.escapeHtml(l.descripcion_snapshot || '')}</span><span>${ST.formatQty(l.cantidadNecesaria)} ${ST.escapeHtml(l.unidad_snapshot || '')}</span><span>${l.disponible ? ST.formatMoney(l.unitPrice) : 'sin precio'}</span><span>${ST.formatMoney(l.costo)}</span></div>`).join('')}
+ <div class="admin-apu-preview-row total"><span>Total por ${ST.escapeHtml(unidad)}</span><span></span><span></span><span>${ST.formatMoney(b.total)}</span></div>
+ </div>
+ <p class="admin-dash-note" style="margin-top:6px;">Materiales ${ST.formatMoney(b.materialesCost)} · mano de obra ${ST.formatMoney(b.manoObraCost)} · equipos y herramientas ${ST.formatMoney(b.equiposCost)}. Precios de ${mes ? ST.monthLabel(mes) : 'referencia'}, sin cargas sociales ni impuestos (sin Factor K).</p>`;
+}
+
+/** Sube, reemplaza o borra la imagen de referencia de una tarea. Devuelve un aviso si algo falló (la tarea ya quedó guardada igual). */
+async function saveAdminApuImage(taskId, previous) {
+ const oldPath = previous ? previous.imagen_path : null;
+ try {
+ if (adminApuState.pendingImage) {
+ const path = `${taskId}/${Date.now()}.jpg`;
+ const { error: upErr } = await ST.supabaseClient.storage.from('apu-images').upload(path, adminApuState.pendingImage, { contentType: 'image/jpeg' });
+ if (upErr) return 'no se pudo subir la imagen: ' + upErr.message;
+ const { data: pub } = ST.supabaseClient.storage.from('apu-images').getPublicUrl(path);
+ const { error: updErr } = await ST.supabaseClient.from('apu_tasks').update({ imagen_url: pub.publicUrl, imagen_path: path }).eq('id', taskId);
+ if (updErr) return 'la imagen se subió pero no se pudo asociar: ' + updErr.message;
+ if (oldPath) await ST.supabaseClient.storage.from('apu-images').remove([oldPath]);
+ } else if (adminApuState.removeImage && previous && previous.imagen_url) {
+ const { error: updErr } = await ST.supabaseClient.from('apu_tasks').update({ imagen_url: null, imagen_path: null }).eq('id', taskId);
+ if (updErr) return 'no se pudo quitar la imagen: ' + updErr.message;
+ if (oldPath) await ST.supabaseClient.storage.from('apu-images').remove([oldPath]);
+ }
+ } finally {
+ resetAdminApuImageState(null);
+ }
+ return null;
 }
 
 export async function saveAdminApuTask() {
@@ -2143,8 +2610,11 @@ export async function saveAdminApuTask() {
  const unidad = document.getElementById('admin-apu-unidad').value.trim();
  const rubro = document.getElementById('admin-apu-rubro').value.trim() || null;
  const descripcion = document.getElementById('admin-apu-descripcion').value.trim() || null;
- const desperdicio_pct = parseFloat(document.getElementById('admin-apu-desperdicio').value) || 0;
- const herramientas_pct_mo = parseFloat(document.getElementById('admin-apu-herramientas').value) || 0;
+ const notas_admin = document.getElementById('admin-apu-notas')?.value.trim() || null;
+ const habilitada = !!document.getElementById('admin-apu-habilitada')?.checked;
+ const necesita_revision = !!document.getElementById('admin-apu-revisar')?.checked;
+ const desperdicio_pct = ST.parseLocaleNumber(document.getElementById('admin-apu-desperdicio').value) || 0;
+ const herramientas_pct_mo = ST.parseLocaleNumber(document.getElementById('admin-apu-herramientas').value) || 0;
 
  if (!nombre || !unidad) { ST.showToast('Completá al menos el nombre y la unidad de la tarea.'); return; }
  if (!adminApuState.draft || adminApuState.draft.components.length === 0) {
@@ -2152,16 +2622,24 @@ export async function saveAdminApuTask() {
  return;
  }
 
+ if (habilitada) {
+ const faltan = document.querySelectorAll('#admin-apu-preview .admin-apu-preview-row.missing').length;
+ if (faltan && !confirm(`Vas a dejar habilitada esta tarea con ${faltan} componente${faltan === 1 ? '' : 's'} sin precio (suman $0 en la Calculadora). ¿Seguir?`)) return;
+ }
  const btn = document.getElementById('btn-admin-apu-save');
  if (btn) btn.disabled = true;
  const editingId = adminApuState.editingTaskId;
+ const previous = editingId ? Apu.getTask(editingId) : null;
+ const now = new Date().toISOString();
+ const taskFields = { nombre, unidad, rubro, descripcion, desperdicio_pct, herramientas_pct_mo, notas_admin, habilitada, necesita_revision, updated_at: now };
+ if (habilitada && !(previous && previous.habilitada === true)) taskFields.revisada_at = now;
  try {
  let taskId;
  if (editingId) {
  // Modo edición: actualizamos la fila existente en vez de insertar una nueva.
  const { error: updateErr } = await ST.supabaseClient
  .from('apu_tasks')
- .update({ nombre, unidad, rubro, descripcion, desperdicio_pct, herramientas_pct_mo })
+ .update({ ...taskFields })
  .eq('id', editingId);
  if (updateErr) throw updateErr;
  taskId = editingId;
@@ -2173,7 +2651,7 @@ export async function saveAdminApuTask() {
  } else {
  const { data: taskRow, error: taskErr } = await ST.supabaseClient
  .from('apu_tasks')
- .insert({ nombre, unidad, rubro, descripcion, desperdicio_pct, herramientas_pct_mo })
+ .insert({ ...taskFields })
  .select()
  .single();
  if (taskErr) throw taskErr;
@@ -2200,10 +2678,12 @@ export async function saveAdminApuTask() {
  throw compErr;
  }
 
- ST.showToast(editingId ? `Cambios guardados: ${nombre}` : `APU agregado al catálogo: ${nombre}`);
+ // Imagen de referencia: se sube recién ahora que la tarea tiene id.
+ const imageWarning = await saveAdminApuImage(taskId, previous);
+
+ ST.showToast((editingId ? `Cambios guardados: ${nombre}` : `APU agregado al catálogo: ${nombre}`) + (imageWarning ? ` (${imageWarning})` : ''));
  closeAdminApuTaskModal();
- await refreshApuCatalogCache();
- renderAdminApuList(document.getElementById('admin-apu-search')?.value || '');
+ await loadAdminApuTasks();
  } catch (err) {
  ST.showToast('No se pudo guardar el APU: ' + err.message);
  } finally {

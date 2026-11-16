@@ -765,22 +765,21 @@ import * as ST from './state.js';
  }
 
  // --- Carga masiva por Excel ---
+ /** Lee la primera hoja de un Excel/CSV como filas (arrays). Compartido con la importación que hace el admin en nombre de un proveedor. */
+ export async function readExcelFileRows(file) {
+ await ST.ensureXlsxLoaded();
+ const buffer = await file.arrayBuffer();
+ const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+ const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+ return XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+ }
+
  export async function handleProviderExcelFile(file) {
  try {
- await ST.ensureXlsxLoaded();
+ processProviderExcelRows(await readExcelFileRows(file));
  } catch (err) {
  ST.showToast(err.message);
- return;
  }
- const reader = new FileReader();
- reader.onload = (e) => {
- const data = new Uint8Array(e.target.result);
- const workbook = XLSX.read(data, { type: 'array' });
- const worksheet = workbook.Sheets[workbook.SheetNames[0]];
- const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
- processProviderExcelRows(rows);
- };
- reader.readAsArrayBuffer(file);
  }
 
  export function processProviderExcelRows(rows) {
@@ -788,6 +787,17 @@ import * as ST from './state.js';
  ST.showToast('El archivo no tiene filas de datos.');
  return;
  }
+ ST.providerState.excelPending = parseProviderExcelRows(rows);
+ renderProviderExcelPreview();
+ }
+
+ /**
+ * Convierte las filas del Excel en filas "pendientes", cada una emparejada
+ * (o no) con un material del catálogo NEXOBRA. Sin efectos: la usan el
+ * proveedor (Mi Proveedor) y el admin (Gestionar proveedores).
+ */
+ export function parseProviderExcelRows(rows) {
+ if (!rows || rows.length < 2) return [];
  const header = rows[0].map(h =>ST.normalizeText(h));
  let skuIdx = header.findIndex(h => h.includes('sku') || h.includes('codigo') || h.includes('cod'));
  let nameIdx = header.findIndex(h => h.includes('nombre') || h.includes('descripcion') || h.includes('material') || h.includes('producto'));
@@ -825,9 +835,7 @@ import * as ST from './state.js';
  }
  pending.push({ sku, name, price, stock, requestedUnit, unitAmbiguous, mode, matchedItem: match.item, status: match.status });
  }
-
- ST.providerState.excelPending = pending;
- renderProviderExcelPreview();
+ return pending;
  }
 
  export function renderProviderExcelPreview() {

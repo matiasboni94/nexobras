@@ -94,8 +94,19 @@ function populateApuTaskRubroFilter() {
 }
 
 /** Lista de tareas de referencia, opcionalmente filtradas por texto libre (nombre o rubro) y/o por un rubro exacto elegido en el selector -- para el buscador de tareas de la UI. */
+/**
+ * (16/11) Tareas que se ofrecen en la Calculadora: solo las habilitadas
+ * desde el panel de administración (migración 033). Para el público, la
+ * base ya devuelve solo esas; el administrador recibe todas, pero en la
+ * Calculadora ve lo mismo que el público -- las demás las revisa en su
+ * panel. Antes de correr la 033 la columna no existe y se muestran todas.
+ */
+export function visibleTasks() {
+ return (ST.apuCatalogState.tasks || []).filter(t => t.habilitada !== false);
+}
+
 export function searchTasks(query, rubro) {
- let tasks = ST.apuCatalogState.tasks;
+ let tasks = visibleTasks();
  if (rubro) tasks = tasks.filter(t => (t.rubro || 'Sin rubro') === rubro);
  if (!query || !query.trim()) return tasks;
  const q = ST.normalizeText(query);
@@ -105,7 +116,7 @@ export function searchTasks(query, rubro) {
 /** Agrupa las tareas de referencia por rubro, para armar un selector tipo "Mampostería > ...". */
 export function tasksByRubro() {
  const groups = {};
- ST.apuCatalogState.tasks.forEach(t => {
+ visibleTasks().forEach(t => {
  const key = t.rubro || 'Sin rubro';
  if (!groups[key]) groups[key] = [];
  groups[key].push(t);
@@ -398,6 +409,42 @@ export function removeItemComponent(item, componentLocalId) {
  * mes elegido -- ver nota en estado-proyecto.md sobre por qué no están
  * atadas a la serie de IPC/UOCRA en esta fase).
  */
+/**
+ * (16/11, pedido del usuario) La mano de obra de la Calculadora es la de la
+ * serie UOCRA Zona A que se carga mes a mes (la misma de la página Mano de
+ * Obra), SIN cargas sociales: cada usuario las suma con su Factor K. Cada
+ * tarifa de apu_labor_rates sabe a qué serie corresponde
+ * (uocra_series_code, migración 033); si la columna todavía no existe, se
+ * deduce del nombre. Si UOCRA aún no publicó el mes elegido, se usa el
+ * último mes publicado. Si la serie no cargó, devuelve null y se usa el
+ * precio de respaldo de la tabla.
+ */
+const UOCRA_POR_NOMBRE = {
+ 'oficial especializado': 'uocra_oficial_especializado',
+ 'oficial': 'uocra_oficial',
+ 'medio oficial': 'uocra_medio_oficial',
+ 'ayudante': 'uocra_ayudante'
+};
+export function resolveUocraLaborPrice(rate, month) {
+ const code = rate.uocra_series_code || UOCRA_POR_NOMBRE[normalizar(rate.nombre)];
+ if (!code || !ST.laborState.loaded) return null;
+ const role = ST.laborState.roles.find(r => r.code === code);
+ if (!role) return null;
+ const meses = Object.keys(role.values).sort();
+ if (meses.length === 0) return null;
+ let mes = month && role.values[month] !== undefined ? month : null;
+ if (!mes) {
+ const anteriores = month ? meses.filter(m => m <= month) : meses;
+ mes = anteriores.length ? anteriores[anteriores.length - 1] : meses[meses.length - 1];
+ }
+ return {
+ unitPrice: Number(role.values[mes]),
+ disponible: true,
+ laborSource: 'uocra',
+ projectedFromEarlierMonth: month && mes !== month ? mes : null
+ };
+}
+
 export function resolveComponentUnitPrice(comp, month) {
  if (comp.price_snapshot !== null && comp.price_snapshot !== undefined && comp.source_kind === 'provider_offer') {
  return { unitPrice: Number(comp.price_snapshot), disponible: true, isProviderSourced: true };
@@ -410,6 +457,8 @@ export function resolveComponentUnitPrice(comp, month) {
  }
  if (comp.tipo === 'mano_obra') {
  const rate = getLaborRate(comp.labor_rate_id);
+ const uocra = rate ? resolveUocraLaborPrice(rate, month || ST.state.apuMonth || ST.state.priceMonth) : null;
+ if (uocra) return uocra;
  return { unitPrice: rate ? Number(rate.precio_referencia) : 0, disponible: Boolean(rate) };
  }
  if (comp.tipo === 'equipo') {
@@ -1328,7 +1377,8 @@ export function applyApuDimensions(taskId, mode) {
 function renderApuAddPanelContent(t, modo) {
  return `
  <div class="apu-add-panel-body">
- ${t.descripcion ? `<p style="margin:0 0 8px; font-size:0.82rem; color:var(--text-muted);">${ST.escapeHtml(t.descripcion)}</p>` : ''}
+ ${t.imagen_url ? `<img class="apu-task-ref-img" src="${ST.escapeHtml(t.imagen_url)}" alt="Referencia: ${ST.escapeHtml(t.nombre)}" loading="lazy">` : ''}
+ ${t.descripcion ? `<p style="margin:0 0 8px; font-size:0.82rem; color:var(--text-muted); white-space:pre-line;">${ST.escapeHtml(t.descripcion)}</p>` : ''}
  <div class="apu-task-row-add" style="margin-bottom:8px;">
  <label style="font-size:0.78rem; color:var(--text-muted);">Cantidad (${ST.escapeHtml(t.unidad)})</label>
  <input type="number" id="apu-task-qty-${t.id}" value="1" min="0.01" step="0.01">
@@ -1360,6 +1410,10 @@ export function renderTaskResults(query) {
  if (!ST.apuTaskResults) return;
  if (!ST.apuCatalogState.loaded) {
  ST.apuTaskResults.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">Cargando catálogo de tareas...</p>';
+ return;
+ }
+ if (visibleTasks().length === 0) {
+ ST.apuTaskResults.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">Estamos revisando las tareas de la Calculadora una por una y en breve van a estar disponibles. Mientras tanto podés armar tu lista con materiales sueltos (acá abajo) o consultar precios en el Catálogo.</p>';
  return;
  }
  const rubro = ST.apuTaskRubroFilter ? ST.apuTaskRubroFilter.value : '';
@@ -1620,6 +1674,7 @@ function renderApuItemCard({ item, lineas, herramientas, materialesCost, manoObr
  <span>${ST.escapeHtml(item.task_rubro_snapshot || 'Sin rubro')} · cant: ${ST.formatQty(item.quantity)} ${ST.escapeHtml(item.task_unidad_snapshot)} · precio unit: ${ST.formatMoney(unitPrice)} · subtotal: ${ST.formatMoney(total)}${item.item_kind === 'custom' ? ' · <span class="apu-badge-modificado">personalizada</span>' : ''}</span>
  <span style="display:block; margin-top:2px; font-size:0.78rem; color:var(--text-muted);">materiales: ${ST.formatMoney(materialesCost)} · mano de obra: ${ST.formatMoney(manoObraCost)} (${ST.formatMoney(manoObraUnit)}/${ST.escapeHtml(item.task_unidad_snapshot)}) · equipos/herramientas: ${ST.formatMoney(equiposCost)}</span>
  ${catalogTask && catalogTask.descripcion ? `<span style="display:block; margin-top:4px; white-space:pre-line;"><strong>Incluye:</strong> ${ST.escapeHtml(catalogTask.descripcion)}</span>` : ''}
+ ${expanded && catalogTask && catalogTask.imagen_url ? `<img class="apu-task-ref-img apu-task-ref-img-small" src="${ST.escapeHtml(catalogTask.imagen_url)}" alt="Referencia: ${ST.escapeHtml(catalogTask.nombre)}" loading="lazy">` : ''}
  </div>
  <div class="apu-item-header-actions">
  <button class="apu-dim-toggle" onclick="window.nexoBraApp.toggleApuItemExpanded('${item.localId}')">${expanded ? '▾ Ocultar detalle' : '▸ Ver detalle'}</button>

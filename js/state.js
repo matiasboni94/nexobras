@@ -200,7 +200,7 @@
  if (chartJsLoadPromise) return chartJsLoadPromise;
  chartJsLoadPromise = new Promise((resolve, reject) => {
  const script = document.createElement('script');
- script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4';
+ script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.6.1';
  script.onload = () => resolve();
  script.onerror = () => reject(new Error('No se pudo cargar el gráfico. Revisá tu conexión e intentá de nuevo.'));
  document.head.appendChild(script);
@@ -523,6 +523,22 @@
  }
 
  /** "Corralón Oberá S.A." -> "corralon-obera-sa" -- para armar la página pública de cada proveedor. */
+ /**
+ * URL única de cada material (SEO, 16/11): /material/<ID>-<nombre>. Tiene
+ * que dar EXACTAMENTE lo mismo que materialPath() de worker.js (que arma el
+ * sitemap y redirige cualquier otra variante a esta).
+ */
+ export function materialPath(id, denominacion) {
+ const slug = String(denominacion || '')
+ .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+ .toLowerCase()
+ .replace(/[^a-z0-9]+/g, '-')
+ .replace(/^-+|-+$/g, '')
+ .slice(0, 80)
+ .replace(/-+$/g, '');
+ return `/material/${id}${slug ? '-' + slug : ''}`;
+ }
+
  export function slugify(text) {
  const base = (text || '')
  .toString()

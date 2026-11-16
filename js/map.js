@@ -1666,7 +1666,7 @@ import * as ST from './state.js';
  return;
  }
 
- const cache = await ensureKeywordSuggestionCache();
+ const cache = (await ensureKeywordSuggestionCache()) || []; // null si Supabase no respondió
  const matches = cache.filter(k => {
  const haystack = ST.normalizeText(k.keyword);
  return tokens.some(t => haystack.includes(t));
