@@ -135,7 +135,7 @@
 .apu-item-card{border:1px solid var(--border-light);border-radius:var(--radius-md,10px);margin-bottom:14px;overflow:hidden}
 .apu-item-card-simple .apu-item-header{background:var(--bg-app)}
 .apu-item-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:var(--bg-subtle,#f5f5f0)}
-.apu-item-nro{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 5px;border-radius:999px;background:var(--color-accent,#3b82f6);color:#fff;font-size:.72rem;font-weight:700;margin-right:6px;vertical-align:middle}
+.apu-item-nro,.apu-item-header-info .apu-item-nro{display:inline-flex;align-items:center;justify-content:center;width:auto;min-width:22px;height:22px;padding:0 6px;margin:0 6px 0 0;border-radius:999px;background:var(--brand-yellow);color:var(--brand-dark);font-size:.72rem;font-weight:800;line-height:1;vertical-align:middle}
 .apu-item-header-info strong{font-size:.95rem}
 .apu-item-header-info span{display:block;font-size:.78rem;color:var(--text-muted);margin-top:2px}
 .apu-item-header-actions{display:flex;align-items:center;gap:8px}
@@ -196,3 +196,95 @@
 .provider-photo-card button{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:22px;height:22px;line-height:22px;text-align:center;cursor:pointer;font-size:.85rem;padding:0}
 .provider-public-photos-grid{display:flex;flex-wrap:wrap;gap:10px}
 .provider-public-photos-grid img{width:150px;height:150px;object-fit:cover;border-radius:10px;border:1px solid var(--border-light,#eee)}
+
+/* ============================================================
+   Arreglos de la auditoría del 12/11 (ronda del 16/11)
+   ============================================================ */
+
+/* Falla 1 -- el botón "Ingresar" quedaba fuera de pantalla entre 901 y
+   ~1500 px. Los títulos del menú ya no se parten en renglones; por debajo
+   de 1700 px los botones de la derecha quedan solo con ícono (su nombre va
+   en aria-label/title); y por debajo de 1280 px el menú pasa al botón de
+   hamburguesa (antes recién a 900 px). Medido en vivo con Verdana: entra
+   con margen a 1280, 1366, 1600 y 1920 px. */
+.nav-link{white-space:nowrap}
+@media (max-width:1699px){
+  .nav-links-desktop{gap:4px}
+  .nav-link{padding:8px 9px;font-size:.84rem}
+  .header-container{gap:12px}
+  .header-actions{gap:8px}
+  .header-actions .btn-excel-tool span,.header-actions .btn-computo span:not(.computo-counter),.btn-auth-login span{display:none}
+  .header-actions .btn-excel-tool,.btn-auth-login{padding:9px}
+  .header-actions .btn-computo{padding:9px 12px;gap:6px}
+}
+@media (max-width:1279px){
+  .nav-links-desktop{display:none}
+  .btn-mobile-menu{display:flex;align-items:center}
+}
+@media (max-width:560px){
+  .brand-name{font-size:1.18rem}
+  .brand-logo-icon,.brand-logo-icon img{width:30px;height:30px}
+  .brand-wrapper{gap:8px}
+  .header-actions .btn-computo{gap:4px}
+  .header-container{gap:4px}
+}
+@media (max-width:360px){
+  .brand-name{font-size:1rem}
+  .brand-logo-icon,.brand-logo-icon img{width:28px;height:28px}
+  .brand-wrapper{gap:5px}
+}
+
+/* Falla 6 -- el texto justificado dejaba huecos grandes en pantallas angostas. */
+@media (max-width:720px){
+  p,.hero-main-desc,.section-desc,.pilar-text,.catalog-subtitle{text-align:left}
+}
+
+/* Falla 7 -- las tablas de ejemplo del home se enciman en celular: ahora
+   mantienen sus columnas y se deslizan de costado dentro de la tarjeta. */
+@media (max-width:560px){
+  .excel-banner-card>*{min-width:0}
+  .mock-excel-sheet{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .mock-sheet-row{min-width:420px;column-gap:8px}
+  .mock-sheet-row span:not(:first-child){white-space:nowrap}
+}
+
+
+/* Falla 4 -- Tablero del sitio en el Panel de Administración (16/11).
+   Solo variables de la paleta, así se ve igual de bien en modo oscuro. */
+.admin-dash-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px}
+.admin-dash-toolbar label{font-size:.82rem;font-weight:700;color:var(--text-main)}
+.admin-dash-note{font-size:.78rem;color:var(--text-muted);margin:0 0 8px;line-height:1.45}
+.admin-dash-empty{font-size:.82rem;color:var(--text-muted);margin:0}
+.admin-dash-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+.admin-dash-kpi{background:var(--bg-subtle);border:1px solid var(--border-light);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.admin-dash-kpi strong{font-size:1.55rem;font-weight:800;color:var(--text-main);line-height:1.1}
+.admin-dash-kpi span{font-size:.8rem;font-weight:700;color:var(--text-main)}
+.admin-dash-kpi small{font-size:.72rem;color:var(--text-muted);line-height:1.35}
+.admin-dash-delta{font-weight:800;margin-right:4px;color:var(--text-muted)}
+.admin-dash-delta.up{color:var(--color-success)}
+.admin-dash-delta.down{color:#dc2626}
+.admin-dash-card{border:1px solid var(--border-light);border-radius:10px;padding:14px 16px;margin-bottom:14px;background:var(--bg-card);min-width:0}
+.admin-dash-card h4{font-size:.92rem;margin:0 0 10px;color:var(--text-main)}
+.admin-dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px}
+.admin-dash-grid .admin-dash-card{margin-bottom:0}
+.admin-dash-chart{position:relative;height:260px}
+.admin-dash .stats-bar-label.admin-dash-bar-label{flex:0 0 46%}
+.admin-dash .stats-bar-value{flex:0 0 44px}
+.admin-dash-pct{flex:0 0 54px;text-align:right;font-size:.75rem;color:var(--text-muted)}
+/* En las tarjetas angostas del cuadro, el nombre va arriba de la barra y entero (búsquedas y orígenes pueden ser largos). */
+.admin-dash-grid .stats-bar-row{flex-wrap:wrap;row-gap:3px;column-gap:10px;padding:6px 0}
+.admin-dash-grid .stats-bar-label.admin-dash-bar-label{flex:0 0 100%;white-space:normal;overflow:visible;line-height:1.3}
+.admin-utm-builder{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:10px 0}
+.admin-utm-builder label{display:flex;flex-direction:column;gap:4px;font-size:.78rem;font-weight:700;color:var(--text-main)}
+.admin-utm-output{display:flex;gap:10px;flex-wrap:wrap}
+.admin-utm-output input{flex:1 1 260px;min-width:0}
+@media (max-width:560px){
+  .admin-dash-chart{height:220px}
+  .admin-dash-grid{grid-template-columns:1fr}
+  .admin-dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .admin-dash .stats-bar-row{flex-wrap:wrap;row-gap:3px;column-gap:10px}
+  .admin-dash .stats-bar-label.admin-dash-bar-label{flex:0 0 100%;white-space:normal;overflow:visible}
+}
+#home-fact-periodo{font-size:1.4rem;text-transform:capitalize;line-height:1.35}
+/* Falla 3 -- al agregar una tarea la vista baja hasta su tarjeta; este margen evita que quede tapada por el encabezado fijo. */
+.apu-item-card{scroll-margin-top:96px}

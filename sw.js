@@ -25,7 +25,7 @@
 // este archivo TAMBIÉN y cambiá el número de acá abajo (SW_VERSION) --
 // alcanza con sumarle 1. Eso hace que el Service Worker se reinstale solo y
 // tire a la basura la caché anterior.
-const SW_VERSION = 'v28';
+const SW_VERSION = 'v29';
 
 const SHELL_CACHE = `nexobra-shell-${SW_VERSION}`;
 const DATA_CACHE = `nexobra-data-${SW_VERSION}`;
@@ -142,8 +142,16 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Esqueleto de la app (HTML/CSS/JS/data.js/íconos propios).
+  // (16/11, auditoría 12/11 falla 9) Antes era "stale-while-revalidate":
+  // devolvía al instante el JS/CSS guardado y bajaba el nuevo de fondo. Como
+  // el HTML ya venía de la red, la primera visita después de cada
+  // actualización mezclaba el HTML nuevo con el JS/CSS viejo (de ahí los
+  // "subí los cambios y no funciona" hasta recargar). Ahora es "red primero",
+  // igual que el HTML: con conexión siempre llegan juntos los archivos de la
+  // misma versión (el servidor responde 304 si no cambiaron, así que casi no
+  // suma demora), y sin conexión se usa la copia guardada, como antes.
   if (isSameOrigin && SHELL_ASSETS.includes(url.pathname)) {
-    event.respondWith(staleWhileRevalidate(request, SHELL_CACHE));
+    event.respondWith(networkFirst(request, SHELL_CACHE));
     return;
   }
 

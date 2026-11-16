@@ -49,12 +49,12 @@
 
  <!-- MAIN NAV LINKS -->
  <nav class="nav-links-desktop">
- <button class="nav-link" id="nav-btn-quienes-somos">Quiénes Somos</button>
- <button class="nav-link" id="nav-btn-guia">Guía de Uso</button>
- <button class="nav-link" id="nav-btn-catalogo">Catálogo Completo</button>
+ <button class="nav-link" id="nav-btn-quienes-somos" title="Quiénes Somos">Nosotros</button>
+ <button class="nav-link" id="nav-btn-guia" title="Guía de Uso">Guía</button>
+ <button class="nav-link" id="nav-btn-catalogo" title="Catálogo Completo">Catálogo</button>
  <button class="nav-link" id="nav-btn-proveedores">Proveedores</button>
  <button class="nav-link" id="nav-btn-manoobra">Mano de Obra</button>
- <button class="nav-link" id="nav-btn-apu">Calculadora de Obra</button>
+ <button class="nav-link" id="nav-btn-apu" title="Calculadora de Obra">Calculadora</button>
  <button class="nav-link" id="nav-btn-contacto">Contacto</button>
  </nav>
 
@@ -69,7 +69,7 @@
 
  <!-- HEADER ACTIONS -->
  <div class="header-actions">
- <button class="btn-excel-tool" id="btn-open-excel-modal" title="Subir listado de materiales en Excel y cotizar automáticamente">
+ <button class="btn-excel-tool" id="btn-open-excel-modal" title="Subir listado de materiales en Excel y cotizar automáticamente" aria-label="Cotizar Excel">
  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
  <polyline points="14 2 14 8 20 8"></polyline>
@@ -79,7 +79,7 @@
  <span>Cotizar Excel</span>
  </button>
 
- <button class="btn-computo" id="btn-open-drawer" title="Abrir mi presupuesto y cómputo de materiales">
+ <button class="btn-computo" id="btn-open-drawer" title="Abrir mi presupuesto y cómputo de materiales" aria-label="Mi Cómputo">
  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
  <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -107,7 +107,7 @@
  </button>
 
  <div class="auth-header-wrapper">
- <button class="btn-auth-login" id="btn-open-auth-modal">
+ <button class="btn-auth-login" id="btn-open-auth-modal" title="Ingresar / Mi cuenta" aria-label="Ingresar / Mi cuenta">
  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
  <circle cx="12" cy="7" r="4"></circle>
@@ -160,22 +160,19 @@
  <strong>NEXOBRA</strong> ayuda a arquitectos, ingenieros y constructores a comparar materiales y presupuestar. Consultá valores de referencia con su fecha, fuente y fórmula de actualización, y comparalos con precios informados por proveedores de tu zona.
  </p>
 
+ <!-- (16/11, auditoría 12/11 falla 4) Los contadores de proveedores, usuarios y visitas pasaron al tablero del Panel de Administración (uso interno). En su lugar, lo que el sitio ya ofrece hoy. -->
  <div class="home-stats-row">
  <div class="home-stat-tile">
- <strong id="home-stat-materiales">–</strong>
- <span>Proveedores de materiales</span>
+ <strong id="home-fact-materiales">943</strong>
+ <span>materiales con precio de referencia</span>
  </div>
  <div class="home-stat-tile">
- <strong id="home-stat-servicios">–</strong>
- <span>Proveedores de servicios</span>
+ <strong id="home-fact-apu">80</strong>
+ <span>análisis de costos de obra (APU)</span>
  </div>
  <div class="home-stat-tile">
- <strong id="home-stat-usuarios">–</strong>
- <span>Usuarios registrados</span>
- </div>
- <div class="home-stat-tile">
- <strong id="home-stat-visitas">–</strong>
- <span>Visitas a la web</span>
+ <strong id="home-fact-periodo">–</strong>
+ <span>mes de los precios de referencia</span>
  </div>
  </div>
 
@@ -692,8 +689,8 @@
  <label class="auth-role-option">
  <input type="radio" name="register-role" value="provider">
  <div>
- <strong>Soy proveedor / proveedor</strong>
- <span>Quiero cargar mis precios y ganar visibilidad</span>
+ <strong>Soy proveedor</strong>
+ <span>Corralón, ferretería, oficio o profesional: quiero ganar visibilidad</span>
  </div>
  </label>
  </div>
@@ -703,9 +700,13 @@
  <select id="register-referral-source" class="form-select" required>
  <option value="" disabled selected>Elegí una opción</option>
  <option value="instagram">Instagram</option>
+ <option value="facebook">Facebook</option>
+ <option value="whatsapp">Un grupo o mensaje de WhatsApp</option>
  <option value="recomendacion">Me lo recomendó alguien</option>
  <option value="proveedor">Un corralón / proveedor me lo mencionó</option>
  <option value="buscador">Buscando en Google / internet</option>
+ <option value="prensa">Diario, radio o TV</option>
+ <option value="colegio">Colegio profesional o una charla</option>
  <option value="otro">Otro</option>
  </select>
  </div>
@@ -789,7 +790,7 @@
  <div class="modal-body">
  <p id="role-error-msg" class="auth-error" style="display: none;"></p>
  <form id="role-form" class="auth-form">
- <div class="config-field">
+ <div class="config-field" id="onboarding-role-block">
  <label>¿Cómo vas a usar NEXOBRA?</label>
  <div class="auth-role-picker">
  <label class="auth-role-option">
@@ -802,14 +803,31 @@
  <label class="auth-role-option">
  <input type="radio" name="onboarding-role" value="provider">
  <div>
- <strong>Soy proveedor / proveedor</strong>
- <span>Quiero cargar mis precios y ganar visibilidad</span>
+ <strong>Soy proveedor</strong>
+ <span>Corralón, ferretería, oficio o profesional: quiero ganar visibilidad</span>
  </div>
  </label>
  </div>
  </div>
+ <!-- (16/11, auditoría 12/11 falla 8) El ingreso con Google salteaba esta pregunta: ahora se hace acá, una vez. -->
+ <div class="config-field" id="onboarding-referral-block">
+ <label for="onboarding-referral-source">¿Cómo nos conociste?</label>
+ <select id="onboarding-referral-source" class="form-select">
+ <option value="" disabled selected>Elegí una opción</option>
+ <option value="instagram">Instagram</option>
+ <option value="facebook">Facebook</option>
+ <option value="whatsapp">Un grupo o mensaje de WhatsApp</option>
+ <option value="recomendacion">Me lo recomendó alguien</option>
+ <option value="proveedor">Un corralón / proveedor me lo mencionó</option>
+ <option value="buscador">Buscando en Google / internet</option>
+ <option value="prensa">Diario, radio o TV</option>
+ <option value="colegio">Colegio profesional o una charla</option>
+ <option value="otro">Otro</option>
+ </select>
+ </div>
  <button type="submit" class="btn-computo" style="width: 100%; justify-content: center;" id="btn-submit-role">Continuar
  </button>
+ <button type="button" class="btn-action-drawer" id="btn-skip-onboarding" style="display:none; width:100%; justify-content:center; margin-top:6px;">Ahora no</button>
  </form>
  </div>
  </div>
@@ -1998,6 +2016,70 @@
  <p class="catalog-subtitle">Editor de materiales, aprobación de proveedores y precios pendientes.</p>
  </div>
  </div>
+
+ <!-- TABLERO DEL SITIO (16/11, a pedido del usuario: los contadores que estaban en el home pasan acá, solo para administradores, ampliados con el recorrido de las visitas y su origen. Datos: función get_admin_dashboard, migración 032). -->
+ <details class="provider-section admin-dash" open>
+ <summary>Tablero del sitio</summary>
+ <div class="provider-section-body">
+ <div class="admin-dash-toolbar">
+ <label for="admin-dash-period">Período</label>
+ <select id="admin-dash-period" class="sort-select">
+ <option value="7">Últimos 7 días</option>
+ <option value="30" selected>Últimos 30 días</option>
+ <option value="90">Últimos 90 días</option>
+ <option value="365">Último año</option>
+ </select>
+ <button type="button" class="btn-action-drawer" id="btn-admin-dash-refresh">Actualizar</button>
+ <span id="admin-dash-range" class="admin-dash-note"></span>
+ </div>
+ <p id="admin-dash-error" class="auth-error" style="display:none;"></p>
+ <div id="admin-dash-kpis" class="admin-dash-kpis"></div>
+
+ <div class="admin-dash-card">
+ <h4>Visitas, cuentas nuevas y contactos a proveedores, por día</h4>
+ <div class="admin-dash-chart"><canvas id="admin-dash-chart" aria-label="Visitas, cuentas nuevas y contactos por día"></canvas></div>
+ </div>
+
+ <div class="admin-dash-card">
+ <h4>Recorrido de las visitas</h4>
+ <p class="admin-dash-note">Cuántas visitas llegaron a cada paso. Se mide desde que se corrió la migración 032; las visitas anteriores no tienen este dato.</p>
+ <div id="admin-dash-funnel"></div>
+ </div>
+
+ <div class="admin-dash-grid">
+ <div class="admin-dash-card"><h4>De dónde llegan las visitas</h4><div id="admin-dash-origen"></div></div>
+ <div class="admin-dash-card"><h4>Cómo nos conocieron (al registrarse)</h4><div id="admin-dash-referral"></div></div>
+ <div class="admin-dash-card"><h4>Páginas por las que entran</h4><div id="admin-dash-paginas"></div></div>
+ <div class="admin-dash-card"><h4>Dispositivo y visitas que vuelven</h4><div id="admin-dash-dispositivos"></div></div>
+ <div class="admin-dash-card"><h4>Búsquedas más hechas</h4><div id="admin-dash-busquedas"></div></div>
+ <div class="admin-dash-card"><h4>Búsquedas sin resultado</h4><p class="admin-dash-note">Lo que alguien quiso encontrar y no estaba: materiales para sumar o proveedores para salir a buscar.</p><div id="admin-dash-sin-resultado"></div></div>
+ <div class="admin-dash-card"><h4>Tareas más usadas en la Calculadora</h4><div id="admin-dash-tareas"></div></div>
+ <div class="admin-dash-card"><h4>Proveedores más consultados</h4><div id="admin-dash-proveedores"></div></div>
+ <div class="admin-dash-card"><h4>Acciones en el período</h4><div id="admin-dash-eventos"></div></div>
+ <div class="admin-dash-card"><h4>Campañas con link etiquetado</h4><div id="admin-dash-campanas"></div></div>
+ </div>
+
+ <div class="admin-dash-card">
+ <h4>Armá un link etiquetado para cada publicación</h4>
+ <p class="admin-dash-note">Usá un link distinto en cada lugar donde compartas NEXOBRA (bio de Instagram, un grupo de WhatsApp, el flyer). Así el cuadro de campañas te dice cuál trajo más visitas.</p>
+ <div class="admin-utm-builder">
+ <label>Dónde<input type="text" id="admin-utm-source" class="form-select" placeholder="instagram"></label>
+ <label>Formato<input type="text" id="admin-utm-medium" class="form-select" placeholder="bio, historia, grupo, flyer"></label>
+ <label>Campaña<input type="text" id="admin-utm-campaign" class="form-select" placeholder="lanzamiento-noviembre"></label>
+ <label>Página<select id="admin-utm-path" class="form-select">
+ <option value="/">Inicio</option>
+ <option value="/calculadora-de-obra">Calculadora de Obra</option>
+ <option value="/catalogo">Catálogo</option>
+ <option value="/proveedores">Proveedores</option>
+ </select></label>
+ </div>
+ <div class="admin-utm-output">
+ <input type="text" id="admin-utm-result" class="form-select" readonly>
+ <button type="button" class="btn-computo" id="btn-admin-utm-copy">Copiar link</button>
+ </div>
+ </div>
+ </div>
+ </details>
 
  <!-- F2: EDITOR DE MATERIALES -->
  <details class="provider-section" open>
