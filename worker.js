@@ -72,8 +72,15 @@ const ROUTES = {
     description: 'Escribinos: consultas, sugerencias o sumá tu negocio como proveedor en NEXOBRA.',
     index: true, priority: '0.4'
   },
-  '/mis-presupuestos': { title: 'Mis cómputos | NEXOBRA', index: false },
-  '/mis-presupuestos-de-obra': { title: 'Mis presupuestos de obra | NEXOBRA', index: false },
+  // (17/11) En el menú pero todavía "próximamente": no se indexa hasta que
+  // tenga el cálculo real (pasar a index: true y sumarle priority entonces).
+  '/costo-m2': {
+    title: 'Costo por m² de construcción (próximamente) | NEXOBRA',
+    description: 'Cuánto cuesta construir una vivienda tipo en Misiones, actualizado todos los meses con precios de referencia NEXOBRA y mano de obra UOCRA. Próximamente.',
+    index: false, soon: true
+  },
+  '/mis-presupuestos': { title: 'Listas anteriores (Mi Cómputo) | NEXOBRA', index: false },
+  '/mis-presupuestos-de-obra': { title: 'Mis presupuestos | NEXOBRA', index: false },
   '/mi-proveedor': { title: 'Panel de proveedor | NEXOBRA', index: false },
   '/favoritos': { title: 'Favoritos | NEXOBRA', index: false },
   '/alertas': { title: 'Alertas | NEXOBRA', index: false },
@@ -202,7 +209,7 @@ async function serveMaterial(request, env, id, slugGiven) {
 }
 
 function robotsTxt(origin) {
-  const privadas = Object.entries(ROUTES).filter(([, r]) => r.index === false).map(([p]) => `Disallow: ${p}`);
+  const privadas = Object.entries(ROUTES).filter(([, r]) => r.index === false && !r.soon).map(([p]) => `Disallow: ${p}`);
   return [
     'User-agent: *',
     'Allow: /',

@@ -39,6 +39,10 @@
  })();
  </script>
  <!-- Prueba de tipografía (05/11, a pedido del usuario): se sacó la carga de Google Fonts "Inter" -- ahora el sitio usa Verdana (fuente del sistema, sin descarga) definida en --font-family en style.css. Para volver a Inter: reponer estos 3 <link> y la declaración original de --font-family. -->
+ <!-- Tipografía Inter (17/11, decisión del usuario: vuelve Inter en lugar de la prueba con Verdana del 05/11). -->
+ <link rel="preconnect" href="https://fonts.googleapis.com">
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -59,14 +63,12 @@
  </a>
 
  <!-- MAIN NAV LINKS -->
+ <!-- (17/11) Menú de 4 entradas (auditoría 12/11): Precios (materiales + mano de obra) · Calculadora · Proveedores · Costo por m². Quiénes Somos, Guía y Contacto pasaron al pie de página y al menú del celular. -->
  <nav class="nav-links-desktop">
- <button class="nav-link" id="nav-btn-quienes-somos" title="Quiénes Somos">Nosotros</button>
- <button class="nav-link" id="nav-btn-guia" title="Guía de Uso">Guía</button>
- <button class="nav-link" id="nav-btn-catalogo" title="Catálogo Completo">Catálogo</button>
- <button class="nav-link" id="nav-btn-proveedores">Proveedores</button>
- <button class="nav-link" id="nav-btn-manoobra">Mano de Obra</button>
- <button class="nav-link" id="nav-btn-apu" title="Calculadora de Obra">Calculadora</button>
- <button class="nav-link" id="nav-btn-contacto">Contacto</button>
+ <button class="nav-link" id="nav-btn-catalogo" data-nav="precios" title="Precios de materiales y mano de obra">Precios</button>
+ <button class="nav-link" id="nav-btn-apu" data-nav="apu" title="Calculadora de Obra">Calculadora</button>
+ <button class="nav-link" id="nav-btn-proveedores" data-nav="proveedores">Proveedores</button>
+ <button class="nav-link" id="nav-btn-costo-m2" data-nav="costo-m2" data-goto-view="costo-m2">Costo por m²</button>
  </nav>
 
  <!-- BOTÓN HAMBURGUESA (solo mobile) -->
@@ -80,23 +82,17 @@
 
  <!-- HEADER ACTIONS -->
  <div class="header-actions">
- <button class="btn-excel-tool" id="btn-open-excel-modal" title="Subir listado de materiales en Excel y cotizar automáticamente" aria-label="Cotizar Excel">
- <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
- <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
- <polyline points="14 2 14 8 20 8"></polyline>
- <line x1="8" y1="13" x2="16" y2="13"></line>
- <line x1="8" y1="17" x2="16" y2="17"></line>
- </svg>
- <span>Cotizar Excel</span>
- </button>
+ <button class="btn-sumate" id="btn-sumate-negocio" type="button" title="Sumá tu corralón, ferretería u oficio a NEXOBRA">Sumá tu negocio</button>
 
- <button class="btn-computo" id="btn-open-drawer" title="Abrir mi presupuesto y cómputo de materiales" aria-label="Mi Cómputo">
+ <!-- (17/11) "Mi Cómputo" se unió con la Calculadora: este botón abre el presupuesto en curso. "Cotizar Excel" pasó adentro de la Calculadora y del catálogo. -->
+ <button class="btn-computo" id="btn-open-drawer" title="Abrir mi presupuesto (Calculadora de Obra)" aria-label="Mi presupuesto">
  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
- <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
- <line x1="3" y1="6" x2="21" y2="6"></line>
- <path d="M16 10a4 4 0 0 1-8 0"></path>
+ <rect x="4" y="2" width="16" height="20" rx="2"></rect>
+ <line x1="8" y1="6" x2="16" y2="6"></line>
+ <line x1="8" y1="11" x2="10" y2="11"></line><line x1="14" y1="11" x2="16" y2="11"></line>
+ <line x1="8" y1="15" x2="10" y2="15"></line><line x1="14" y1="15" x2="16" y2="15"></line>
  </svg>
- <span>Mi Cómputo</span>
+ <span>Mi presupuesto</span>
  <span class="computo-counter" id="header-cart-count">0</span>
  </button>
 
@@ -126,8 +122,8 @@
  <span id="auth-header-label">Ingresar</span>
  </button>
  <div class="auth-dropdown" id="auth-dropdown" style="display: none;">
- <button type="button" id="btn-open-my-computations">Mis Presupuestos (lista simple)</button>
- <button type="button" id="btn-open-my-apu-budgets">Mis Obras (con APU)</button>
+ <button type="button" id="btn-open-my-apu-budgets">Mis presupuestos</button>
+ <button type="button" id="btn-open-my-computations">Listas anteriores (Mi Cómputo)</button>
  <button type="button" id="btn-open-favorites">Mis Favoritos</button>
  <button type="button" id="btn-open-alerts">Mis Alertas de Precio</button>
  <button type="button" id="btn-open-my-provider" style="display: none;">Mi Proveedor</button>
@@ -147,14 +143,18 @@
  <div class="mobile-menu-backdrop" id="mobile-menu-backdrop"></div>
  <nav class="mobile-menu-panel" id="mobile-menu-panel" aria-label="Menú de navegación">
  <button class="mobile-menu-close" id="mobile-menu-close" aria-label="Cerrar menú">&times;</button>
- <button class="mobile-menu-link active" id="mobile-nav-btn-home">Inicio</button>
- <button class="mobile-menu-link" id="mobile-nav-btn-quienes-somos">Quiénes Somos</button>
- <button class="mobile-menu-link" id="mobile-nav-btn-guia">Guía de Uso</button>
- <button class="mobile-menu-link" id="mobile-nav-btn-catalogo">Catálogo Completo</button>
- <button class="mobile-menu-link" id="mobile-nav-btn-proveedores">Proveedores</button>
- <button class="mobile-menu-link" id="mobile-nav-btn-manoobra">Mano de Obra</button>
- <button class="mobile-menu-link" id="mobile-nav-btn-apu">Calculadora de Obra</button>
- <button class="mobile-menu-link" id="mobile-nav-btn-contacto">Contacto</button>
+ <button class="mobile-menu-link active" id="mobile-nav-btn-home" data-nav="home">Inicio</button>
+ <button class="mobile-menu-link" id="mobile-nav-btn-catalogo" data-nav="precios-materiales">Precios de materiales</button>
+ <button class="mobile-menu-link mobile-menu-sublink" id="mobile-nav-btn-manoobra" data-nav="precios-mano-obra">Mano de obra (UOCRA)</button>
+ <button class="mobile-menu-link" id="mobile-nav-btn-apu" data-nav="apu">Calculadora de Obra</button>
+ <button class="mobile-menu-link" id="mobile-nav-btn-proveedores" data-nav="proveedores">Proveedores</button>
+ <button class="mobile-menu-link" id="mobile-nav-btn-costo-m2" data-nav="costo-m2" data-goto-view="costo-m2">Costo por m²</button>
+ <button class="mobile-menu-link mobile-menu-cta" id="mobile-nav-btn-sumate" type="button">Sumá tu negocio</button>
+ <div class="mobile-menu-secondary">
+ <button class="mobile-menu-link" id="mobile-nav-btn-quienes-somos" data-nav="about">Quiénes Somos</button>
+ <button class="mobile-menu-link" id="mobile-nav-btn-guia" data-nav="guide">Guía de Uso</button>
+ <button class="mobile-menu-link" id="mobile-nav-btn-contacto" data-nav="contact">Contacto</button>
+ </div>
  </nav>
 
  <!-- =========================================================================
@@ -253,9 +253,9 @@
  <div class="home-computo-cta-icon"></div>
  <div>
  <h3 class="pilar-title" style="margin-bottom: 4px;">¿Ya sabés qué necesitás?</h3>
- <p class="pilar-text" style="margin-bottom: 0;">Armá tu cómputo: buscá un material arriba, sumalo, y elegí un proveedor cuando quieras comprar de verdad.</p>
+ <p class="pilar-text" style="margin-bottom: 0;">Armá tu presupuesto: sumá materiales o tareas completas, y elegí un proveedor cuando quieras comprar de verdad.</p>
  </div>
- <button class="btn-computo" id="btn-start-computo-home" type="button" style="flex-shrink:0;">Armar mi cómputo
+ <button class="btn-computo" id="btn-start-computo-home" type="button" style="flex-shrink:0;">Armar mi presupuesto
  </button>
  </div>
  </div>
@@ -270,7 +270,7 @@
  <p class="excel-banner-text">Subí tu propia planilla de cómputo métrico (.xlsx o .csv) y NEXOBRA te devolverá el archivo cotizado y actualizado a la fecha o mes que elijas en segundos.
  </p>
  <div class="excel-banner-buttons">
- <button class="btn-computo" onclick="document.getElementById('btn-open-excel-modal').click();">
+ <button class="btn-computo" type="button" data-action="open-excel">
  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
  <polyline points="17 8 12 3 7 8"></polyline>
@@ -327,12 +327,20 @@
  <div id="catalog-view" class="view-section" style="display: none;">
  <main class="container" id="main-catalog-content" style="padding-top: 1.5rem;">
 
+ <div class="precios-tabs" role="tablist" aria-label="Precios">
+ <button type="button" role="tab" class="precios-tab active" aria-selected="true" data-goto-view="catalog">Materiales</button>
+ <button type="button" role="tab" class="precios-tab" aria-selected="false" data-goto-view="labor">Mano de obra (UOCRA)</button>
+ </div>
  <!-- CATALOG HEADER -->
  <div class="catalog-header-banner">
  <div>
  <h2 class="catalog-title" id="catalog-header-title">Catálogo Completo</h2>
  <p class="catalog-subtitle" id="catalog-header-subtitle">Consultor técnico de precios y rendimientos de obra</p>
  </div>
+ <button type="button" class="btn-excel-inline" data-action="open-excel" title="Subí tu lista de materiales en Excel y cotizala de una vez">
+ <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>
+ <span>Cotizar lista en Excel</span>
+ </button>
  </div>
 
  <!-- Buscador del catálogo: la acción principal de esta página -->
@@ -992,7 +1000,7 @@
  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
  <polyline points="17 21 17 13 7 13 7 21"></polyline>
  </svg>
- <span>Guardar en Mi Cómputo</span>
+ <span>Pasar a mi presupuesto</span>
  </button>
  <button class="btn-computo" id="btn-download-processed-excel" style="background-color: var(--color-success); color: white;">
  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -1031,7 +1039,11 @@
  VISTA 3: MANO DE OBRA (UOCRA Zona A)
  ========================================================================= -->
  <div id="labor-view" class="view-section" style="display: none;">
- <div class="container">
+ <div class="container" style="padding-top: 1.5rem;">
+ <div class="precios-tabs" role="tablist" aria-label="Precios">
+ <button type="button" role="tab" class="precios-tab" aria-selected="false" data-goto-view="catalog">Materiales</button>
+ <button type="button" role="tab" class="precios-tab active" aria-selected="true" data-goto-view="labor">Mano de obra (UOCRA)</button>
+ </div>
  <div class="catalog-header-banner">
  <div>
  <h2 class="catalog-title">Mano de Obra</h2>
@@ -1048,6 +1060,39 @@
 
  <p class="pilar-text" style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted);">Fuente: UOCRA. Los valores de Oficial Especializado, Oficial, Medio Oficial y Ayudante son jornales por hora, sin cargas sociales. El valor de Sereno corresponde al mensual convencional. Son valores orientativos, sin cargas sociales, impuestos ni flete incluidos: confirmá siempre el convenio vigente antes de presupuestar. Solo se muestran los meses en los que también hay dato de IPC cargado, para que el presupuesto de materiales y mano de obra quede siempre con la misma fecha de referencia.
  </p>
+ </div>
+ </div>
+
+ <!-- =========================================================================
+ VISTA: COSTO POR m² (17/11 -- "próximamente", a pedido del usuario: ya
+ aparece en el menú; la vivienda modelo se publica después de revisar las APUs)
+ ========================================================================= -->
+ <div id="costo-m2-view" class="view-section" style="display: none;">
+ <div class="container" style="padding-top: 1.5rem;">
+ <div class="catalog-header-banner">
+ <div>
+ <span class="soon-badge">Próximamente</span>
+ <h2 class="catalog-title">Costo por m² de construcción</h2>
+ <p class="catalog-subtitle">Cuánto cuesta hoy construir una vivienda tipo en Misiones, actualizado todos los meses.</p>
+ </div>
+ </div>
+ <div class="costo-m2-grid">
+ <div class="costo-m2-card">
+ <h3>Qué vas a encontrar acá</h3>
+ <ul>
+ <li>El costo del m² de una vivienda tipo (planta baja, 2 dormitorios), calculado con los precios de referencia NEXOBRA y la mano de obra UOCRA del mes.</li>
+ <li>El detalle por rubro: cuánto pesa cada etapa de la obra en el total.</li>
+ <li>La evolución mes a mes, con fecha y fuente de cada precio.</li>
+ <li>El presupuesto completo, para abrirlo en la Calculadora y adaptarlo a tu obra.</li>
+ </ul>
+ </div>
+ <div class="costo-m2-card costo-m2-card-cta">
+ <h3>Mientras tanto</h3>
+ <p>Podés armar el presupuesto de tu obra tarea por tarea en la Calculadora: materiales, mano de obra y equipos, con tu propio Factor K.</p>
+ <button type="button" class="btn-computo" data-goto-view="apu">Ir a la Calculadora</button>
+ <p class="costo-m2-note">¿Querés que te avisemos cuando esté? Escribinos desde <button type="button" class="link-button" data-goto-view="contact">Contacto</button>.</p>
+ </div>
+ </div>
  </div>
  </div>
 
@@ -1231,18 +1276,18 @@
  </article>
  <article class="pilar-card">
  <div class="pilar-icon-box"></div>
- <h3 class="pilar-title">3. Armá tu cómputo</h3>
- <p class="pilar-text">Sumá materiales y mano de obra a "Mi Cómputo" desde el catálogo. Podés elegir un proveedor específico para cada ítem, o dejarlo con el precio de referencia.</p>
+ <h3 class="pilar-title">3. Armá tu presupuesto</h3>
+ <p class="pilar-text">Sumá materiales y mano de obra desde el catálogo, o tareas completas (mampostería, revoques, contrapisos...) desde la Calculadora: todo va al mismo presupuesto. Podés elegir un proveedor específico para cada material, o dejarlo con el precio de referencia.</p>
  </article>
  <article class="pilar-card">
  <div class="pilar-icon-box"></div>
  <h3 class="pilar-title">4. Exportá o compartí</h3>
- <p class="pilar-text">Descargá un <strong>Presupuesto de Referencia</strong> o una <strong>Lista de Compra</strong> agrupada por proveedor, lista para WhatsApp — o generá un <strong>link público</strong> para que tu cliente lo vea directo, sin abrir ningún archivo.</p>
+ <p class="pilar-text">Descargá el presupuesto en Excel, mandale la lista de materiales a los proveedores que elijas por WhatsApp, o generá un <strong>link público</strong> para que tu cliente lo vea directo, sin abrir ningún archivo.</p>
  </article>
  <article class="pilar-card">
  <div class="pilar-icon-box"></div>
  <h3 class="pilar-title">5. ¿Ya tenés tu propio Excel?</h3>
- <p class="pilar-text">Subilo desde "Cotizar Excel" y NEXOBRA te lo devuelve cotizado, con la opción de buscar proveedores cercanos para cada material.</p>
+ <p class="pilar-text">Subilo desde "Cotizar lista en Excel" (en el catálogo o en la Calculadora) y NEXOBRA te lo devuelve cotizado, listo para pasarlo a tu presupuesto.</p>
  </article>
  <article class="pilar-card">
  <div class="pilar-icon-box"></div>
@@ -1506,12 +1551,9 @@
  <div class="container">
  <div class="catalog-header-banner">
  <div>
- <h2 class="catalog-title">Mis Presupuestos (lista simple)</h2>
- <p class="catalog-subtitle">Presupuestos armados a mano, ítem por ítem, sin usar la Calculadora de Obra. Si querés armar un presupuesto con tareas de APU y materiales sueltos juntos, usá "Mis Obras".</p>
+ <h2 class="catalog-title">Listas anteriores (Mi Cómputo)</h2>
+ <p class="catalog-subtitle">Las listas que guardaste con "Mi Cómputo", antes de que se uniera con la Calculadora de Obra. Ya no se editan acá: tocá "Pasar a la Calculadora" y seguí trabajándolas ahí, con todo lo demás. La lista original queda guardada igual.</p>
  </div>
- <button class="btn-computo" id="btn-new-computation">
- + Nuevo presupuesto
- </button>
  </div>
 
  <div id="my-computations-list" class="computations-list"><!-- se completa con loadMyComputations() --></div>
@@ -1525,15 +1567,15 @@
  <div class="container">
  <div class="catalog-header-banner">
  <div>
- <h2 class="catalog-title">Calculadora de Obra (APU)</h2>
- <p class="catalog-subtitle">Elegí una tarea, cargá la cantidad y te armamos la lista de materiales, mano de obra y equipos con los rendimientos técnicos de referencia de NEXOBRA.</p>
+ <h2 class="catalog-title">Calculadora de Obra</h2>
+ <p class="catalog-subtitle">Tu presupuesto en un solo lugar: sumá tareas completas (te armamos materiales, mano de obra y equipos con los rendimientos de referencia de NEXOBRA), o materiales y mano de obra sueltos, desde acá o desde el catálogo.</p>
  </div>
  <button class="btn-computo" id="btn-new-apu-budget">+ Nuevo presupuesto</button>
  </div>
 
  <!-- Aviso para quien usa la Calculadora de Obra sin cuenta (06/11): sin registrarse solo puede calcular una tarea a la vez (ver Apu.enforceApuAnonSingleItemLimit/updateApuGatingUI) -- armar un presupuesto con varias tareas, organizarlo en fases, guardarlo y compartirlo queda para cuentas registradas. -->
  <div id="apu-anon-banner" class="provider-announcement-banner" style="display:none; margin-bottom:16px; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
- <span>📌 Estás probando la Calculadora de Obra sin cuenta: podés calcular <strong>una tarea a la vez</strong> (ej. "Mampostería de 30"). Registrate gratis para armar un presupuesto completo con varias tareas, organizarlo en fases, guardarlo y compartirlo.</span>
+ <span>📌 Estás usando la Calculadora sin cuenta: podés calcular <strong>una tarea a la vez</strong> (ej. "Mampostería de 30") y sumar <strong>todos los materiales y la mano de obra sueltos que quieras</strong>. Registrate gratis para armar un presupuesto con varias tareas, organizarlo en fases, guardarlo y compartirlo.</span>
  <button type="button" class="btn-computo" onclick="window.nexoBraApp.openApuRegisterPrompt()" style="white-space:nowrap;">Registrarme gratis</button>
  </div>
 
@@ -1564,6 +1606,23 @@
  <div id="apu-direct-material-results" class="apu-task-results" style="margin-top:8px;"></div>
  </div>
  </details>
+ <!-- (17/11) Mano de obra suelta: lo que antes se sumaba a "Mi Cómputo" desde la página de Mano de Obra. -->
+ <details class="drawer-obra-data" id="apu-direct-labor-section" style="margin-top:10px;">
+ <summary>+ Agregar mano de obra suelta (horas de una categoría UOCRA)</summary>
+ <div class="apu-direct-labor-row">
+ <select id="apu-direct-labor-role" class="form-select" aria-label="Categoría"></select>
+ <input type="number" id="apu-direct-labor-qty" class="form-select" value="8" min="0.5" step="0.5" aria-label="Cantidad">
+ <span id="apu-direct-labor-unit" class="apu-direct-labor-unit">hs</span>
+ <button type="button" class="btn-computo" id="btn-apu-add-direct-labor">Agregar</button>
+ </div>
+ </details>
+ <div class="apu-excel-cta">
+ <span>¿Tenés tu lista de materiales en una planilla?</span>
+ <button type="button" class="btn-excel-inline" id="btn-open-excel-modal">
+ <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>
+ <span>Subir lista en Excel</span>
+ </button>
+ </div>
  </div>
  </div>
 
@@ -1694,8 +1753,8 @@
  <div class="container">
  <div class="catalog-header-banner">
  <div>
- <h2 class="catalog-title">Mis Obras (con APU)</h2>
- <p class="catalog-subtitle">Presupuestos de obra armados con la Calculadora de Obra: tareas de APU, tareas personalizadas y materiales sueltos, todo junto en una misma obra. Abrí uno para seguir editándolo.</p>
+ <h2 class="catalog-title">Mis presupuestos</h2>
+ <p class="catalog-subtitle">Tus presupuestos de obra: tareas, materiales y mano de obra sueltos, todo junto. Abrí uno para seguir editándolo.</p>
  </div>
  <button class="btn-computo" id="btn-new-apu-budget-from-list">+ Nuevo presupuesto</button>
  </div>
@@ -2549,6 +2608,15 @@
  </a>
  </div>
  <div class="footer-col">
+ <h5>NEXOBRA</h5>
+ <ul class="footer-links">
+ <li><button type="button" data-goto-view="about">Quiénes somos</button></li>
+ <li><button type="button" data-goto-view="guide">Guía de uso</button></li>
+ <li><button type="button" data-goto-view="contact">Contacto</button></li>
+ <li><button type="button" id="footer-btn-sumate">Sumá tu negocio</button></li>
+ </ul>
+ </div>
+ <div class="footer-col">
  <h5>Transparencia</h5>
  <ul>
  <li>• Precio, mes y fuente base</li>
@@ -2786,7 +2854,7 @@
  <datalist id="admin-apu-rubros-list"></datalist>
  </div>
  <div class="config-field">
- <label for="admin-apu-desperdicio">% Desperdicio de materiales</label>
+ <label for="admin-apu-desperdicio" title="Los rendimientos de materiales son netos: la Calculadora les suma este %.">% Desperdicio de materiales (sobre rendimientos netos)</label>
  <input type="number" id="admin-apu-desperdicio" class="form-select" value="0" min="0" step="0.1">
  </div>
  <div class="config-field">
