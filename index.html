@@ -1575,7 +1575,7 @@
 
  <!-- Aviso para quien usa la Calculadora de Obra sin cuenta (06/11): sin registrarse solo puede calcular una tarea a la vez (ver Apu.enforceApuAnonSingleItemLimit/updateApuGatingUI) -- armar un presupuesto con varias tareas, organizarlo en fases, guardarlo y compartirlo queda para cuentas registradas. -->
  <div id="apu-anon-banner" class="provider-announcement-banner" style="display:none; margin-bottom:16px; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
- <span>📌 Estás usando la Calculadora sin cuenta: podés calcular <strong>una tarea a la vez</strong> (ej. "Mampostería de 30") y sumar <strong>todos los materiales y la mano de obra sueltos que quieras</strong>. Registrate gratis para armar un presupuesto con varias tareas, organizarlo en fases, guardarlo y compartirlo.</span>
+ <span>📌 Estás usando la Calculadora sin cuenta: podés calcular <strong>una tarea a la vez</strong> (ej. "Mampostería de 30") sumar <strong>todos los materiales y la mano de obra sueltos que quieras</strong> y mandarle tu pedido a los proveedores por WhatsApp. Registrate gratis para armar un presupuesto con varias tareas, organizarlo en fases, guardarlo, compartirlo por link y bajarlo en Excel.</span>
  <button type="button" class="btn-computo" onclick="window.nexoBraApp.openApuRegisterPrompt()" style="white-space:nowrap;">Registrarme gratis</button>
  </div>
 
@@ -1704,6 +1704,9 @@
  <div class="summary-row"><span>Equipos + Herramientas:</span><strong id="apu-total-equipos">$ 0,00</strong></div>
  <div class="summary-row total-row"><span>Total Estimado:</span><span id="apu-total-general" style="color: var(--brand-yellow); text-shadow: 0 0 1px #000;">$ 0,00</span></div>
  <p style="font-size: 0.7rem; color: var(--text-subtle); margin: 6px 0 0; line-height: 1.4;">Valores orientativos: materiales con precio de referencia NEXOBRA y mano de obra con el jornal UOCRA del mes. No incluyen cargas sociales, impuestos ni fletes: sumalos con tu Factor K.</p>
+
+ <!-- (18/11) "Mandar pedido a este proveedor", también sin cuenta: los materiales con un proveedor elegido se agrupan por proveedor, con su botón de WhatsApp (Apu.renderApuProviderOrders). -->
+ <div id="apu-provider-orders" class="apu-provider-orders" style="display:none;"></div>
 
  <div class="drawer-actions" id="apu-budget-drawer-actions">
  <button class="btn-action-drawer" id="btn-share-apu-budget" style="background: var(--color-accent, #3b82f6); color: #fff;">Compartir por link</button>
