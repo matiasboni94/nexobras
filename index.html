@@ -319,6 +319,23 @@
  </div>
  </section>
 
+ <!-- (18/11, auditoría 12/11) Llamado para proveedores en el home. -->
+ <section class="section-provider-cta">
+ <div class="container">
+ <div class="provider-cta-card">
+ <div class="provider-cta-text">
+ <span class="soon-badge">Para corralones, ferreterías y oficios</span>
+ <h3>¿Tenés un negocio de la construcción?</h3>
+ <p>Sumalo gratis a NEXOBRA: tu página con lista de precios, fotos y reseñas, y pedidos que te llegan directo por WhatsApp desde los presupuestos de la gente. Si ya armamos tu ficha, reclamala y administrala vos.</p>
+ </div>
+ <div class="provider-cta-actions">
+ <button type="button" class="btn-computo" id="home-btn-sumate">Sumá tu negocio</button>
+ <button type="button" class="btn-action-drawer" data-goto-view="providers-directory">Ver proveedores</button>
+ </div>
+ </div>
+ </div>
+ </section>
+
  </div>
 
  <!-- =========================================================================
@@ -1497,6 +1514,16 @@
 
  <div id="directory-status" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;"></div>
  <div id="directory-cards-container" class="providers-directory-grid"></div>
+ <!-- (18/11, auditoría 12/11) Llamado para proveedores en el Directorio. -->
+ <div class="provider-cta-card provider-cta-compact">
+ <div class="provider-cta-text">
+ <h3>¿Tu negocio no está, o ya tiene ficha y es tuyo?</h3>
+ <p>Sumalo gratis, o entrá a tu ficha y tocá "Reclamá tu negocio". Tu lista de precios y los pedidos por WhatsApp, en un solo lugar.</p>
+ </div>
+ <div class="provider-cta-actions">
+ <button type="button" class="btn-computo" id="directory-btn-sumate">Sumá tu negocio</button>
+ </div>
+ </div>
  </div>
  </div>
 
@@ -1678,6 +1705,9 @@
  </details>
 
  <!-- Resumen tipo planilla (06/11): vista de solo lectura con el mismo formato que una planilla de cómputo y presupuesto tradicional -- numerado por rubro/ítem, con el total y la incidencia % de cada rubro. No reemplaza las tarjetas editables de abajo (ahí se sigue editando cada tarea), es solo un resumen de un vistazo. -->
+ <!-- (18/11, auditoría 12/11) Resultado simple para quien usa la Calculadora sin cuenta: qué comprar, cuánto sale y qué hacer después. El detalle completo sigue más abajo. -->
+ <div id="apu-quick-result" class="apu-quick-result" style="display:none;"></div>
+
  <details class="provider-section" id="apu-summary-section" style="margin-top: 16px; margin-bottom: 20px; display:none;" open>
  <summary>Resumen del presupuesto (planilla)</summary>
  <div class="provider-section-body">
@@ -1694,8 +1724,8 @@
 
  <div id="apu-budget-empty" class="computo-empty-state">
  <div class="empty-icon"></div>
- <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no agregaste ninguna tarea</h4>
- <p style="font-size: 0.85rem; color: var(--text-muted);">Buscá una tarea arriba y agregala con su cantidad.</p>
+ <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Tu presupuesto está vacío</h4>
+ <p style="font-size: 0.85rem; color: var(--text-muted);">Buscá una tarea arriba y agregala con su cantidad, o sumá materiales y mano de obra sueltos desde acá o desde el catálogo.</p>
  </div>
 
  <div id="apu-budget-footer" class="drawer-footer" style="position:static; border:none; padding:16px 0 0; display:none;">
@@ -2502,6 +2532,15 @@
  </div>
  <div id="admin-prov-add-results" class="provider-search-results" style="margin-bottom:24px;"></div>
 
+ <h4 class="provider-subsection-title">Cargar precios del relevamiento (canasta)</h4>
+ <p class="admin-dash-note">Los materiales de la canasta, para cargar lo que te pasó este corralón. Precio por unidad de compra; los que dejes vacíos no se tocan. Entran aprobados, con la fecha del relevamiento.</p>
+ <div class="admin-survey-entry-bar">
+ <label>Fecha del relevamiento <input type="date" id="admin-survey-date" class="form-select"></label>
+ <button type="button" class="btn-action-drawer" id="btn-admin-survey-load">Mostrar la canasta</button>
+ </div>
+ <div id="admin-survey-entry" class="admin-survey-entry"></div>
+ <button type="button" class="btn-computo" id="btn-admin-survey-save" style="display:none; margin:10px 0 24px;">Guardar precios del relevamiento</button>
+
  <h4 class="provider-subsection-title">Importar una lista de precios (Excel)</h4>
  <p class="admin-dash-note">Cargá la lista que te mandó el proveedor, en su nombre. Mismo formato que la plantilla de "Mi Proveedor" (columnas Nombre, Precio y, si las tiene, SKU, Unidad y Stock). Entra aprobada directo. Si un material ya estaba en su catálogo, se le actualiza el precio en vez de duplicarlo.</p>
  <div class="admin-prov-excel-actions">
@@ -2530,6 +2569,34 @@
  <input type="file" id="admin-prov-photo-input" accept="image/*" style="display:none;">
  <button type="button" class="btn-computo" id="btn-admin-add-prov-photo" style="margin-top:10px;">+ Agregar foto</button>
  </div>
+ </div>
+ </details>
+
+ <!-- (18/11) Relevamiento de precios en corralones (migración 037). -->
+ <details class="provider-section admin-survey" open>
+ <summary>Relevamiento de precios (canasta)</summary>
+ <div class="provider-section-body">
+ <p class="admin-dash-note">1) Mandale la canasta a cada corralón (WhatsApp o planilla). 2) Con lo que te contesten, creá o abrí su ficha en "Gestionar proveedores" y cargá los precios en "Cargar precios del relevamiento". 3) Mostrales su ficha con "Reclamá tu negocio". Acá abajo ves cómo va la zona: precios de los últimos 60 días, en unidad de compra.</p>
+ <div class="admin-survey-actions">
+ <button type="button" class="btn-computo" id="btn-admin-survey-copy">Copiar pedido para WhatsApp</button>
+ <button type="button" class="btn-action-drawer" id="btn-admin-survey-xlsx">Bajar planilla para el corralón</button>
+ <button type="button" class="btn-action-drawer" id="btn-admin-survey-refresh">Actualizar</button>
+ </div>
+ <div id="admin-survey-summary" class="admin-survey-summary"></div>
+ <details class="admin-survey-edit">
+ <summary>Editar la canasta</summary>
+ <input type="text" id="admin-survey-search" class="form-select" placeholder="Buscar un material para sumarlo...">
+ <div id="admin-survey-search-results" class="provider-search-results"></div>
+ </details>
+ </div>
+ </details>
+
+ <!-- (18/11) "Reclamá tu negocio": pedidos de dueños de fichas cargadas por NEXOBRA (migración 036). -->
+ <details class="provider-section" open>
+ <summary>Reclamos de fichas ("Reclamá tu negocio")</summary>
+ <div class="provider-section-body">
+ <p class="admin-dash-note">Personas que dicen ser dueñas de una ficha que cargaste vos. Llamalas al teléfono que dejaron para confirmarlo antes de aprobar: al aprobar, la ficha pasa a su cuenta con todos los precios cargados y la administran desde "Mi Proveedor".</p>
+ <div id="admin-provider-claims" class="computations-list"></div>
  </div>
  </details>
 
@@ -2818,6 +2885,19 @@
  </div>
 
  <!-- Panel de admin: agregar un APU nuevo al catálogo de NEXOBRA -- 04/11, mismo patrón que "Creá tu propia APU" pero guarda en apu_tasks/apu_task_components en vez de en el presupuesto de un usuario. -->
+ <!-- (18/11) "Reclamá tu negocio" (página pública de un proveedor sin dueño). Contenido: MapModule.openProviderClaim. -->
+ <div class="modal-backdrop" id="provider-claim-backdrop" onclick="window.nexoBraApp.closeProviderClaim()"></div>
+ <div class="excel-modal" id="provider-claim-modal" role="dialog" aria-labelledby="provider-claim-title" style="max-width: 520px;">
+ <div class="modal-header">
+ <div>
+ <h3 id="provider-claim-title" style="font-size: 1.1rem; font-weight: 800;">Reclamá tu negocio</h3>
+ <p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Es gratis. Lo revisamos y te contactamos para confirmarlo.</p>
+ </div>
+ <button class="modal-close-btn" type="button" onclick="window.nexoBraApp.closeProviderClaim()" aria-label="Cerrar">&times;</button>
+ </div>
+ <div class="modal-body" id="provider-claim-body"></div>
+ </div>
+
  <div class="modal-backdrop" id="admin-apu-task-backdrop"></div>
  <div class="excel-modal" id="admin-apu-task-modal" role="dialog" aria-labelledby="admin-apu-task-title" style="max-width: 720px;">
  <div class="excel-modal-header">
