@@ -932,7 +932,7 @@ import * as ST from './state.js';
  ST.mapState.offerPickerCartIndex = null;
  }
 
- export function chooseProviderOffer(materialId, offerIndex) {
+ export async function chooseProviderOffer(materialId, offerIndex) {
  const offer = window.__offerPickerData?.[offerIndex];
  const material = NEXOBRA_DATA.find(m => m.id === materialId);
  if (!offer || !material) return;
@@ -963,7 +963,8 @@ import * as ST from './state.js';
  unit: offer.unit,
  provider_business_name: offer.business_name,
  provider_branch_name: offer.branch_name,
- provider_whatsapp: offer.whatsapp_phone
+ // Sin whatsapp_phone en la sucursal: el teléfono del proveedor (mismo criterio que la ficha y el Directorio).
+ provider_whatsapp: offer.whatsapp_phone || (offer.provider_id ? await fetchProviderContactPhone(offer.provider_id) : null)
  });
  } catch (err) {
  ST.showToast(err.message);

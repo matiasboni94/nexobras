@@ -1651,7 +1651,16 @@ function updateApuGatingUI() {
  if (ST.apuBudgetMetaBar) ST.apuBudgetMetaBar.style.display = loggedIn ? '' : 'none';
  if (ST.apuObraDataSection) ST.apuObraDataSection.style.display = loggedIn ? '' : 'none';
  if (ST.apuPhasesSection) ST.apuPhasesSection.style.display = loggedIn ? '' : 'none';
- if (ST.apuBudgetDrawerActions) ST.apuBudgetDrawerActions.style.display = loggedIn ? '' : 'none';
+ // (18/11, pedido del usuario) Mandarle la lista o el pedido a un proveedor
+ // es libre, también sin cuenta: es lo que diferencia a NEXOBRA y lo que le
+ // lleva pedidos reales a los proveedores. Sin cuenta solo se ocultan el
+ // link para compartir y el Excel completo (y guardar, datos de la obra y
+ // fases, arriba).
+ if (ST.apuBudgetDrawerActions) ST.apuBudgetDrawerActions.style.display = '';
+ const btnShareLink = document.getElementById('btn-share-apu-budget');
+ if (btnShareLink) btnShareLink.style.display = loggedIn ? '' : 'none';
+ const btnExportFull = document.getElementById('btn-export-apu-full');
+ if (btnExportFull) btnExportFull.style.display = loggedIn ? '' : 'none';
 }
 
 /** Abre el modal de registro desde el aviso de la Calculadora de Obra sin cuenta. */
@@ -1674,6 +1683,7 @@ export function updateApuBudgetUI() {
  renderApuPhasesPanel();
  renderApuMaterialesPorFase(breakdown);
  renderApuCurvaInversion(breakdown);
+ renderApuProviderOrders(breakdown);
 
  const hasItems = ST.state.apuBudgetItems.length > 0;
  if (ST.apuBudgetEmpty) ST.apuBudgetEmpty.style.display = hasItems ? 'none' : 'block';
@@ -3227,7 +3237,7 @@ async function fetchOffersForMaterial(materialId) {
  if (!ST.supabaseClient) return [];
  const { data, error } = await ST.supabaseClient
  .from('provider_offers')
- .select('id, branch_id, amount, unit, provider_branches!inner(name, locality, whatsapp_phone, active, providers(business_name, active))')
+ .select('id, branch_id, amount, unit, provider_branches!inner(name, locality, whatsapp_phone, active, providers(business_name, active, contact_phone))')
  .eq('material_id', materialId)
  .eq('status', 'approved')
  .eq('provider_branches.active', true)
@@ -3246,7 +3256,7 @@ async function fetchOffersForMaterial(materialId) {
  locality: row.provider_branches?.locality || '',
  provider_business_name: row.provider_branches?.providers?.business_name || '',
  provider_branch_name: row.provider_branches?.name || '',
- provider_whatsapp: row.provider_branches?.whatsapp_phone || null
+ provider_whatsapp: row.provider_branches?.whatsapp_phone || row.provider_branches?.providers?.contact_phone || null // mismo fallback que el resto del sitio
  }));
  // Primero las de la localidad de la obra (si hay una cargada), después el resto -- ya vienen ordenadas por precio dentro de cada grupo.
  offers.sort((a, b) =>Number(localityLooksNearObra(b.locality)) - Number(localityLooksNearObra(a.locality)));
@@ -3463,13 +3473,104 @@ export function toggleApuProviderPickerSelection(branchId, checked) {
  updateApuProviderPickerSelectionUI();
 }
 
+/** Cantidad para pedir: en unidad de compra (redondeada para arriba) si el material se vende distinto de como se computa; si no, la cantidad de cómputo. */
+function orderQtyLabel(material, cantidadComputo, unidadComputo) {
+ const compra = purchaseQtyHint(material, cantidadComputo);
+ if (compra) return `${ST.formatQty(compra.qty)} ${compra.unit} (${ST.formatQty(cantidadComputo)} ${unidadComputo})`;
+ return `${ST.formatQty(cantidadComputo)} ${unidadComputo}`;
+}
+
 function buildApuProviderShareMessage(breakdown) {
  let text = `Hola! Te escribo desde NEXOBRA para pedirte presupuesto de estos materiales:\n\n`;
  breakdown.materialesConsolidados.forEach(m => {
- text += `• ${m.denominacion} — ${ST.formatQty(m.cantidad)} ${m.unidad}\n`;
+ const material = m.material_id ? findMaterial(m.material_id) : null;
+ text += `• ${m.denominacion} — ${orderQtyLabel(material, m.cantidad, m.unidad)}\n`;
  });
  text += `\n¿Me pasás precio y disponibilidad? Gracias!`;
  return text;
+}
+
+// =========================================================
+// (18/11) "Mandar pedido a este proveedor" -- vuelve lo que tenía el panel
+// de Mi Cómputo: los materiales a los que se les eligió el precio de un
+// proveedor se agrupan por proveedor, y cada grupo tiene su botón para
+// mandarle el pedido por WhatsApp. Funciona sin cuenta.
+// =========================================================
+
+function groupApuOrdersByProvider(breakdown) {
+ const groups = {};
+ breakdown.perItem.forEach(({ item, lineas }) => {
+ lineas.forEach(l => {
+ if (l.tipo !== 'material' || l.source_kind !== 'provider_offer' || !l.provider_branch_id) return;
+ const g = groups[l.provider_branch_id] || (groups[l.provider_branch_id] = {
+ branchId: l.provider_branch_id,
+ businessName: l.provider_business_name || 'Proveedor',
+ branchName: l.provider_branch_name || '',
+ whatsapp: l.provider_whatsapp || null,
+ materiales: {},
+ total: 0
+ });
+ if (!g.whatsapp && l.provider_whatsapp) g.whatsapp = l.provider_whatsapp;
+ const key = l.material_id || l.descripcion_snapshot;
+ const m = g.materiales[key] || (g.materiales[key] = { material_id: l.material_id, denominacion: l.denomination_snapshot || l.descripcion_snapshot, unidad: l.unidad_snapshot, cantidad: 0, costo: 0 });
+ m.cantidad += l.cantidadNecesaria;
+ m.costo += l.costo;
+ g.total += l.costo;
+ });
+ });
+ return Object.values(groups);
+}
+
+function buildApuProviderOrderMessage(group) {
+ let text = `Hola! Te escribo desde NEXOBRA. Quiero hacerte este pedido:\n\n`;
+ Object.values(group.materiales).forEach(m => {
+ const material = m.material_id ? findMaterial(m.material_id) : null;
+ text += `• ${m.denominacion} — ${orderQtyLabel(material, m.cantidad, m.unidad)}\n`;
+ });
+ text += `\nTotal aproximado con tus precios cargados en NEXOBRA: ${ST.formatMoney(group.total)}.\n¿Me confirmás disponibilidad y precio final? Gracias!`;
+ return text;
+}
+
+function whatsappDigits(phone) {
+ return String(phone || '').replace(/\D/g, '');
+}
+
+export function renderApuProviderOrders(breakdown) {
+ const el = document.getElementById('apu-provider-orders');
+ if (!el) return;
+ const groups = groupApuOrdersByProvider(breakdown);
+ if (groups.length === 0) { el.style.display = 'none'; el.innerHTML = ''; return; }
+ el.style.display = '';
+ el.innerHTML = `
+ <h4 class="apu-provider-orders-title">Pedidos por proveedor</h4>
+ <p class="apu-provider-orders-note">Los materiales a los que les elegiste el precio de un proveedor. Mandale el pedido directo por WhatsApp.</p>
+ ${groups.map(g => {
+ const items = Object.values(g.materiales);
+ const digits = whatsappDigits(g.whatsapp);
+ return `
+ <div class="apu-provider-order">
+ <div class="apu-provider-order-head">
+ <div><strong>${ST.escapeHtml(g.businessName)}</strong>${g.branchName ? `<span> · ${ST.escapeHtml(g.branchName)}</span>` : ''}
+ <span class="apu-provider-order-meta">${items.length} material${items.length === 1 ? '' : 'es'} · ${ST.formatMoney(g.total)}</span></div>
+ ${digits
+ ? `<button type="button" class="whatsapp-mini-btn" onclick="window.nexoBraApp.sendApuProviderOrder('${ST.escapeHtml(g.branchId)}')">Mandar pedido a este proveedor</button>`
+ : '<span class="apu-provider-order-meta">Sin WhatsApp cargado</span>'}
+ </div>
+ <ul class="apu-provider-order-items">
+ ${items.map(m => `<li>${ST.escapeHtml(m.denominacion)} — ${ST.escapeHtml(orderQtyLabel(m.material_id ? findMaterial(m.material_id) : null, m.cantidad, m.unidad))}</li>`).join('')}
+ </ul>
+ </div>`;
+ }).join('')}`;
+}
+
+export function sendApuProviderOrder(branchId) {
+ const breakdown = calcBudgetBreakdown(ST.state.apuBudgetItems, { kFactor: ST.apuBudgetMeta.kFactor });
+ const group = groupApuOrdersByProvider(breakdown).find(g => g.branchId === branchId);
+ if (!group) return;
+ const digits = whatsappDigits(group.whatsapp);
+ if (!digits) { ST.showToast('Este proveedor no tiene WhatsApp cargado.'); return; }
+ ST.logEvent('provider_contact', `pedido desde la Calculadora a ${group.businessName}`.slice(0, 120));
+ window.open(`https://wa.me/${digits}?text=${encodeURIComponent(buildApuProviderOrderMessage(group))}`, '_blank');
 }
 
 /** Abre un wa.me por cada proveedor tildado (06/11, pedido del usuario: poder mandar a varios de una). Mismo fallback whatsapp_phone || providers.contact_phone que el resto del sitio (ver js/map.js). */
