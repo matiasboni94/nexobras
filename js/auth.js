@@ -101,6 +101,8 @@ import * as ST from './state.js';
       MapModule.loadFavoriteIds();
       MapModule.loadAlertIds();
       MapModule.loadOfferSubscriptionIds();
+      // (18/11) Si venía de "Reclamá tu negocio" sin cuenta, se le abre el formulario al volver.
+      setTimeout(() => MapModule.resumePendingProviderClaim(), 300);
 
       // (16/11, auditoría 12/11 falla 8) "¿Cómo nos conociste?" para TODAS
       // las cuentas, no solo las que se registran con email:

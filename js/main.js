@@ -463,7 +463,7 @@ import * as ST from './state.js';
  document.getElementById('mobile-menu-backdrop')?.classList.remove('open');
  document.body.style.overflow = '';
  }
- ['btn-sumate-negocio', 'mobile-nav-btn-sumate', 'footer-btn-sumate'].forEach(id => {
+ ['btn-sumate-negocio', 'mobile-nav-btn-sumate', 'footer-btn-sumate', 'home-btn-sumate', 'directory-btn-sumate'].forEach(id => {
  const el = document.getElementById(id);
  if (el) el.addEventListener('click', () => { closeMobileMenuPanel(); Auth.startProviderSignup(); });
  });
@@ -896,6 +896,17 @@ updateAdminApuDraftRend: Admin.updateAdminApuDraftRend,
  toggleApuProviderPickerSelection: Apu.toggleApuProviderPickerSelection,
  sendApuListToSelectedProviders: Apu.sendApuListToSelectedProviders,
  sendApuProviderOrder: Apu.sendApuProviderOrder,
+ copyApuQuickList: Apu.copyApuQuickList,
+ openApuProviderPicker: Apu.openApuProviderPicker,
+ startProviderSignup: Auth.startProviderSignup,
+ openProviderClaim: MapModule.openProviderClaim,
+ resolveProviderClaim: Admin.resolveProviderClaim,
+ removeSurveyItem: Admin.removeSurveyItem,
+ addSurveyItem: Admin.addSurveyItem,
+ closeProviderClaim: MapModule.closeProviderClaim,
+ claimGoToAuth: MapModule.claimGoToAuth,
+ addProviderPublicOfferToBudget: MapModule.addProviderPublicOfferToBudget,
+ shareProviderPublicPage: MapModule.shareProviderPublicPage,
  openApuRegisterPrompt: Apu.openApuRegisterPrompt,
  addApuCustomComponentDraft: Apu.addApuCustomComponentDraft,
  removeApuCustomComponentDraft: Apu.removeApuCustomComponentDraft,

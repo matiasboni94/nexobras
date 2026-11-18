@@ -1684,6 +1684,7 @@ export function updateApuBudgetUI() {
  renderApuMaterialesPorFase(breakdown);
  renderApuCurvaInversion(breakdown);
  renderApuProviderOrders(breakdown);
+ renderApuQuickResult(breakdown);
 
  const hasItems = ST.state.apuBudgetItems.length > 0;
  if (ST.apuBudgetEmpty) ST.apuBudgetEmpty.style.display = hasItems ? 'none' : 'block';
@@ -3237,7 +3238,7 @@ async function fetchOffersForMaterial(materialId) {
  if (!ST.supabaseClient) return [];
  const { data, error } = await ST.supabaseClient
  .from('provider_offers')
- .select('id, branch_id, amount, unit, provider_branches!inner(name, locality, whatsapp_phone, active, providers(business_name, active, contact_phone))')
+ .select('id, branch_id, amount, unit, reported_at, provider_branches!inner(name, locality, whatsapp_phone, active, providers(business_name, active, contact_phone))')
  .eq('material_id', materialId)
  .eq('status', 'approved')
  .eq('provider_branches.active', true)
@@ -3253,6 +3254,7 @@ async function fetchOffersForMaterial(materialId) {
  branch_id: row.branch_id,
  amount: Number(row.amount),
  unit: row.unit,
+ reported_at: row.reported_at || null,
  locality: row.provider_branches?.locality || '',
  provider_business_name: row.provider_branches?.providers?.business_name || '',
  provider_branch_name: row.provider_branches?.name || '',
@@ -3290,6 +3292,7 @@ export async function openApuMaterialProviderPicker(itemLocalId, componentLocalI
  <div class="offer-picker-row-info">
  <h5>${ST.escapeHtml(offer.provider_business_name)}</h5>
  <span>${ST.escapeHtml(offer.provider_branch_name)}${offer.locality ? ' · ' + ST.escapeHtml(offer.locality) : ''}${localityLooksNearObra(offer.locality) ? ' · <strong>cerca de tu obra</strong>' : ''}</span>
+ ${ST.offerAgeTag(offer.reported_at)}
  </div>
  <div class="offer-picker-row-price">
  <strong>${ST.formatMoney(offer.amount)}</strong>
@@ -3561,6 +3564,82 @@ export function renderApuProviderOrders(breakdown) {
  </ul>
  </div>`;
  }).join('')}`;
+}
+
+// =========================================================
+// (18/11, auditoría 12/11) Resultado simple sin cuenta: arriba del detalle,
+// una tarjeta corta con lo que hay que comprar (en unidad de compra), la
+// mano de obra en horas, el total y las dos acciones que importan:
+// mandarle la lista a proveedores y registrarse para guardarlo.
+// =========================================================
+
+function buildApuQuickListText(breakdown) {
+ let text = 'Lista de materiales (NEXOBRA):\n';
+ breakdown.materialesConsolidados.forEach(m => {
+ const material = m.material_id ? findMaterial(m.material_id) : null;
+ text += `• ${m.denominacion} — ${orderQtyLabel(material, m.cantidad, m.unidad)}\n`;
+ });
+ return text;
+}
+
+function laborHoursSummary(breakdown) {
+ const byRate = {};
+ breakdown.perItem.forEach(({ lineas }) => lineas.forEach(l => {
+ if (l.tipo !== 'mano_obra') return;
+ const key = l.denomination_snapshot || l.descripcion_snapshot || 'Mano de obra';
+ const r = byRate[key] || (byRate[key] = { nombre: key, unidad: l.unidad_snapshot || 'hs', cantidad: 0 });
+ r.cantidad += l.cantidadNecesaria;
+ }));
+ return Object.values(byRate).filter(r => r.cantidad > 0);
+}
+
+export function renderApuQuickResult(breakdown) {
+ const el = document.getElementById('apu-quick-result');
+ if (!el) return;
+ const items = ST.state.apuBudgetItems;
+ if (ST.authState.user || items.length === 0) { el.style.display = 'none'; el.innerHTML = ''; return; }
+ const materiales = breakdown.materialesConsolidados;
+ const manoObra = laborHoursSummary(breakdown);
+ const MAX = 8;
+ el.style.display = '';
+ el.innerHTML = `
+ <div class="apu-quick-head">
+ <div>
+ <span class="apu-quick-label">Tu resultado</span>
+ <strong class="apu-quick-total">${ST.formatMoney(breakdown.total)}</strong>
+ <span class="apu-quick-sub">Materiales ${ST.formatMoney(breakdown.perItem.reduce((s, b) => s + b.materialesCost, 0))} · mano de obra ${ST.formatMoney(breakdown.perItem.reduce((s, b) => s + b.manoObraCost, 0))} · equipos ${ST.formatMoney(breakdown.perItem.reduce((s, b) => s + b.equiposCost, 0))}</span>
+ </div>
+ </div>
+ ${materiales.length ? `
+ <div class="apu-quick-section">
+ <h4>Para comprar</h4>
+ <ul>
+ ${materiales.slice(0, MAX).map(m => `<li><span>${ST.escapeHtml(m.denominacion)}</span><strong>${ST.formatQty(m.cantidadAPedir)} ${ST.escapeHtml(m.unidadCompra || m.unidad)}</strong></li>`).join('')}
+ </ul>
+ ${materiales.length > MAX ? `<p class="apu-quick-more">y ${materiales.length - MAX} material${materiales.length - MAX === 1 ? '' : 'es'} más en el detalle de abajo.</p>` : ''}
+ </div>` : ''}
+ ${manoObra.length ? `
+ <div class="apu-quick-section">
+ <h4>Mano de obra</h4>
+ <ul>${manoObra.map(r => `<li><span>${ST.escapeHtml(r.nombre)}</span><strong>${ST.formatQty(r.cantidad)} ${ST.escapeHtml(r.unidad)}</strong></li>`).join('')}</ul>
+ </div>` : ''}
+ <div class="apu-quick-actions">
+ ${materiales.length ? '<button type="button" class="btn-computo" onclick="window.nexoBraApp.openApuProviderPicker()">Pedir precio a proveedores</button>' : ''}
+ ${materiales.length ? '<button type="button" class="btn-action-drawer" onclick="window.nexoBraApp.copyApuQuickList()">Copiar la lista</button>' : ''}
+ <button type="button" class="btn-action-drawer" onclick="window.nexoBraApp.openApuRegisterPrompt()">Registrarme gratis para guardarlo</button>
+ </div>
+ <p class="apu-quick-note">Valores orientativos, sin cargas sociales, impuestos ni fletes. El detalle de cada tarea está más abajo.</p>`;
+}
+
+export function copyApuQuickList() {
+ const breakdown = calcBudgetBreakdown(ST.state.apuBudgetItems, { kFactor: ST.apuBudgetMeta.kFactor });
+ const text = buildApuQuickListText(breakdown);
+ const done = () => ST.showToast('Lista copiada: pegala en WhatsApp o donde quieras.');
+ if (navigator.clipboard && navigator.clipboard.writeText) {
+ navigator.clipboard.writeText(text).then(done, () => ST.showToast('No se pudo copiar automáticamente.'));
+ } else {
+ ST.showToast('Tu navegador no permite copiar automáticamente.');
+ }
 }
 
 export function sendApuProviderOrder(branchId) {

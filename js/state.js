@@ -501,6 +501,33 @@
  );
  }
 
+ /**
+ * (18/11, auditoría 12/11) Antigüedad de un precio de proveedor (reported_at)
+ * para mostrarle a la gente: "hoy", "hace 5 días", "hace 3 meses". stale =
+ * más de 60 días: se muestra en otro color, porque puede estar desactualizado.
+ */
+ export function formatOfferAge(dateStr) {
+ if (!dateStr) return null;
+ const d = new Date(dateStr);
+ if (isNaN(d)) return null;
+ const dias = Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
+ let text;
+ if (dias === 0) text = 'actualizado hoy';
+ else if (dias === 1) text = 'actualizado ayer';
+ else if (dias < 30) text = `actualizado hace ${dias} días`;
+ else if (dias < 60) text = 'actualizado hace 1 mes';
+ else if (dias < 365) text = `actualizado hace ${Math.floor(dias / 30)} meses`;
+ else text = 'actualizado hace más de un año';
+ return { text, dias, stale: dias > 60, date: d.toLocaleDateString('es-AR') };
+ }
+
+ /** Etiqueta HTML lista para usar ("actualizado hace 5 días", en gris; en ámbar si tiene más de 60 días). '' si no hay fecha. */
+ export function offerAgeTag(dateStr) {
+ const age = formatOfferAge(dateStr);
+ if (!age) return '';
+ return `<span class="offer-age${age.stale ? ' stale' : ''}" title="Precio cargado por el proveedor el ${age.date}${age.stale ? '. Puede estar desactualizado: confirmalo antes de comprar.' : ''}">${age.text}</span>`;
+ }
+
  export function formatMoney(amount) {
  if (isNaN(amount)) return '$ 0,00';
  return new Intl.NumberFormat('es-AR', {

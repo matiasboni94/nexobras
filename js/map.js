@@ -106,10 +106,15 @@ import * as ST from './state.js';
  async function attachOfferBrands(offers) {
  const ids = (offers || []).map(o => o.offer_id).filter(Boolean);
  if (ids.length === 0) return offers;
- const { data, error } = await ST.supabaseClient.from('provider_offers').select('id, brand').in('id', ids);
+ // (18/11) También la fecha de carga del precio (reported_at), para mostrar "actualizado hace X días".
+ const { data, error } = await ST.supabaseClient.from('provider_offers').select('id, brand, reported_at').in('id', ids);
  if (error || !data) return offers;
- const brandById = new Map(data.map(row => [row.id, row.brand]));
- offers.forEach(o => { o.brand = brandById.get(o.offer_id) || null; });
+ const byId = new Map(data.map(row => [row.id, row]));
+ offers.forEach(o => {
+ const row = byId.get(o.offer_id);
+ o.brand = row ? row.brand : null;
+ o.reported_at = row ? row.reported_at : (o.reported_at || null);
+ });
  return offers;
  }
 
@@ -343,6 +348,7 @@ import * as ST from './state.js';
  <span>Stock:</span>
  <strong>${stockLabel}</strong>
  </div>
+ ${offer.reported_at ? `<div class="price-secondary-row"><span>Precio:</span>${ST.offerAgeTag(offer.reported_at)}</div>` : ''}
  </div>
 
  <button class="btn-action-drawer ${enComparacion ? 'btn-print' : 'btn-copy'}" style="width:100%; margin-bottom:10px;" ${compareDisabled ? 'disabled title="Ya tenés 2 ofertas para comparar — sacá una primero"' : ''} onclick="window.nexoBraApp.toggleCompareOffer('${offer.offer_id}')">
@@ -417,6 +423,7 @@ import * as ST from './state.js';
  ['Precio', `<strong>${ST.formatMoney(a.amount)}</strong> / ${a.unit}`, `<strong>${ST.formatMoney(b.amount)}</strong> / ${b.unit}`],
  ['Distancia', `${a.distance_km.toFixed(1)} km`, `${b.distance_km.toFixed(1)} km`],
  ['Stock', a.stock_status === 'agotado' ? 'Agotado' : a.stock_status === 'a_pedido' ? 'A pedido' : 'En stock', b.stock_status === 'agotado' ? 'Agotado' : b.stock_status === 'a_pedido' ? 'A pedido' : 'En stock'],
+ ['Precio cargado', ST.offerAgeTag(a.reported_at) || '—', ST.offerAgeTag(b.reported_at) || '—'],
  ['Valoración', renderStarRating(a.avg_rating, a.review_count), renderStarRating(b.avg_rating, b.review_count)]
  ];
  const masBarata = a.amount === b.amount ? null : (a.amount < b.amount ? 0 : 1);
@@ -910,6 +917,7 @@ import * as ST from './state.js';
  <div class="offer-picker-row-info">
  <h5>${offer.brand ? `${ST.escapeHtml(offer.brand)} — ` : ''}${ST.escapeHtml(offer.business_name)}</h5>
  <span>${ST.escapeHtml(offer.branch_name)} · ${ST.escapeHtml(offer.locality)} · ${offer.distance_km.toFixed(1)} km${offer.stock_status === 'agotado' ? ' · <strong style="color:#b91c1c;">Agotado</strong>' : offer.stock_status === 'a_pedido' ? ' · A pedido' : ' · En stock'}</span>
+ ${ST.offerAgeTag(offer.reported_at)}
  </div>
  <div class="offer-picker-row-price">
  <strong>${ST.formatMoney(offer.amount)}</strong>
@@ -1707,6 +1715,16 @@ import * as ST from './state.js';
  // migración 013.
  // ============================================================
 
+ // (18/11) Rediseño como mini-landing (auditoría 12/11) + "Reclamá tu
+ // negocio" para las fichas cargadas por NEXOBRA (sin dueño). Lo que sigue
+ // igual: se arma por sucursal (slug), no depende de la ubicación de quien
+ // la visita, y las reseñas usan loadBranchReviews con ids propios ('ppr').
+ let providerPublicState = { slug: null, branch: null, provider: null, offers: [] };
+
+ function initialsOf(name) {
+ return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+ }
+
  export async function loadProviderPublicPage(slug) {
  const container = document.getElementById('provider-public-content');
  if (!container) return;
@@ -1714,7 +1732,7 @@ import * as ST from './state.js';
 
  const { data: branch, error } = await ST.supabaseClient
  .from('provider_branches')
- .select('id, name, locality, whatsapp_phone, business_hours, provider_id, providers(business_name, description, logo_url, website_url, contact_phone, contact_email, matricula, category_id)')
+ .select('id, name, locality, address, latitude, longitude, whatsapp_phone, business_hours, provider_id, providers(business_name, description, logo_url, website_url, contact_phone, contact_email, matricula, category_id, owner_id)')
  .eq('slug', slug)
  .eq('active', true)
  .maybeSingle();
@@ -1742,119 +1760,272 @@ import * as ST from './state.js';
 
  const [{ data: ratingData }, { data: offers }, { data: keywordRows }, announcement, { data: photoRows }] = await Promise.all([
  ST.supabaseClient.from('provider_ratings_summary').select('avg_rating, review_count').eq('provider_id', branch.provider_id).maybeSingle(),
- ST.supabaseClient.from('provider_offers').select('amount, unit, brand, stock_status, materials(denomination)').eq('branch_id', branch.id).eq('status', 'approved').order('reported_at', { ascending: false }),
+ ST.supabaseClient.from('provider_offers').select('id, material_id, price_kind, amount, unit, brand, stock_status, reported_at, materials(denomination)').eq('branch_id', branch.id).eq('status', 'approved').order('reported_at', { ascending: false }),
  ST.supabaseClient.from('provider_keywords').select('keyword').eq('provider_id', branch.provider_id),
  fetchLatestAnnouncement(branch.id),
  ST.supabaseClient.from('provider_branch_photos').select('photo_url').eq('branch_id', branch.id).order('sort_order'),
  ]);
 
- // Galería de fotos de trabajos realizados (06/11, a pedido del usuario:
- // "que quede más vistoso su 'web' en nexobra") -- oculta por completo si
- // el proveedor todavía no subió ninguna, mismo criterio que el resto de
- // las secciones opcionales de esta página (anuncios, matrícula, etc.).
- const photosGalleryHtml = (photoRows || []).length
- ? `<div class="provider-public-photos-grid" style="margin-bottom:14px;">${photoRows.map(p => `<img src="${ST.escapeHtml(p.photo_url)}" alt="Trabajo realizado por ${ST.escapeHtml(provider.business_name)}" loading="lazy">`).join('')}</div>`
- : '';
-
- // Mismo botón compacto que ya se usa en las tarjetas del Directorio
- // (antes era un link de texto más grande, "Contactar por WhatsApp" --
- // pedido del 17/09 para que la página pública tenga la misma estética
- // que el resto de las "fichas" de proveedores).
- // Fallback a contact_phone (17/09): el Directorio ya lo hacía
- // (whatsappDigits = whatsapp_phone || contact_phone), pero acá faltaba
- // -- por eso un proveedor con solo contact_phone cargado (ej. HIDEAR)
- // se veía sin botón de WhatsApp en la página pública.
+ providerPublicState = { slug, branch, provider, offers: offers || [] };
+ const sinDueno = !provider.owner_id;
  const contactPhone = branch.whatsapp_phone || provider.contact_phone;
- // (18/09) Igual que en showBranchDetail: este botón tampoco registraba
- // 'whatsapp_click' -- se había perdido al rediseñar el Directorio. Acá no
- // hay distancia (esta página no depende de la ubicación de quien la ve).
- const whatsappLink = contactPhone
- ? `<a class="btn-action-drawer btn-copy" target="_blank" rel="noopener" style="text-decoration:none;" onclick="window.nexoBraApp.logProviderInteraction(${ST.escAttr(branch.id)}, ${ST.escAttr(branch.provider_id)}, 'whatsapp_click', null, null, null)" href="https://wa.me/${contactPhone.replace(/\D/g, '')}?text=${encodeURIComponent('Hola, te escribo desde tu página de NEXOBRA para consultar precios.')}">WhatsApp</a>`
+ const digits = contactPhone ? contactPhone.replace(/\D/g, '') : '';
+ const ultimaActualizacion = (offers || []).reduce((max, o) => (o.reported_at && (!max || o.reported_at > max)) ? o.reported_at : max, null);
+ const pageUrl = `${window.location.origin}/proveedor/${slug}`;
+
+ const waLink = digits
+ ? `<a class="pp-btn pp-btn-wa" target="_blank" rel="noopener" onclick="window.nexoBraApp.logProviderInteraction(${ST.escAttr(branch.id)}, ${ST.escAttr(branch.provider_id)}, 'whatsapp_click', null, null, null)" href="https://wa.me/${digits}?text=${encodeURIComponent('Hola, te escribo desde tu página de NEXOBRA para pedirte un presupuesto.')}">Pedir presupuesto por WhatsApp</a>`
  : '';
- // (22/09) Le faltaba "text-decoration:none;" -- por eso se veía subrayado
- // (a diferencia del de WhatsApp, que ya lo tenía desde siempre).
- const websiteLink = provider.website_url
- ? `<a class="btn-action-drawer btn-copy" target="_blank" rel="noopener" style="text-decoration:none;" href="${ST.escapeHtml(provider.website_url)}">Sitio web</a>`
+ const telLink = contactPhone ? `<a class="pp-btn" href="tel:${ST.escapeHtml(contactPhone.replace(/[^\d+]/g, ''))}">Llamar</a>` : '';
+ const webLink = provider.website_url ? `<a class="pp-btn" target="_blank" rel="noopener" href="${ST.escapeHtml(provider.website_url)}">Sitio web</a>` : '';
+ const mapsLink = (branch.latitude && branch.longitude)
+ ? `<a class="pp-btn" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(branch.latitude + ',' + branch.longitude)}">Cómo llegar</a>`
+ : (branch.address ? `<a class="pp-btn" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(branch.address + ', ' + branch.locality)}">Cómo llegar</a>` : '');
+ const shareBtn = `<button type="button" class="pp-btn" onclick='window.nexoBraApp.shareProviderPublicPage()'>Compartir</button>`;
+
+ const photosHtml = (photoRows || []).length
+ ? `<section class="pp-card"><h3>Trabajos y local</h3><div class="provider-public-photos-grid">${photoRows.map(p => `<img src="${ST.escapeHtml(p.photo_url)}" alt="Foto de ${ST.escapeHtml(provider.business_name)}" loading="lazy">`).join('')}</div></section>`
  : '';
 
  const keywordsHtml = (keywordRows || []).length
- ? `<div style="display:flex; flex-wrap:wrap; gap:6px; margin: 10px 0;">${keywordRows.map(k => `<span class="provider-keyword-chip">${ST.escapeHtml(k.keyword)}</span>`).join('')}</div>`
+ ? `<div class="pp-keywords">${keywordRows.map(k => `<span class="provider-keyword-chip">${ST.escapeHtml(k.keyword)}</span>`).join('')}</div>`
  : '';
 
- // Sección propia para anuncios/ofertas (17/09, a pedido del usuario) --
- // antes solo se mostraba como un banner arriba de todo que directamente
- // desaparecía si no había un anuncio activo (lo mismo que ya hace
- // renderAnnouncementBanner en el Directorio y en la ficha del mapa,
- // pensado para no ocupar lugar ahí). Acá, en cambio, la página pública
- // tiene un "lugar asignado" fijo para esto, con el mismo tratamiento que
- // la sección de "Lista de precios" de abajo (título + estado vacío).
- const announcementSection = `
- <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border-light);">
- <h4 style="margin-bottom:10px;">Anuncios y ofertas</h4>
- ${announcement ? `
- <div class="provider-announcement-banner">
- <span>${ST.escapeHtml(announcement.message)}</span>
+ const announcementHtml = announcement
+ ? `<div class="provider-announcement-banner pp-announcement"><span>${ST.escapeHtml(announcement.message)}</span><small>Vence el ${new Date(announcement.expires_at).toLocaleDateString('es-AR')}</small></div>`
+ : '';
+
+ const claimBanner = sinDueno ? `
+ <div class="pp-claim">
+ <div>
+ <strong>¿Es tu negocio?</strong>
+ <span>Esta ficha la armó NEXOBRA con precios relevados. Reclamala gratis para actualizar tus precios, sumar fotos y recibir pedidos por WhatsApp.</span>
  </div>
- <p style="font-size:0.72rem; color:var(--text-subtle); margin-top:6px;">Vence el ${new Date(announcement.expires_at).toLocaleDateString('es-AR')}.</p>
- ` : '<p style="font-size:0.85rem; color:var(--text-muted);">Este proveedor no tiene anuncios activos por ahora.</p>'}
+ <button type="button" class="btn-computo" onclick="window.nexoBraApp.openProviderClaim()">Reclamá tu negocio</button>
+ </div>` : '';
+
+ const offersCount = (offers || []).length;
+ container.innerHTML = `
+ <section class="pp-hero">
+ <div class="pp-hero-main">
+ ${provider.logo_url ? `<img src="${ST.escapeHtml(provider.logo_url)}" class="pp-logo" alt="">` : `<div class="pp-logo pp-logo-initials" aria-hidden="true">${ST.escapeHtml(initialsOf(provider.business_name))}</div>`}
+ <div class="pp-hero-text">
+ <h2>${ST.escapeHtml(provider.business_name)}</h2>
+ <div class="pp-meta">${categoryName ? ST.escapeHtml(categoryName) + ' · ' : ''}${ST.escapeHtml(branch.name)} · ${ST.escapeHtml(branch.locality)}</div>
+ <div class="pp-rating">${renderStarRating(ratingData?.avg_rating, ratingData?.review_count)}</div>
+ <div class="pp-badges">
+ ${offersCount ? `<span class="pp-badge">${offersCount} precio${offersCount === 1 ? '' : 's'} cargado${offersCount === 1 ? '' : 's'}</span>` : ''}
+ ${ultimaActualizacion ? `<span class="pp-badge">${ST.escapeHtml(ST.formatOfferAge(ultimaActualizacion).text)}</span>` : ''}
+ ${sinDueno ? '<span class="pp-badge pp-badge-muted">Ficha armada por NEXOBRA</span>' : ''}
+ </div>
+ </div>
+ </div>
+ <div class="pp-actions">${waLink}${telLink}${mapsLink}${webLink}${shareBtn}</div>
+ </section>
+
+ ${claimBanner}
+ ${announcementHtml}
+
+ <div class="pp-layout">
+ <div class="pp-main">
+ <section class="pp-card">
+ <div class="pp-card-head">
+ <h3>Lista de precios</h3>
+ ${offersCount > 6 ? '<input type="search" id="pp-offer-filter" class="form-select" placeholder="Buscar en la lista..." aria-label="Buscar en la lista de precios">' : ''}
+ </div>
+ <p class="pp-note">Precios informados por ${sinDueno ? 'el negocio a NEXOBRA' : 'el proveedor'}, sin impuestos ni flete salvo que se indique. Tocá "Agregar" para sumarlo a tu presupuesto y mandarle el pedido desde ahí.</p>
+ <div id="pp-offer-list" class="pp-offer-list"></div>
+ </section>
+ ${photosHtml}
+ <section class="pp-card" id="provider-public-reviews-section">
+ <h3>Reseñas</h3>
+ <div id="provider-public-reviews-body"><p style="font-size:0.85rem; color:var(--text-muted);">Cargando reseñas...</p></div>
+ </section>
+ </div>
+ <aside class="pp-aside">
+ ${provider.description ? `<section class="pp-card"><h3>Sobre el negocio</h3><p class="pp-desc">${ST.escapeHtml(provider.description)}</p>${keywordsHtml}</section>` : (keywordsHtml ? `<section class="pp-card"><h3>Qué vende</h3>${keywordsHtml}</section>` : '')}
+ <section class="pp-card">
+ <h3>Datos</h3>
+ <ul class="pp-data">
+ ${branch.address ? `<li><span>Dirección</span>${ST.escapeHtml(branch.address)}, ${ST.escapeHtml(branch.locality)}</li>` : `<li><span>Localidad</span>${ST.escapeHtml(branch.locality)}</li>`}
+ ${contactPhone ? `<li><span>Teléfono</span>${ST.escapeHtml(contactPhone)}</li>` : ''}
+ ${provider.contact_email ? `<li><span>Email</span><a href="mailto:${ST.escapeHtml(provider.contact_email)}">${ST.escapeHtml(provider.contact_email)}</a></li>` : ''}
+ ${provider.matricula ? `<li><span>Matrícula</span>${ST.escapeHtml(provider.matricula)}</li>` : ''}
+ </ul>
+ ${branch.business_hours ? `<h4 class="pp-subtitle">Horarios</h4>${renderBusinessHours(branch.business_hours)}` : ''}
+ </section>
+ <section class="pp-card pp-cta">
+ <p>Esta es la página de ${ST.escapeHtml(provider.business_name)} en <strong>NEXOBRA</strong>, el comparador técnico de precios de la construcción.</p>
+ <button type="button" class="btn-action-drawer" onclick="window.nexoBraApp.switchView('providers-directory')">Ver más proveedores</button>
+ ${sinDueno ? '' : '<button type="button" class="link-button" onclick="window.nexoBraApp.startProviderSignup()">¿Tenés un negocio? Sumalo gratis</button>'}
+ </section>
+ </aside>
  </div>
  `;
 
- const catalogRows = (offers || []).map(o => `
- <div class="provider-catalog-row">
- <div class="provider-catalog-row-info">
- <h5>${ST.escapeHtml(o.materials?.denomination) || '(material eliminado)'}</h5>
- <span>${o.brand ? `<strong>${ST.escapeHtml(o.brand)}</strong> · ` : ''}${ST.escapeHtml(o.unit)}</span>
+ renderProviderPublicOffers('');
+ const filterInput = document.getElementById('pp-offer-filter');
+ if (filterInput) filterInput.addEventListener('input', () => renderProviderPublicOffers(filterInput.value));
+
+ loadBranchReviews(branch.id, branch.provider_id, 'provider-public-reviews-body', 'ppr');
+
+ // Si la persona tocó "Reclamá tu negocio" sin cuenta, se registró y volvió: se le abre el formulario.
+ let pendingClaim = null;
+ try { pendingClaim = sessionStorage.getItem('nexobra_claim_slug'); } catch (e) { /* sin storage */ }
+ if (pendingClaim === slug && ST.authState.user && sinDueno) {
+ try { sessionStorage.removeItem('nexobra_claim_slug'); } catch (e) { /* nada */ }
+ openProviderClaim();
+ }
+ }
+
+ function renderProviderPublicOffers(query) {
+ const list = document.getElementById('pp-offer-list');
+ if (!list) return;
+ const q = ST.normalizeText(query || '');
+ const offers = providerPublicState.offers.filter(o => !q || ST.normalizeText(`${o.materials?.denomination || ''} ${o.brand || ''}`).includes(q));
+ if (providerPublicState.offers.length === 0) {
+ list.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Este proveedor todavía no tiene precios cargados. Pedile presupuesto por WhatsApp.</p>';
+ return;
+ }
+ if (offers.length === 0) {
+ list.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Nada coincide con esa búsqueda.</p>';
+ return;
+ }
+ list.innerHTML = offers.map(o => `
+ <div class="pp-offer">
+ <div class="pp-offer-info">
+ <strong>${ST.escapeHtml(o.materials?.denomination || '(material eliminado)')}</strong>
+ <span>${o.brand ? `${ST.escapeHtml(o.brand)} · ` : ''}<span class="stock-badge ${o.stock_status}">${o.stock_status === 'en_stock' ? 'En stock' : o.stock_status === 'a_pedido' ? 'A pedido' : 'Agotado'}</span> ${ST.offerAgeTag(o.reported_at)}</span>
  </div>
- <div class="provider-catalog-row-controls">
- <span class="stock-badge ${o.stock_status}">${o.stock_status === 'en_stock' ? 'En stock' : o.stock_status === 'a_pedido' ? 'A pedido' : 'Agotado'}</span>
+ <div class="pp-offer-price">
  <strong>${ST.formatMoney(o.amount)}</strong>
+ <span>/ ${ST.escapeHtml(o.unit)}</span>
  </div>
+ ${o.material_id ? `<button type="button" class="btn-action-drawer pp-offer-add" onclick="window.nexoBraApp.addProviderPublicOfferToBudget('${ST.escapeHtml(o.id)}')">Agregar</button>` : ''}
  </div>
  `).join('');
+ }
 
- container.innerHTML = `
- <div style="display:flex; align-items:center; gap:14px; margin-bottom:6px;">
- ${provider.logo_url ? `<img src="${ST.escapeHtml(provider.logo_url)}" class="provider-logo-mini" alt="" style="width:56px; height:56px;">` : ''}
- <div>
- <h2 style="margin-bottom:2px;">${ST.escapeHtml(provider.business_name)}</h2>
- <div class="branch-meta">${categoryName ? ST.escapeHtml(categoryName) + ' · ' : ''}${ST.escapeHtml(branch.name)} · ${ST.escapeHtml(branch.locality)}</div>
- </div>
- </div>
- <div style="margin: 6px 0 12px;">${renderStarRating(ratingData?.avg_rating, ratingData?.review_count)}</div>
- ${photosGalleryHtml}
- ${renderBusinessHours(branch.business_hours)}
- ${provider.description ? `<p style="font-size:0.88rem; margin-bottom:14px;">${ST.escapeHtml(provider.description)}</p>` : ''}
- <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">${whatsappLink}${websiteLink}</div>
- ${provider.matricula ? `<p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:8px;">Matrícula: ${ST.escapeHtml(provider.matricula)}</p>` : ''}
- ${keywordsHtml}
- ${announcementSection}
+ /** "Agregar" en la lista de precios de la página del proveedor: suma 1 unidad del material con ESE precio al presupuesto (Calculadora). */
+ export async function addProviderPublicOfferToBudget(offerId) {
+ const o = providerPublicState.offers.find(x => x.id === offerId);
+ const { branch, provider } = providerPublicState;
+ if (!o || !branch) return;
+ const material = (typeof NEXOBRA_DATA !== 'undefined' ? NEXOBRA_DATA : []).find(m => m.id === o.material_id);
+ if (!material) { ST.showToast('Ese material ya no está en el catálogo.'); return; }
+ const mode = o.unit === material.unidadVenta ? 'venta' : 'computo';
+ try {
+ Apu.addCatalogMaterialToBudget(o.material_id, 1, mode, {
+ id: o.id,
+ branch_id: branch.id,
+ amount: o.amount,
+ unit: o.unit,
+ provider_business_name: provider.business_name,
+ provider_branch_name: branch.name,
+ provider_whatsapp: branch.whatsapp_phone || provider.contact_phone || null
+ });
+ } catch (err) { ST.showToast(err.message); return; }
+ if (ST.headerCartCount) ST.headerCartCount.textContent = ST.state.apuBudgetItems.length;
+ ST.logEvent('apu_task_added', `desde la página de ${provider.business_name}`.slice(0, 120));
+ ST.showToast(`Agregado a tu presupuesto: 1 ${o.unit} de ${material.denominacion.substring(0, 28)}. Cambiá la cantidad y mandale el pedido desde "Mi presupuesto".`);
+ }
 
- <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border-light);">
- <h4 style="margin-bottom:10px;">Lista de precios</h4>
- ${catalogRows || '<p style="font-size:0.85rem; color:var(--text-muted);">Este proveedor todavía no cargó materiales.</p>'}
- </div>
+ export function shareProviderPublicPage() {
+ const { slug, provider } = providerPublicState;
+ if (!slug) return;
+ ST.shareOrCopyLink(`${window.location.origin}/proveedor/${slug}`, `${provider.business_name} | NEXOBRA`, `Mirá la lista de precios de ${provider.business_name} en NEXOBRA:`);
+ }
 
- <div id="provider-public-reviews-section" style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border-light);">
- <h4 style="margin-bottom:10px;">Reseñas</h4>
- <div id="provider-public-reviews-body"><p style="font-size:0.85rem; color:var(--text-muted);">Cargando reseñas...</p></div>
- </div>
+ // --- "Reclamá tu negocio" (migración 036) ---
+ export async function openProviderClaim() {
+ const { slug, branch, provider } = providerPublicState;
+ if (!branch) return;
+ const modal = document.getElementById('provider-claim-modal');
+ const backdrop = document.getElementById('provider-claim-backdrop');
+ const body = document.getElementById('provider-claim-body');
+ if (!modal || !backdrop || !body) return;
+ document.getElementById('provider-claim-title').textContent = `Reclamá ${provider.business_name}`;
+ ST.logEvent('provider_cta', `reclamar ${provider.business_name}`.slice(0, 120));
 
- <div style="margin-top:24px; padding:16px; border-radius:var(--radius-md,10px); background:var(--bg-subtle, #f5f5f0); text-align:center;">
- <p style="font-size:0.85rem; margin-bottom:10px;">Esta es la página pública de ${ST.escapeHtml(provider.business_name)} en <strong>NEXOBRA</strong>, el comparador técnico de precios de la construcción.</p>
- <button class="btn-action-drawer" onclick="window.nexoBraApp.switchView('providers-directory')">Ver más proveedores cerca tuyo</button>
- </div>
- `;
+ if (!ST.authState.user) {
+ try { sessionStorage.setItem('nexobra_claim_slug', slug); } catch (e) { /* sin storage */ }
+ body.innerHTML = `
+ <p class="pp-claim-text">Para reclamar la ficha necesitás una cuenta de NEXOBRA (gratis). Creala con el mail del negocio y volvé a esta página: te vamos a pedir tu nombre y un teléfono para confirmar que sos vos.</p>
+ <div class="pp-claim-buttons">
+ <button type="button" class="btn-computo" onclick="window.nexoBraApp.claimGoToAuth('register')">Crear mi cuenta</button>
+ <button type="button" class="btn-action-drawer" onclick="window.nexoBraApp.claimGoToAuth('login')">Ya tengo cuenta</button>
+ </div>`;
+ } else {
+ const { data: mine } = await ST.supabaseClient.from('provider_claims').select('id, status').eq('provider_id', branch.provider_id).eq('user_id', ST.authState.user.id).order('created_at', { ascending: false }).limit(1);
+ const last = mine && mine[0];
+ if (last && last.status === 'pending') {
+ body.innerHTML = '<p class="pp-claim-text">Ya recibimos tu pedido para esta ficha. Te vamos a contactar al teléfono que dejaste para confirmarlo; cuando lo aprobemos, la vas a administrar desde "Mi Proveedor".</p>';
+ } else {
+ body.innerHTML = `
+ <form id="provider-claim-form" class="pp-claim-form">
+ <label>Tu nombre y apellido<input type="text" id="claim-name" class="form-select" required maxlength="120" value="${ST.escapeHtml(ST.authState.profile?.full_name || '')}"></label>
+ <label>Teléfono (te llamamos para confirmar)<input type="tel" id="claim-phone" class="form-select" required maxlength="40" placeholder="Ej: 3755 123456"></label>
+ <label>¿Qué sos en el negocio?
+ <select id="claim-role" class="form-select"><option>Dueño/a</option><option>Encargado/a</option><option>Empleado/a</option><option>Otro</option></select>
+ </label>
+ <label>Algo que quieras contarnos (opcional)<textarea id="claim-message" class="form-select" rows="2" maxlength="500"></textarea></label>
+ <button type="submit" class="btn-computo">Enviar pedido</button>
+ </form>`;
+ document.getElementById('provider-claim-form').addEventListener('submit', submitProviderClaim);
+ }
+ }
+ modal.classList.add('open');
+ backdrop.classList.add('open');
+ document.body.style.overflow = 'hidden';
+ }
 
- // (22/09) Reseñas de esta sucursal -- reusa la misma lógica de
- // loadBranchReviews/setReviewStars/submitReview que ya usa la ficha del
- // mapa (ver esas funciones más arriba), pero con ids propios
- // ('provider-public-reviews-body' / prefijo 'ppr') para no chocar con
- // los ids fijos de la ficha del mapa (branch-reviews-body / review-*),
- // que conviven en el mismo DOM aunque estén ocultos -- ver advertencia
- // #20. A diferencia de la ficha del mapa (que las carga recién al
- // tocar "Ver / dejar una reseña", para no gastar una consulta de más
- // mientras se navega el mapa), acá se cargan directo: esta es una
- // página dedicada a un solo proveedor, tiene sentido mostrarlas de una.
- loadBranchReviews(branch.id, branch.provider_id, 'provider-public-reviews-body', 'ppr');
+ export function closeProviderClaim() {
+ document.getElementById('provider-claim-modal')?.classList.remove('open');
+ document.getElementById('provider-claim-backdrop')?.classList.remove('open');
+ document.body.style.overflow = '';
+ }
+
+ export function claimGoToAuth(tab) {
+ closeProviderClaim();
+ Auth.showAuthTab(tab === 'login' ? 'login' : 'register');
+ if (tab !== 'login') {
+ const radio = document.querySelector('input[name="register-role"][value="provider"]');
+ if (radio) radio.checked = true;
+ }
+ Auth.openAuthModal();
+ }
+
+ async function submitProviderClaim(e) {
+ e.preventDefault();
+ const { branch } = providerPublicState;
+ const name = document.getElementById('claim-name').value.trim();
+ const phone = document.getElementById('claim-phone').value.trim();
+ if (name.length < 2 || phone.replace(/\D/g, '').length < 6) { ST.showToast('Completá tu nombre y un teléfono válido.'); return; }
+ const btn = e.target.querySelector('button[type="submit"]');
+ if (btn) btn.disabled = true;
+ const { error } = await ST.supabaseClient.from('provider_claims').insert({
+ provider_id: branch.provider_id,
+ branch_id: branch.id,
+ user_id: ST.authState.user.id,
+ contact_name: name,
+ contact_phone: phone,
+ role_in_business: document.getElementById('claim-role').value,
+ message: document.getElementById('claim-message').value.trim() || null
+ });
+ if (btn) btn.disabled = false;
+ if (error) {
+ console.error('[NEXOBRA] reclamo de proveedor:', error);
+ ST.showToast(error.code === '23505' ? 'Ya tenés un pedido pendiente para esta ficha.' : 'No se pudo enviar el pedido. Probá de nuevo en un rato.');
+ return;
+ }
+ document.getElementById('provider-claim-body').innerHTML = '<p class="pp-claim-text"><strong>¡Listo!</strong> Recibimos tu pedido. Te vamos a llamar para confirmarlo y, apenas lo aprobemos, vas a poder administrar la ficha desde "Mi Proveedor".</p>';
+ }
+
+ /** Después de iniciar sesión: si la persona venía de "Reclamá tu negocio" y sigue en esa página, se le abre el formulario. */
+ export function resumePendingProviderClaim() {
+ let pending = null;
+ try { pending = sessionStorage.getItem('nexobra_claim_slug'); } catch (e) { return; }
+ if (!pending || !ST.authState.user || providerPublicState.slug !== pending || ST.state.currentView !== 'provider-public') return;
+ try { sessionStorage.removeItem('nexobra_claim_slug'); } catch (e) { /* nada */ }
+ openProviderClaim();
  }

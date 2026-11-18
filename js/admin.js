@@ -849,6 +849,20 @@ export function setupAdminListeners() {
  const btnAddProvKeyword = document.getElementById('btn-admin-add-prov-keyword');
 
  if (provManageSearch) provManageSearch.addEventListener('input', () => renderAdminProviderList());
+ const btnSurveyCopy = document.getElementById('btn-admin-survey-copy');
+ if (btnSurveyCopy) btnSurveyCopy.addEventListener('click', copySurveyRequest);
+ const btnSurveyXlsx = document.getElementById('btn-admin-survey-xlsx');
+ if (btnSurveyXlsx) btnSurveyXlsx.addEventListener('click', downloadSurveyXlsx);
+ const btnSurveyRefresh = document.getElementById('btn-admin-survey-refresh');
+ if (btnSurveyRefresh) btnSurveyRefresh.addEventListener('click', loadAdminSurvey);
+ const surveySearch = document.getElementById('admin-survey-search');
+ if (surveySearch) surveySearch.addEventListener('input', renderSurveySearch);
+ const btnSurveyLoad = document.getElementById('btn-admin-survey-load');
+ if (btnSurveyLoad) btnSurveyLoad.addEventListener('click', loadSurveyEntry);
+ const btnSurveySave = document.getElementById('btn-admin-survey-save');
+ if (btnSurveySave) btnSurveySave.addEventListener('click', saveSurveyEntry);
+ const surveyDate = document.getElementById('admin-survey-date');
+ if (surveyDate && !surveyDate.value) surveyDate.value = new Date().toISOString().slice(0, 10);
  const btnAdminDiagnostics = document.getElementById('btn-admin-diagnostics');
  if (btnAdminDiagnostics) btnAdminDiagnostics.addEventListener('click', runAdminDiagnostics);
  const adminProvExcelInput = document.getElementById('admin-prov-excel-input');
@@ -937,6 +951,8 @@ export function setupAdminListeners() {
 
 export function loadAdminPanel() {
  loadAdminDashboard();
+ loadAdminSurvey();
+ loadAdminProviderClaims();
  loadMaterialsBrowse(true);
  loadAdminProviderList();
  loadPendingProviders();
@@ -945,6 +961,284 @@ export function loadAdminPanel() {
  loadTechSuggestions();
  loadReportedReviews();
  loadAdminApuTasks();
+}
+
+// ============================================================
+// (18/11) Relevamiento de precios en corralones (canasta, migración 037)
+// ============================================================
+
+let surveyState = { items: [], loaded: false, offers: [] };
+
+function surveyMaterial(id) {
+ return (typeof NEXOBRA_DATA !== 'undefined' ? NEXOBRA_DATA : []).find(m => m.id === id) || null;
+}
+
+/** Precio de una oferta llevado a unidad de compra del material (si estaba por unidad de cómputo, × envase). */
+function offerPerSaleUnit(offer, material) {
+ const amount = Number(offer.amount);
+ if (!material) return amount;
+ const envase = Number(material.envase) || 1;
+ if (offer.unit === material.unidadVenta || material.unidadVenta === material.unidadComputo) return amount;
+ if (offer.unit === material.unidadComputo) return amount * envase;
+ return amount;
+}
+
+function median(values) {
+ const v = [...values].sort((a, b) => a - b);
+ if (!v.length) return null;
+ const mid = Math.floor(v.length / 2);
+ return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+}
+
+export async function loadAdminSurvey() {
+ const summary = document.getElementById('admin-survey-summary');
+ if (!summary) return;
+ summary.innerHTML = '<p class="admin-dash-empty">Cargando...</p>';
+ const { data, error } = await ST.supabaseClient.from('price_survey_items').select('material_id, sort_order, active').eq('active', true).order('sort_order');
+ if (error) {
+ summary.innerHTML = /price_survey_items|does not exist|schema cache/i.test(error.message || '')
+ ? '<p class="admin-dash-empty">Falta correr la migración 037 en Supabase.</p>'
+ : `<p class="admin-dash-empty">${ST.escapeHtml(error.message)}</p>`;
+ return;
+ }
+ surveyState.items = data || [];
+ surveyState.loaded = true;
+ const ids = surveyState.items.map(i => i.material_id);
+ let offers = [];
+ if (ids.length) {
+ const since = new Date(Date.now() - 60 * 86400000).toISOString();
+ const { data: off } = await ST.supabaseClient.from('provider_offers')
+ .select('material_id, amount, unit, reported_at, branch_id, provider_branches(name, providers(business_name))')
+ .in('material_id', ids).eq('status', 'approved').gte('reported_at', since);
+ offers = off || [];
+ }
+ surveyState.offers = offers;
+ renderAdminSurveySummary();
+}
+
+function renderAdminSurveySummary() {
+ const summary = document.getElementById('admin-survey-summary');
+ if (!summary) return;
+ if (!surveyState.items.length) { summary.innerHTML = '<p class="admin-dash-empty">La canasta está vacía. Sumá materiales en "Editar la canasta".</p>'; return; }
+ const proveedores = new Set(surveyState.offers.map(o => o.branch_id));
+ const rows = surveyState.items.map(it => {
+ const m = surveyMaterial(it.material_id);
+ const precios = surveyState.offers.filter(o => o.material_id === it.material_id).map(o => offerPerSaleUnit(o, m));
+ return { it, m, precios, n: new Set(surveyState.offers.filter(o => o.material_id === it.material_id).map(o => o.branch_id)).size };
+ });
+ summary.innerHTML = `
+ <p class="admin-dash-note"><strong>${surveyState.items.length}</strong> materiales en la canasta · <strong>${proveedores.size}</strong> corralón${proveedores.size === 1 ? '' : 'es'} con precios de los últimos 60 días.</p>
+ <div class="table-view-container">
+ <table class="materials-table admin-survey-table">
+ <thead><tr><th>Material</th><th>Unidad</th><th>Corralones</th><th style="text-align:right;">Mínimo</th><th style="text-align:right;">Típico</th><th style="text-align:right;">Máximo</th><th></th></tr></thead>
+ <tbody>
+ ${rows.map(({ it, m, precios, n }) => `
+ <tr>
+ <td>${m ? ST.escapeHtml(m.denominacion) : `<em>${ST.escapeHtml(it.material_id)} (no está en el catálogo)</em>`}</td>
+ <td>${m ? ST.escapeHtml(m.unidadVenta || '') : ''}</td>
+ <td>${n || '<span class="admin-dash-empty">0</span>'}</td>
+ <td style="text-align:right;">${precios.length ? ST.formatMoney(Math.min(...precios)) : '—'}</td>
+ <td style="text-align:right;">${precios.length ? ST.formatMoney(median(precios)) : '—'}</td>
+ <td style="text-align:right;">${precios.length ? ST.formatMoney(Math.max(...precios)) : '—'}</td>
+ <td><button type="button" class="admin-apu-delete" title="Sacar de la canasta" onclick="window.nexoBraApp.removeSurveyItem('${ST.escapeHtml(it.material_id)}')">Sacar</button></td>
+ </tr>`).join('')}
+ </tbody>
+ </table>
+ </div>`;
+}
+
+function surveyRequestText() {
+ let text = 'Hola! Te escribo de NEXOBRA (nexoobra.com.ar). Estamos armando una comparación de precios de materiales en Oberá. ¿Me pasarías tu precio de contado de estos materiales?\n\n';
+ surveyState.items.forEach(it => {
+ const m = surveyMaterial(it.material_id);
+ if (m) text += `• ${m.denominacion} — por ${m.unidadVenta}\n`;
+ });
+ text += '\nCon tus precios armamos gratis la página de tu negocio en NEXOBRA, para que te lleguen pedidos por WhatsApp. ¡Gracias!';
+ return text;
+}
+
+async function copySurveyRequest() {
+ if (!surveyState.loaded) await loadAdminSurvey();
+ const text = surveyRequestText();
+ try {
+ await navigator.clipboard.writeText(text);
+ ST.showToast('Pedido copiado: pegalo en el WhatsApp del corralón.');
+ } catch (err) {
+ ST.showToast('No se pudo copiar automáticamente.');
+ }
+}
+
+async function downloadSurveyXlsx() {
+ if (!surveyState.loaded) await loadAdminSurvey();
+ try { await ST.ensureXlsxLoaded(); } catch (err) { ST.showToast(err.message); return; }
+ // Mismas columnas que entiende la importación por Excel (Gestionar proveedores y Mi Proveedor).
+ const rows = [['SKU', 'Nombre', 'Unidad', 'Precio', 'Stock']];
+ surveyState.items.forEach(it => {
+ const m = surveyMaterial(it.material_id);
+ if (m) rows.push([m.id, m.denominacion, m.unidadVenta, '', 'En stock']);
+ });
+ const ws = XLSX.utils.aoa_to_sheet(rows);
+ ws['!cols'] = [{ wch: 12 }, { wch: 52 }, { wch: 12 }, { wch: 14 }, { wch: 12 }];
+ const wb = XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb, ws, 'Precios');
+ XLSX.writeFile(wb, 'Relevamiento_precios_NEXOBRA.xlsx');
+}
+
+export async function removeSurveyItem(materialId) {
+ const m = surveyMaterial(materialId);
+ if (!confirm(`¿Sacar "${m ? m.denominacion : materialId}" de la canasta?`)) return;
+ const { error } = await ST.supabaseClient.from('price_survey_items').delete().eq('material_id', materialId);
+ if (error) { ST.showToast('No se pudo: ' + error.message); return; }
+ await loadAdminSurvey();
+}
+
+export async function addSurveyItem(materialId) {
+ const maxOrder = surveyState.items.reduce((mx, i) => Math.max(mx, i.sort_order || 0), 0);
+ const { error } = await ST.supabaseClient.from('price_survey_items').upsert({ material_id: materialId, sort_order: maxOrder + 10, active: true });
+ if (error) { ST.showToast('No se pudo: ' + error.message); return; }
+ document.getElementById('admin-survey-search').value = '';
+ document.getElementById('admin-survey-search-results').innerHTML = '';
+ ST.showToast('Sumado a la canasta.');
+ await loadAdminSurvey();
+}
+
+function renderSurveySearch() {
+ const q = document.getElementById('admin-survey-search').value.trim();
+ const el = document.getElementById('admin-survey-search-results');
+ if (q.length < 2) { el.innerHTML = ''; return; }
+ const inBasket = new Set(surveyState.items.map(i => i.material_id));
+ const results = Provider.searchMaterialsSimple(q).filter(m => !inBasket.has(m.id)).slice(0, 12);
+ el.innerHTML = results.length ? results.map(m => `
+ <div class="provider-search-row">
+ <div class="provider-search-row-info"><strong>${ST.escapeHtml(m.denominacion)}</strong><br><span style="color:var(--text-muted); font-size:0.75rem;">${m.id} · por ${ST.escapeHtml(m.unidadVenta || '')}</span></div>
+ <div class="provider-search-row-controls"><button type="button" class="btn-action-drawer" onclick="window.nexoBraApp.addSurveyItem('${ST.escapeHtml(m.id)}')">Sumar</button></div>
+ </div>`).join('') : '<p class="admin-dash-empty">Sin resultados (o ya están en la canasta).</p>';
+}
+
+// --- Carga de precios del relevamiento para el proveedor abierto en "Gestionar proveedores" ---
+async function loadSurveyEntry() {
+ const branch = adminState.manageSelectedBranch;
+ const container = document.getElementById('admin-survey-entry');
+ const btn = document.getElementById('btn-admin-survey-save');
+ if (!container) return;
+ if (!branch) { container.innerHTML = '<p class="admin-dash-empty">Guardá primero los datos comerciales (sucursal) arriba.</p>'; return; }
+ if (!surveyState.loaded) await loadAdminSurvey();
+ const { data: existentes } = await ST.supabaseClient.from('provider_offers').select('id, material_id, amount, unit, stock_status, price_kind').eq('branch_id', branch.id).in('material_id', surveyState.items.map(i => i.material_id));
+ const byMat = new Map((existentes || []).filter(o => o.price_kind === 'sale').map(o => [o.material_id, o]));
+ container.innerHTML = surveyState.items.map(it => {
+ const m = surveyMaterial(it.material_id);
+ if (!m) return '';
+ const ex = byMat.get(m.id);
+ return `
+ <div class="admin-survey-row" data-material="${ST.escapeHtml(m.id)}">
+ <span class="admin-survey-name">${ST.escapeHtml(m.denominacion)}</span>
+ <label class="admin-survey-price">$ <input type="text" inputmode="decimal" class="form-select" placeholder="${ex ? '' : 'sin precio'}" value="${ex ? String(ex.amount).replace('.', ',') : ''}" aria-label="Precio de ${ST.escapeHtml(m.denominacion)}"> <small>/ ${ST.escapeHtml(m.unidadVenta || '')}</small></label>
+ <select class="form-select admin-survey-stock" aria-label="Stock">
+ <option value="en_stock" ${!ex || ex.stock_status === 'en_stock' ? 'selected' : ''}>En stock</option>
+ <option value="a_pedido" ${ex && ex.stock_status === 'a_pedido' ? 'selected' : ''}>A pedido</option>
+ <option value="agotado" ${ex && ex.stock_status === 'agotado' ? 'selected' : ''}>Agotado</option>
+ </select>
+ </div>`;
+ }).join('');
+ if (btn) btn.style.display = '';
+}
+
+async function saveSurveyEntry() {
+ const branch = adminState.manageSelectedBranch;
+ if (!branch) return;
+ const dateVal = document.getElementById('admin-survey-date').value;
+ const reportedAt = dateVal ? new Date(dateVal + 'T12:00:00').toISOString() : new Date().toISOString();
+ const rows = [...document.querySelectorAll('#admin-survey-entry .admin-survey-row')].map(r => ({
+ material_id: r.dataset.material,
+ price: ST.parseLocaleNumber(r.querySelector('input').value),
+ stock: r.querySelector('select').value
+ })).filter(r => r.price > 0);
+ if (!rows.length) { ST.showToast('No cargaste ningún precio.'); return; }
+ const btn = document.getElementById('btn-admin-survey-save');
+ if (btn) btn.disabled = true;
+ try {
+ const { data: existentes, error: exErr } = await ST.supabaseClient.from('provider_offers').select('id, material_id, price_kind').eq('branch_id', branch.id).in('material_id', rows.map(r => r.material_id));
+ if (exErr) throw exErr;
+ const byMat = new Map((existentes || []).filter(o => o.price_kind === 'sale').map(o => [o.material_id, o.id]));
+ const now = new Date().toISOString();
+ const inserts = [];
+ let actualizados = 0;
+ for (const r of rows) {
+ const m = surveyMaterial(r.material_id);
+ const fields = { amount: r.price, unit: m ? m.unidadVenta : null, stock_status: r.stock, status: 'approved', approved_at: now, reported_at: reportedAt };
+ if (byMat.has(r.material_id)) {
+ const { error } = await ST.supabaseClient.from('provider_offers').update(fields).eq('id', byMat.get(r.material_id));
+ if (!error) actualizados++;
+ } else {
+ inserts.push({ branch_id: branch.id, material_id: r.material_id, price_kind: 'sale', ...fields });
+ }
+ }
+ if (inserts.length) {
+ const { error } = await ST.supabaseClient.from('provider_offers').insert(inserts);
+ if (error) throw error;
+ }
+ ST.showToast(`Relevamiento guardado: ${inserts.length} precios nuevos y ${actualizados} actualizados.`);
+ loadAdminProviderCatalog();
+ loadAdminSurvey();
+ } catch (err) {
+ ST.showToast('No se pudo guardar: ' + err.message);
+ } finally {
+ if (btn) btn.disabled = false;
+ }
+}
+
+function resetSurveyEntry() {
+ const container = document.getElementById('admin-survey-entry');
+ const btn = document.getElementById('btn-admin-survey-save');
+ if (container) container.innerHTML = '';
+ if (btn) btn.style.display = 'none';
+ const date = document.getElementById('admin-survey-date');
+ if (date) date.value = new Date().toISOString().slice(0, 10);
+}
+
+// ============================================================
+// (18/11) Reclamos de fichas ("Reclamá tu negocio", migración 036)
+// ============================================================
+
+export async function loadAdminProviderClaims() {
+ const container = document.getElementById('admin-provider-claims');
+ if (!container) return;
+ container.innerHTML = '<p class="admin-dash-empty">Cargando...</p>';
+ const { data, error } = await ST.supabaseClient.rpc('admin_list_provider_claims', { p_status: 'pending' });
+ if (error) {
+ container.innerHTML = /admin_list_provider_claims|does not exist|schema cache/i.test(error.message || '')
+ ? '<p class="admin-dash-empty">Falta correr la migración 036 en Supabase.</p>'
+ : `<p class="admin-dash-empty">${ST.escapeHtml(error.message)}</p>`;
+ return;
+ }
+ if (!data || data.length === 0) {
+ container.innerHTML = '<p class="admin-dash-empty">No hay reclamos pendientes.</p>';
+ return;
+ }
+ container.innerHTML = data.map(c => `
+ <div class="computation-row">
+ <div class="computation-row-info">
+ <h4>${ST.escapeHtml(c.business_name)}${c.branch_name ? ' · ' + ST.escapeHtml(c.branch_name) : ''}</h4>
+ <span>${ST.escapeHtml(c.contact_name)} (${ST.escapeHtml(c.role_in_business || 'sin rol')}) · <a href="tel:${ST.escapeHtml((c.contact_phone || '').replace(/[^\d+]/g, ''))}">${ST.escapeHtml(c.contact_phone)}</a> · cuenta ${ST.escapeHtml(c.user_email || '')}</span>
+ <span>Pedido el ${new Date(c.created_at).toLocaleDateString('es-AR')}${c.branch_slug ? ` · <a href="/proveedor/${ST.escapeHtml(c.branch_slug)}" target="_blank" rel="noopener">ver ficha</a>` : ''}${c.provider_owner_id ? ' · <strong>la ficha ya tiene dueño</strong>' : ''}</span>
+ ${c.message ? `<span style="font-style:italic;">"${ST.escapeHtml(c.message)}"</span>` : ''}
+ </div>
+ <div class="computation-row-actions">
+ <button onclick="window.nexoBraApp.resolveProviderClaim('${c.id}', true)" ${c.provider_owner_id ? 'disabled' : ''}>Aprobar</button>
+ <button class="danger" onclick="window.nexoBraApp.resolveProviderClaim('${c.id}', false)">Rechazar</button>
+ </div>
+ </div>`).join('');
+}
+
+export async function resolveProviderClaim(claimId, approve) {
+ if (!confirm(approve
+ ? '¿Aprobar el reclamo? La ficha pasa a esa cuenta, con todos sus precios, y se convierte en proveedor. ¿Ya confirmaste por teléfono que es del negocio?'
+ : '¿Rechazar este reclamo?')) return;
+ const { error } = await ST.supabaseClient.rpc('admin_resolve_provider_claim', { p_claim_id: claimId, p_approve: approve });
+ if (error) { ST.showToast('No se pudo: ' + error.message); return; }
+ ST.showToast(approve ? 'Reclamo aprobado: la ficha ya es de esa cuenta.' : 'Reclamo rechazado.');
+ loadAdminProviderClaims();
+ loadAdminProviderList();
 }
 
 // ============================================================
@@ -1629,6 +1923,7 @@ async function runAdminDiagnostics() {
 let adminProvExcelPending = [];
 
 function resetAdminProvExcel() {
+ resetSurveyEntry();
  adminProvExcelPending = [];
  const preview = document.getElementById('admin-prov-excel-preview');
  const input = document.getElementById('admin-prov-excel-input');
