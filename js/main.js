@@ -74,6 +74,7 @@ import * as ST from './state.js';
  guide: '/guia-de-uso',
  contact: '/contacto',
  'providers-directory': '/proveedores',
+ 'costo-m2': '/costo-m2',
  };
  const PATH_TO_VIEW = Object.fromEntries(Object.entries(VIEW_ROUTES).map(([view, path]) => [path, view]));
 
@@ -83,9 +84,9 @@ import * as ST from './state.js';
  home: 'NEXOBRA | Comparador técnico de precios para la construcción',
  catalog: 'Catálogo de materiales de construcción con precios de referencia | NEXOBRA',
  labor: 'Mano de obra UOCRA: valor de la hora por categoría | NEXOBRA',
- 'my-computations': 'Mis cómputos | NEXOBRA',
+ 'my-computations': 'Listas anteriores (Mi Cómputo) | NEXOBRA',
  apu: 'Calculadora de Obra: presupuesto por tareas con análisis de precios | NEXOBRA',
- 'my-apu-budgets': 'Mis presupuestos de obra | NEXOBRA',
+ 'my-apu-budgets': 'Mis presupuestos | NEXOBRA',
  provider: 'Panel de proveedor | NEXOBRA',
  favorites: 'Favoritos | NEXOBRA',
  alerts: 'Alertas | NEXOBRA',
@@ -94,6 +95,19 @@ import * as ST from './state.js';
  guide: 'Guía de uso | NEXOBRA',
  contact: 'Contacto | NEXOBRA',
  'providers-directory': 'Proveedores de materiales de construcción | NEXOBRA',
+ 'costo-m2': 'Costo por m² de construcción (próximamente) | NEXOBRA',
+ };
+
+ // (17/11) Menú de 4 entradas: qué botón del menú queda marcado en cada vista
+ // (data-nav en index.html). Precios agrupa materiales y mano de obra.
+ const VIEW_NAV = {
+ home: ['home'],
+ catalog: ['precios', 'precios-materiales'],
+ labor: ['precios', 'precios-mano-obra'],
+ apu: ['apu'], 'my-apu-budgets': ['apu'], 'my-computations': ['apu'],
+ 'providers-directory': ['proveedores'], 'provider-public': ['proveedores'],
+ 'costo-m2': ['costo-m2'],
+ about: ['about'], guide: ['guide'], contact: ['contact'],
  };
  const MATERIAL_PATH_RE = /^\/material\/([A-Za-z]+-\d+)(?:-[a-z0-9-]*)?\/?$/;
  const PROVIDER_PATH_RE = /^\/proveedor\/([a-z0-9-]+)\/?$/i;
@@ -140,39 +154,21 @@ import * as ST from './state.js';
  if (directoryViewEl) directoryViewEl.style.display = viewName === 'providers-directory' ? 'block' : 'none';
  const providerPublicViewEl = document.getElementById('provider-public-view');
  if (providerPublicViewEl) providerPublicViewEl.style.display = viewName === 'provider-public' ? 'block' : 'none';
+ const costoM2ViewEl = document.getElementById('costo-m2-view');
+ if (costoM2ViewEl) costoM2ViewEl.style.display = viewName === 'costo-m2' ? 'block' : 'none';
  if (viewName === 'providers-directory') {
  MapModule.loadDirectoryCategories();
  MapModule.loadProvidersDirectory();
  MapModule.loadCategoryAlertIds().then(() =>MapModule.updateCategoryAlertButton());
  }
 
- ST.navBtnCatalogo.classList.toggle('active', viewName === 'catalog');
- if (ST.navBtnManoObra) ST.navBtnManoObra.classList.toggle('active', viewName === 'labor');
- const navBtnQuienesSomosEl = document.getElementById('nav-btn-quienes-somos');
- if (navBtnQuienesSomosEl) navBtnQuienesSomosEl.classList.toggle('active', viewName === 'about');
- const navBtnGuiaEl = document.getElementById('nav-btn-guia');
- if (navBtnGuiaEl) navBtnGuiaEl.classList.toggle('active', viewName === 'guide');
- const navBtnContactoEl = document.getElementById('nav-btn-contacto');
- if (navBtnContactoEl) navBtnContactoEl.classList.toggle('active', viewName === 'contact');
- const navBtnProveedoresEl = document.getElementById('nav-btn-proveedores');
- if (navBtnProveedoresEl) navBtnProveedoresEl.classList.toggle('active', viewName === 'providers-directory');
- const navBtnApuEl = document.getElementById('nav-btn-apu');
- if (navBtnApuEl) navBtnApuEl.classList.toggle('active', viewName === 'apu' || viewName === 'my-apu-budgets');
-
- const mHome = document.getElementById('mobile-nav-btn-home');
- const mCatalogo = document.getElementById('mobile-nav-btn-catalogo');
- const mManoObra = document.getElementById('mobile-nav-btn-manoobra');
- const mQuienesSomos = document.getElementById('mobile-nav-btn-quienes-somos');
- const mGuia = document.getElementById('mobile-nav-btn-guia');
- const mContacto = document.getElementById('mobile-nav-btn-contacto');
- if (mHome) mHome.classList.toggle('active', viewName === 'home');
- if (mCatalogo) mCatalogo.classList.toggle('active', viewName === 'catalog');
- if (mManoObra) mManoObra.classList.toggle('active', viewName === 'labor');
- if (mQuienesSomos) mQuienesSomos.classList.toggle('active', viewName === 'about');
- if (mGuia) mGuia.classList.toggle('active', viewName === 'guide');
- if (mContacto) mContacto.classList.toggle('active', viewName === 'contact');
- const mApu = document.getElementById('mobile-nav-btn-apu');
- if (mApu) mApu.classList.toggle('active', viewName === 'apu' || viewName === 'my-apu-budgets');
+ const navKeys = VIEW_NAV[viewName] || [];
+ document.querySelectorAll('[data-nav]').forEach(btn => btn.classList.toggle('active', navKeys.includes(btn.dataset.nav)));
+ document.querySelectorAll('.precios-tab').forEach(tab => {
+ const on = tab.dataset.gotoView === viewName;
+ tab.classList.toggle('active', on);
+ tab.setAttribute('aria-selected', on ? 'true' : 'false');
+ });
 
  if (viewName === 'catalog') {
  if (rubroFilter) {
@@ -215,6 +211,7 @@ import * as ST from './state.js';
  // que corre dentro de updateApuBudgetUI más abajo).
  Apu.loadApuCatalog().then(() => {
  Apu.renderTaskResults(ST.apuTaskSearch ? ST.apuTaskSearch.value : '');
+ Apu.renderApuDirectLaborOptions();
  // Si ya había tareas en el carrito (localStorage) de una sesión
  // anterior, sus precios dependen del catálogo de APU recién cargado
  // -- se vuelve a pintar una vez que está listo (antes de esto puede
@@ -369,6 +366,9 @@ import * as ST from './state.js';
  Catalog.renderRubroPills();
  Catalog.renderProducts();
  Computo.updateCartUI();
+ if (ST.headerCartCount) ST.headerCartCount.textContent = ST.state.apuBudgetItems.length;
+ // (17/11) Lo que haya quedado en el carrito viejo de Mi Cómputo pasa a la Calculadora (una sola vez).
+ if ((ST.state.computoCart || []).length) Computo.migrateLegacyCartToCalculator().catch(err => console.warn('[NEXOBRA] migración de Mi Cómputo:', err));
  Pricing.updateReferenceStatus();
  Pricing.loadCatalogFromSupabase();
  Promise.all([Pricing.loadIndexSeries(), Pricing.loadLaborSeries()]).then(() => {
@@ -424,7 +424,7 @@ import * as ST from './state.js';
  const navBtnProveedores = document.getElementById('nav-btn-proveedores');
  if (navBtnProveedores) navBtnProveedores.addEventListener('click', () => switchView('providers-directory'));
  const mobileNavBtnProveedores = document.getElementById('mobile-nav-btn-proveedores');
- if (mobileNavBtnProveedores) mobileNavBtnProveedores.addEventListener('click', () => switchView('providers-directory'));
+ if (mobileNavBtnProveedores) mobileNavBtnProveedores.addEventListener('click', () => { closeMobileMenuPanel(); switchView('providers-directory'); });
 
  const btnDirectoryUseLocation = document.getElementById('btn-directory-use-location');
  if (btnDirectoryUseLocation) btnDirectoryUseLocation.addEventListener('click', MapModule.requestDirectoryUserLocation);
@@ -447,6 +447,30 @@ import * as ST from './state.js';
  if (navBtnQuienesSomos) navBtnQuienesSomos.addEventListener('click', () => switchView('about'));
  const navBtnGuia = document.getElementById('nav-btn-guia');
  if (navBtnGuia) navBtnGuia.addEventListener('click', () => switchView('guide'));
+
+ // (17/11) Cualquier botón con data-goto-view="<vista>" (pestañas de Precios,
+ // pie de página, Costo por m², etc.) lleva a esa vista. Si está adentro del
+ // menú del celular, además lo cierra.
+ document.querySelectorAll('[data-goto-view]').forEach(btn => btn.addEventListener('click', () => {
+ const view = btn.dataset.gotoView;
+ if (view === 'catalog') switchView('catalog', 'Todos', '');
+ else switchView(view);
+ if (btn.closest('#mobile-menu-panel')) closeMobileMenuPanel();
+ window.scrollTo({ top: 0 });
+ }));
+ function closeMobileMenuPanel() {
+ document.getElementById('mobile-menu-panel')?.classList.remove('open');
+ document.getElementById('mobile-menu-backdrop')?.classList.remove('open');
+ document.body.style.overflow = '';
+ }
+ ['btn-sumate-negocio', 'mobile-nav-btn-sumate', 'footer-btn-sumate'].forEach(id => {
+ const el = document.getElementById(id);
+ if (el) el.addEventListener('click', () => { closeMobileMenuPanel(); Auth.startProviderSignup(); });
+ });
+ const apuDirectLaborRole = document.getElementById('apu-direct-labor-role');
+ if (apuDirectLaborRole) apuDirectLaborRole.addEventListener('change', Apu.updateApuDirectLaborUnit);
+ const btnApuAddDirectLabor = document.getElementById('btn-apu-add-direct-labor');
+ if (btnApuAddDirectLabor) btnApuAddDirectLabor.addEventListener('click', Apu.addApuDirectLaborFromPanel);
 
  // Contacto: lleva al home y hace scroll a la sección de contacto (no abre mailto directo).
  function goToContact() {
@@ -515,7 +539,7 @@ import * as ST from './state.js';
  const btnMethodologyFromMap = document.getElementById('btn-methodology-from-map');
  if (btnMethodologyFromMap) btnMethodologyFromMap.addEventListener('click', () => switchView('about'));
  const btnStartComputoHome = document.getElementById('btn-start-computo-home');
- if (btnStartComputoHome) btnStartComputoHome.addEventListener('click', () =>Computo.openDrawer());
+ if (btnStartComputoHome) btnStartComputoHome.addEventListener('click', () => switchView('apu'));
  const btnStartApuHome = document.getElementById('btn-start-apu-home');
  if (btnStartApuHome) btnStartApuHome.addEventListener('click', () => switchView('apu'));
 
@@ -598,8 +622,8 @@ import * as ST from './state.js';
  Catalog.renderProducts();
  });
 
- // Drawer triggers
- ST.btnOpenDrawer.addEventListener('click', Computo.openDrawer);
+ // Drawer triggers -- (17/11) "Mi presupuesto" abre la Calculadora (Mi Cómputo se unió con ella).
+ ST.btnOpenDrawer.addEventListener('click', () => switchView('apu'));
  ST.drawerCloseBtn.addEventListener('click', Computo.closeDrawer);
  ST.drawerBackdrop.addEventListener('click', Computo.closeDrawer);
 
@@ -613,7 +637,8 @@ import * as ST from './state.js';
  ST.btnClearComputo.addEventListener('click', Computo.clearComputoCart);
 
  // Excel Modal Listeners
- ST.btnOpenExcelModal.addEventListener('click', Excel.openExcelModal);
+ if (ST.btnOpenExcelModal) ST.btnOpenExcelModal.addEventListener('click', Excel.openExcelModal);
+ document.querySelectorAll('[data-action="open-excel"]').forEach(btn => btn.addEventListener('click', Excel.openExcelModal));
  const btnDownloadFullCatalog = document.getElementById('btn-download-full-catalog');
  if (btnDownloadFullCatalog) btnDownloadFullCatalog.addEventListener('click', Excel.downloadFullCatalog);
  ST.excelModalCloseBtn.addEventListener('click', Excel.closeExcelModal);
@@ -773,7 +798,7 @@ import * as ST from './state.js';
  switchView,
  goToProviderPublicPage,
  openMaterialPage,
-addToComputo: Computo.addToComputo,
+addToComputo: Computo.addToComputo, // (17/11) ahora suma a la Calculadora, ver computo.js
 changeCardQty: Computo.changeCardQty,
 updateItemQtyInCart: Computo.updateItemQtyInCart,
 removeCartItem: Computo.removeCartItem,

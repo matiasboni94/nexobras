@@ -1,5 +1,6 @@
 // NEXOBRA - computo.js
 
+import * as Apu from './apu.js';
 import * as Auth from './auth.js';
 import * as Main from './main.js';
 import * as Pricing from './pricing.js';
@@ -150,8 +151,8 @@ import * as ST from './state.js';
  ST.myComputationsList.innerHTML = `
  <div class="computo-empty-state">
  <div class="empty-icon"></div>
- <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no guardaste ningún presupuesto</h4>
- <p style="font-size: 0.85rem; color: var(--text-muted);">Armá un cómputo desde el catálogo y tocá "Guardar" en el panel lateral.</p>
+ <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">No tenés listas anteriores</h4>
+ <p style="font-size: 0.85rem; color: var(--text-muted);">Tus presupuestos están en "Mis presupuestos" (Calculadora de Obra).</p>
  </div>
  `;
  return;
@@ -167,8 +168,7 @@ import * as ST from './state.js';
  <span>${count} ítem${count === 1 ? '' : 's'} · actualizado el ${fecha}${comp.locality ? ' · ' + comp.locality : ''}</span>
  </div>
  <div class="computation-row-actions">
- <button onclick="window.nexoBraApp.openComputation('${comp.id}')">Abrir</button>
- <button onclick="window.nexoBraApp.duplicateComputation('${comp.id}')">Duplicar</button>
+ <button onclick="window.nexoBraApp.openComputation('${comp.id}')">Pasar a la Calculadora</button>
  <button class="danger" onclick="window.nexoBraApp.deleteComputation('${comp.id}')">Eliminar</button>
  </div>
  </div>
@@ -176,35 +176,35 @@ import * as ST from './state.js';
  }).join('');
  }
 
+ /**
+ * (17/11) Abre una lista vieja de Mi Cómputo COMO un presupuesto nuevo de
+ * la Calculadora (con el mismo nombre y datos de obra). La lista original no
+ * se toca. Si había un presupuesto en curso con ítems, se pregunta antes.
+ */
  export async function openComputation(id) {
  const [{ data: comp, error: compError }, { data: items, error: itemsError }] = await Promise.all([
  ST.supabaseClient.from('computations').select('id, name, obra_nombre, obra_ubicacion, obra_comitente, obra_referencia').eq('id', id).single(),
  ST.supabaseClient.from('computation_items').select('*').eq('computation_id', id)
  ]);
-
  if (compError || itemsError) {
- ST.showToast('No se pudo abrir el presupuesto.');
+ ST.showToast('No se pudo abrir la lista.');
  return;
  }
-
- ST.computationState.currentId = comp.id;
- ST.state.computoCart = (items || []).map(rowToCartItem);
- saveCart();
- ST.drawerComputationName.value = comp.name;
- ST.drawerObraNombre.value = comp.obra_nombre || '';
- ST.drawerObraUbicacion.value = comp.obra_ubicacion || '';
- ST.drawerObraComitente.value = comp.obra_comitente || '';
- ST.drawerObraReferencia.value = comp.obra_referencia || '';
- // Al reabrir, el cómputo vuelve a arrancar en el mes más actual disponible
- // (no en el que se guardó la última vez) — el usuario lo cambia si quiere.
- if (Pricing.sharedMonths.length > 0) {
- ST.state.computoMonth = Pricing.sharedMonths[Pricing.sharedMonths.length - 1];
- Pricing.populateComputoMonthSelect();
- }
- updateComputationNameUI();
- updateCartUI();
- openDrawer();
- ST.showToast(`Abriste "${comp.name}"`);
+ if (ST.state.apuBudgetItems.length > 0 && !confirm('Tenés un presupuesto abierto en la Calculadora. ¿Empezar uno nuevo con esta lista? (Si no lo guardaste, se pierde lo que no esté guardado.)')) return;
+ Apu.startNewBudget();
+ ST.apuBudgetMeta.name = comp.name || 'Mi presupuesto de obra';
+ ST.apuBudgetMeta.obraNombre = comp.obra_nombre || '';
+ ST.apuBudgetMeta.obraUbicacion = comp.obra_ubicacion || '';
+ ST.apuBudgetMeta.obraComitente = comp.obra_comitente || '';
+ ST.apuBudgetMeta.obraReferencia = comp.obra_referencia || '';
+ const { agregados, pendientes } = await Apu.importLegacyComputoItems((items || []).map(rowToCartItem));
+ if (ST.apuBudgetName) ST.apuBudgetName.value = ST.apuBudgetMeta.name;
+ if (ST.apuObraNombre) ST.apuObraNombre.value = ST.apuBudgetMeta.obraNombre;
+ if (ST.apuObraUbicacion) ST.apuObraUbicacion.value = ST.apuBudgetMeta.obraUbicacion;
+ if (ST.apuObraComitente) ST.apuObraComitente.value = ST.apuBudgetMeta.obraComitente;
+ if (ST.apuObraReferencia) ST.apuObraReferencia.value = ST.apuBudgetMeta.obraReferencia;
+ Main.switchView('apu');
+ ST.showToast(`"${comp.name}" pasó a la Calculadora con ${agregados} ítem${agregados === 1 ? '' : 's'}${pendientes.length ? ` (${pendientes.length} no se pudieron pasar)` : ''}. Tocá "Guardar" para quedártelo como presupuesto.`);
  }
 
  export async function duplicateComputation(id) {
@@ -255,73 +255,58 @@ import * as ST from './state.js';
  export function setupComputationListeners() {
  if (!ST.supabaseClient) return;
  ST.btnSaveComputation.addEventListener('click', saveComputation);
- ST.btnNewComputation.addEventListener('click', startNewComputation);
+ if (ST.btnNewComputation) ST.btnNewComputation.addEventListener('click', startNewComputation);
  ST.btnOpenMyComputations.addEventListener('click', () => {
  ST.authDropdown.style.display = 'none';
  Main.switchView('my-computations');
  });
  }
- export function addLaborToComputo(code) {
+ // =========================================================
+ // (17/11) "Mi Cómputo" se unió con la Calculadora de Obra (decisión del
+ // usuario): los botones "Sumar" / "Agregar" del catálogo y de Mano de Obra
+ // ahora cargan ítems sueltos en el presupuesto de la Calculadora. Sin cuenta
+ // no tienen límite (el límite de "una tarea a la vez" es solo para tareas).
+ // El resto de este archivo queda para las listas viejas guardadas (Listas
+ // anteriores) y los links compartidos con ?share=, que siguen abriendo.
+ // =========================================================
+
+ /** Toast con un botón para ir al presupuesto. */
+ function toastAddedToBudget(text) {
+ ST.showToast(text);
+ if (ST.headerCartCount) ST.headerCartCount.textContent = ST.state.apuBudgetItems.length;
+ }
+
+ export async function addLaborToComputo(code) {
  const role = ST.laborState.roles.find(r => r.code === code);
  if (!role) return;
-
  const qtyInput = document.getElementById(`labor-qty-${code}`);
- const qty = qtyInput ? Math.max(0.5, parseFloat(qtyInput.value) || 1) : 1;
- const unit = role.unit === 'mes' ? 'mes' : 'hora';
-
- const existingIndex = ST.state.computoCart.findIndex(i => i.id === code && i.type === 'labor');
- if (existingIndex > -1) {
- ST.state.computoCart[existingIndex].qty += qty;
- } else {
- // Igual que con materiales: no se congela precio acá, se resuelve en vivo
- // contra ST.state.computoMonth al mostrar/exportar el cómputo.
- ST.state.computoCart.push({
- id: code,
- denominacion: `${role.name} (mano de obra)`,
- rubro: 'Mano de obra',
- unit: unit,
- qty: qty,
- type: 'labor'
- });
+ const qty = qtyInput ? Math.max(0.5, ST.parseLocaleNumber(qtyInput.value) || 1) : 1;
+ await Apu.loadApuCatalog();
+ const rate = Apu.laborRateForUocraCode(code);
+ if (!rate) {
+ ST.showToast(`"${role.name}" todavía no se puede sumar al presupuesto. Probá con otra categoría o avisanos.`);
+ return;
+ }
+ const item = Apu.addLaborDirectoToBudget(rate.id, qty);
+ ST.logEvent('apu_task_added', 'mano de obra desde Mano de Obra');
+ toastAddedToBudget(`+${ST.formatQty(qty)} ${item.task_unidad_snapshot} de ${role.name} en tu presupuesto (Calculadora).`);
  }
 
- saveCart();
- updateCartUI();
- ST.showToast(`+${qty} ${unit} agregado: ${role.name}`);
- }
-
- export function addToComputo(itemId) {
+ export async function addToComputo(itemId) {
  const item = NEXOBRA_DATA.find(i => i.id === itemId);
  if (!item) return;
-
  const qtyInput = document.getElementById(`qty-${itemId}`);
- const qty = qtyInput ? Math.max(1, parseFloat(qtyInput.value) || 1) : 1;
- const unit = ST.state.pricingMode === 'venta' ? item.unidadVenta : item.unidadComputo;
-
- const existingIndex = ST.state.computoCart.findIndex(i => i.id === itemId && i.type === 'material' && i.mode === ST.state.pricingMode);
-
- if (existingIndex > -1) {
- ST.state.computoCart[existingIndex].qty += qty;
- } else {
- // El carrito no congela precio: solo guarda la referencia y la cantidad.
- // El precio se calcula siempre "en vivo" contra ST.state.computoMonth (ver Pricing.resolveItemPricing),
- // así que agregar un ítem hoy o hace una semana da el mismo resultado: el precio más actual,
- // hasta que el usuario elija otro mes desde "Mi Cómputo".
- ST.state.computoCart.push({
- id: item.id,
- denominacion: item.denominacion,
- rubro: item.rubro,
- unit: unit,
- qty: qty,
- type: 'material',
- mode: ST.state.pricingMode
- });
+ const qty = qtyInput ? Math.max(1, ST.parseLocaleNumber(qtyInput.value) || 1) : 1;
+ const mode = ST.state.pricingMode === 'venta' ? 'venta' : 'computo';
+ const unit = mode === 'venta' ? item.unidadVenta : item.unidadComputo;
+ try {
+ Apu.addCatalogMaterialToBudget(itemId, qty, mode);
+ } catch (err) {
+ ST.showToast(err.message);
+ return;
  }
-
- saveCart();
- updateCartUI();
- ST.showToast(`+${qty} ${unit} agregado: ${item.denominacion.substring(0, 24)}...`);
-
+ ST.logEvent('apu_task_added', 'material desde el catálogo');
+ toastAddedToBudget(`+${ST.formatQty(qty)} ${unit} en tu presupuesto: ${item.denominacion.substring(0, 28)}...`);
  const btn = document.getElementById(`btn-add-${itemId}`);
  if (btn) {
  const origText = btn.innerHTML;
@@ -331,6 +316,25 @@ import * as ST from './state.js';
  btn.innerHTML = origText;
  btn.classList.remove('added');
  }, 1200);
+ }
+ }
+
+ /**
+ * Una sola vez por navegador: si quedó algo en el carrito viejo de Mi
+ * Cómputo (localStorage 'nexobra_computo'), se pasa a la Calculadora. Lo que
+ * no se pueda pasar (ej. una categoría de mano de obra sin tarifa todavía)
+ * queda en el carrito viejo para el próximo intento.
+ */
+ export async function migrateLegacyCartToCalculator() {
+ const cart = ST.state.computoCart || [];
+ if (cart.length === 0) return;
+ const { agregados, pendientes } = await Apu.importLegacyComputoItems(cart);
+ ST.state.computoCart = pendientes;
+ saveCart();
+ if (agregados > 0) {
+ if (ST.headerCartCount) ST.headerCartCount.textContent = ST.state.apuBudgetItems.length;
+ if (ST.state.currentView === 'apu') Apu.updateApuBudgetUI();
+ ST.showToast(`"Mi Cómputo" ahora es parte de la Calculadora: pasamos tus ${agregados} ítem${agregados === 1 ? '' : 's'} a tu presupuesto.`);
  }
  }
 
@@ -654,7 +658,6 @@ import * as ST from './state.js';
  export function updateCartUI() {
  const { subtotalMateriales, subtotalManoObra, total } = computeCartSubtotals();
 
- ST.headerCartCount.textContent = ST.state.computoCart.length;
  ST.drawerTotalItems.textContent = ST.state.computoCart.length;
  ST.drawerSubtotal.textContent = ST.formatMoney(subtotalMateriales);
  ST.drawerTotal.textContent = ST.formatMoney(total);

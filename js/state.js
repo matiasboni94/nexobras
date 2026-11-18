@@ -404,7 +404,7 @@
   * presupuesto. Fire-and-forget como el resto: si falla (por ejemplo,
   * porque la migración 032 todavía no se corrió) no rompe nada visible.
   */
- const SITE_EVENTS = ['search', 'apu_task_added', 'register_prompt', 'signup_start', 'signup', 'provider_contact', 'save_budget', 'share_budget', 'export'];
+ const SITE_EVENTS = ['search', 'apu_task_added', 'register_prompt', 'signup_start', 'signup', 'provider_contact', 'provider_cta', 'save_budget', 'share_budget', 'export']; // provider_cta: migración 034
  export function logEvent(event, detail) {
  if (!supabaseClient || !SITE_EVENTS.includes(event)) return;
  supabaseClient.from('site_events').insert({

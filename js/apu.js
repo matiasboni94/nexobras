@@ -300,16 +300,35 @@ export function setComponentMaterial(item, componentLocalId, materialId) {
 }
 
 /** Asocia una oferta de proveedor puntual (provider_offers) a un componente de tipo material -- mismo patrón que elegir proveedor en Mi Cómputo. */
+/**
+ * (17/11) Las cantidades de un material en la Calculadora están siempre en
+ * su unidad de CÓMPUTO (m², kg, ml...), pero un proveedor puede cargar el
+ * precio por unidad de COMPRA (bolsa, barra...). Antes se usaba tal cual:
+ * una bolsa de cemento de $ 8.500 quedaba como $ 8.500 el kg. Ahora se pasa
+ * a precio por unidad de cómputo con el envase del material (1 unidad de
+ * compra = envase unidades de cómputo, igual que precioVenta/precioComputo).
+ */
+export function offerPricePerComputoUnit(material, offer) {
+ const amount = Number(offer.amount);
+ if (!material) return amount;
+ const envase = Number(material.envase) || 1;
+ if (offer.unit && offer.unit === material.unidadVenta && material.unidadVenta !== material.unidadComputo && envase > 0) {
+ return amount / envase;
+ }
+ return amount;
+}
+
 export function setComponentProviderOffer(item, componentLocalId, offer) {
  const comp = item.components.find(c => c.localId === componentLocalId);
  if (!comp || comp.tipo !== 'material') return;
+ const material = findMaterial(comp.material_id);
  comp.provider_offer_id = offer.id;
  comp.provider_branch_id = offer.branch_id;
  comp.provider_business_name = offer.provider_business_name || null;
  comp.provider_branch_name = offer.provider_branch_name || null;
  comp.provider_whatsapp = offer.provider_whatsapp || null;
  comp.source_kind = 'provider_offer';
- comp.price_snapshot = Number(offer.amount); // precio fijo del proveedor, no se recalcula contra el mes (igual criterio que cartItemToRow en computo.js)
+ comp.price_snapshot = offerPricePerComputoUnit(material, offer); // precio fijo del proveedor (por unidad de cómputo), no se recalcula contra el mes
 }
 
 export function clearProviderOffer(comp) {
@@ -716,10 +735,19 @@ export function saveApuCart() {
 /** Sin cuenta, el presupuesto solo puede tener UNA tarea/material a la vez (06/11, pedido del usuario: dar un motivo real para registrarse -- "mampostería de 30" como ejemplo de uso de a una). Se llama antes de agregar cualquier ítem nuevo: si ya había uno, lo reemplaza (no se acumula ni se bloquea, para que sirva igual como calculadora rápida de una sola tarea). Con sesión iniciada no hay ningún límite, como siempre. */
 function enforceApuAnonSingleItemLimit() {
  if (ST.authState.user) return;
- if (ST.state.apuBudgetItems.length > 0) {
- ST.state.apuBudgetItems = [];
- ST.showToast('Sin cuenta podés calcular una tarea a la vez -- registrate gratis para armar un presupuesto con varias.');
+ // (17/11, unión con Mi Cómputo) El límite es solo para TAREAS (de APU o
+ // personalizadas): los materiales y la mano de obra sueltos se pueden
+ // sumar sin límite, como se podía en Mi Cómputo sin cuenta.
+ const tareas = ST.state.apuBudgetItems.filter(i => !isLooseItem(i));
+ if (tareas.length > 0) {
+ ST.state.apuBudgetItems = ST.state.apuBudgetItems.filter(isLooseItem);
+ ST.showToast('Sin cuenta podés calcular una tarea a la vez (los materiales y la mano de obra sueltos, sin límite). Registrate gratis para armar un presupuesto con varias tareas.');
  }
+}
+
+/** Ítem "suelto": un material o una mano de obra agregados directo, sin tarea (ver 026 y 034). */
+export function isLooseItem(item) {
+ return item.item_kind === 'material_directo' || item.item_kind === 'mano_obra_directa';
 }
 
 export function addItemToBudget(apuTaskId, quantity) {
@@ -848,7 +876,7 @@ export function renderApuPhasesPanel() {
  </select>
  <input type="date" class="form-select apu-phase-fecha-input" value="${p.fechaEstimada || ''}"
  onchange="window.nexoBraApp.updateApuPhaseFecha('${p.localId}', this.value)">
- <span class="apu-phase-count">${count} tarea${count === 1 ? '' : 's'}</span>
+ <span class="apu-phase-count">${count} ítem${count === 1 ? '' : 's'}</span>
  <button class="apu-item-remove" title="Eliminar fase" onclick="window.nexoBraApp.removeApuPhase('${p.localId}')">&times;</button>
  </div>`;
  }).join('');
@@ -957,11 +985,167 @@ export function buildMaterialDirectoItem(materialId, quantity) {
 }
 
 export function addMaterialDirectoToBudget(materialId, quantity) {
- enforceApuAnonSingleItemLimit();
  const item = buildMaterialDirectoItem(materialId, quantity);
  ST.state.apuBudgetItems.push(item);
  saveApuCart();
  return item;
+}
+
+// =========================================================
+// (17/11) Unión de "Mi Cómputo" con la Calculadora: lo que antes se sumaba
+// al carrito de Mi Cómputo (materiales del catálogo, en unidad de compra o
+// de cómputo, con o sin proveedor elegido; horas de mano de obra UOCRA; el
+// Excel cotizado) ahora entra acá como ítems sueltos.
+// =========================================================
+
+/** Tarifa de la Calculadora (apu_labor_rates) que corresponde a una categoría UOCRA (código de la serie, ej. "uocra_oficial"). */
+export function laborRateForUocraCode(code) {
+ const rates = ST.apuCatalogState.laborRates || [];
+ return rates.find(r => r.uocra_series_code === code)
+ || rates.find(r => UOCRA_POR_NOMBRE[ST.normalizeText(r.nombre)] === code)
+ || null;
+}
+
+export function buildLaborDirectoItem(laborRateId, quantity) {
+ const rate = getLaborRate(laborRateId);
+ if (!rate) throw new Error('Categoría de mano de obra no encontrada.');
+ const unidad = rate.unidad || 'hs';
+ return buildCustomBudgetItem({
+ nombre: `${rate.nombre} (mano de obra)`,
+ unidad,
+ rubro: 'Mano de obra',
+ desperdicio_pct: 0,
+ herramientas_pct_mo: 0,
+ quantity,
+ kind: 'mano_obra_directa',
+ components: [{ tipo: 'mano_obra', labor_rate_id: rate.id, denominacion: rate.nombre, unidad_snapshot: unidad, rendimiento: 1 }]
+ });
+}
+
+/** Suma horas de una categoría: si ya había mano de obra suelta de esa categoría, se acumulan en el mismo ítem. */
+export function addLaborDirectoToBudget(laborRateId, quantity) {
+ const existing = ST.state.apuBudgetItems.find(i => i.item_kind === 'mano_obra_directa' && i.components[0] && i.components[0].labor_rate_id === laborRateId);
+ if (existing) {
+ existing.quantity = Number(existing.quantity) + Number(quantity);
+ saveApuCart();
+ return existing;
+ }
+ const item = buildLaborDirectoItem(laborRateId, quantity);
+ ST.state.apuBudgetItems.push(item);
+ saveApuCart();
+ return item;
+}
+
+/**
+ * Material del catálogo al presupuesto. qty viene en la unidad que estaba
+ * mirando el usuario (mode 'venta' = unidad de compra, 'computo' = unidad
+ * de cómputo) y se guarda siempre en unidad de cómputo. offer (opcional):
+ * {id, branch_id, amount, unit, provider_business_name, provider_branch_name, provider_whatsapp}.
+ * Si ya había ese mismo material suelto (con el mismo proveedor, o sin
+ * proveedor), se suma la cantidad en vez de repetir la fila.
+ */
+export function addCatalogMaterialToBudget(materialId, qty, mode = 'computo', offer = null) {
+ const material = findMaterial(materialId);
+ if (!material) throw new Error('Material no encontrado en el catálogo.');
+ const envase = Number(material.envase) || 1;
+ let cantidad = Number(qty) || 0;
+ if (mode === 'venta' && material.unidadVenta !== material.unidadComputo) cantidad = cantidad * envase;
+ if (!(cantidad > 0)) throw new Error('Cantidad inválida.');
+ const offerId = offer ? offer.id : null;
+ const existing = ST.state.apuBudgetItems.find(i => i.item_kind === 'material_directo'
+ && i.components[0] && i.components[0].material_id === materialId
+ && (i.components[0].provider_offer_id || null) === offerId);
+ if (existing) {
+ existing.quantity = Number(existing.quantity) + cantidad;
+ saveApuCart();
+ return existing;
+ }
+ const item = buildMaterialDirectoItem(materialId, cantidad);
+ if (offer) setComponentProviderOffer(item, item.components[0].localId, offer);
+ ST.state.apuBudgetItems.push(item);
+ saveApuCart();
+ return item;
+}
+
+/** Cantidad en unidad de compra (redondeada para arriba) de un material suelto, para mostrar "≈ 3 bolsas". null si compra y cómputo son la misma unidad. */
+function purchaseQtyHint(material, cantidadComputo) {
+ if (!material || material.unidadVenta === material.unidadComputo) return null;
+ const envase = Number(material.envase) || 1;
+ if (!(envase > 0)) return null;
+ return { qty: Math.ceil(cantidadComputo / envase - 1e-9), unit: material.unidadVenta };
+}
+
+/**
+ * Convierte ítems del carrito viejo de Mi Cómputo (formato rowToCartItem /
+ * localStorage 'nexobra_computo') en ítems sueltos de la Calculadora.
+ * Devuelve { agregados, pendientes } -- pendientes = los que no se pudieron
+ * pasar (ej. una categoría de mano de obra sin tarifa en la Calculadora).
+ */
+export async function importLegacyComputoItems(cartItems) {
+ await loadApuCatalog();
+ let agregados = 0;
+ const pendientes = [];
+ (cartItems || []).forEach(ci => {
+ try {
+ if (ci.type === 'labor') {
+ const rate = laborRateForUocraCode(ci.id);
+ if (!rate) { pendientes.push(ci); return; }
+ addLaborDirectoToBudget(rate.id, Number(ci.qty) || 1);
+ agregados++;
+ return;
+ }
+ const offer = ci.providerOfferId ? {
+ id: ci.providerOfferId,
+ branch_id: ci.providerBranchId || null,
+ amount: ci.providerPrice,
+ unit: ci.unit,
+ provider_business_name: ci.providerBusinessName || null,
+ provider_branch_name: ci.providerBranchName || null,
+ provider_whatsapp: ci.providerWhatsapp || null
+ } : null;
+ // Con proveedor, la cantidad está en la unidad en la que vende ese proveedor.
+ const material = findMaterial(ci.id);
+ if (!material) { pendientes.push(ci); return; }
+ const mode = offer ? (ci.unit === material.unidadVenta ? 'venta' : 'computo') : (ci.mode || 'venta');
+ addCatalogMaterialToBudget(ci.id, Number(ci.qty) || 1, mode, offer);
+ agregados++;
+ } catch (err) {
+ pendientes.push(ci);
+ }
+ });
+ return { agregados, pendientes };
+}
+
+/** Llena el selector de "Agregar mano de obra suelta" con las tarifas de la Calculadora. */
+export function renderApuDirectLaborOptions() {
+ const select = document.getElementById('apu-direct-labor-role');
+ if (!select) return;
+ const rates = ST.apuCatalogState.laborRates || [];
+ const current = select.value;
+ select.innerHTML = rates.map(r => `<option value="${r.id}">${ST.escapeHtml(r.nombre)}</option>`).join('');
+ if (current && rates.some(r => String(r.id) === current)) select.value = current;
+ updateApuDirectLaborUnit();
+}
+
+export function updateApuDirectLaborUnit() {
+ const select = document.getElementById('apu-direct-labor-role');
+ const unitEl = document.getElementById('apu-direct-labor-unit');
+ if (!select || !unitEl) return;
+ const rate = getLaborRate(Number(select.value));
+ unitEl.textContent = rate ? (rate.unidad || 'hs') : 'hs';
+}
+
+export function addApuDirectLaborFromPanel() {
+ const select = document.getElementById('apu-direct-labor-role');
+ const qtyInput = document.getElementById('apu-direct-labor-qty');
+ const rateId = Number(select && select.value);
+ const qty = ST.parseLocaleNumber(qtyInput ? qtyInput.value : '');
+ if (!rateId) { ST.showToast('Elegí una categoría.'); return; }
+ if (!(qty > 0)) { ST.showToast('Poné una cantidad válida.'); return; }
+ const item = addLaborDirectoToBudget(rateId, qty);
+ ST.logEvent('apu_task_added', 'mano de obra suelta');
+ revealApuBudgetItem(item);
+ ST.showToast(`Agregado: ${item.task_nombre_snapshot}`);
 }
 
 /** Busca en el catálogo real para el buscador de "Agregar material suelto" -- mismo criterio que searchMaterialsForCustomTask, reusado tal cual. */
@@ -1478,6 +1662,8 @@ export function openApuRegisterPrompt() {
 }
 
 export function updateApuBudgetUI() {
+ // (17/11) El botón "Mi presupuesto" del encabezado cuenta los ítems de la Calculadora (antes contaba Mi Cómputo).
+ if (ST.headerCartCount) ST.headerCartCount.textContent = ST.state.apuBudgetItems.length;
  if (!ST.apuBudgetItemsEl) return;
  updateApuGatingUI();
 
@@ -1615,21 +1801,31 @@ export function toggleApuItemExpanded(itemLocalId) {
 /** Fila resumen simple para un ítem de material suelto (sin tarea/APU) -- numeración, nombre, cantidad+unidad, precio unitario y subtotal nomás, sin tabla de componentes (el único componente ES el material). */
 function renderMaterialDirectoCard(item, nro, lineas, total) {
  const l = lineas[0];
+ const comp = item.components[0];
  const unitPrice = l ? l.unitPriceConK : 0;
  const disponible = l ? l.disponible : false;
+ const esManoObra = item.item_kind === 'mano_obra_directa';
+ const material = !esManoObra && comp ? findMaterial(comp.material_id) : null;
+ const compra = material ? purchaseQtyHint(material, Number(item.quantity)) : null;
+ const proveedor = comp && comp.source_kind === 'provider_offer' && comp.provider_business_name;
+ const etiqueta = esManoObra ? 'Mano de obra suelta (UOCRA, sin cargas sociales)' : 'Material suelto';
  return `
  <div class="apu-item-card apu-item-card-simple" id="apu-item-${item.localId}">
  <div class="apu-item-header">
  <div class="apu-item-header-info">
  <span class="apu-item-nro">${nro}</span>
  <strong> ${ST.escapeHtml(item.task_nombre_snapshot)}</strong>
- <span>Material suelto (sin APU) · precio unit: ${disponible ? ST.formatMoney(unitPrice) : '<span style="color:#b91c1c;">s/d</span>'} · subtotal: ${ST.formatMoney(total)}</span>
+ <span>${etiqueta} · precio unit: ${disponible ? ST.formatMoney(unitPrice) + ' / ' + ST.escapeHtml(item.task_unidad_snapshot) : '<span style="color:#b91c1c;">s/d</span>'} · subtotal: ${ST.formatMoney(total)}${compra ? ` · para comprar: ${ST.formatQty(compra.qty)} ${ST.escapeHtml(compra.unit)}` : ''}</span>
+ ${!esManoObra ? `<span class="apu-loose-provider">${proveedor
+ ? `Precio de <strong>${ST.escapeHtml(comp.provider_business_name)}</strong> · <button type="button" class="link-button" onclick="window.nexoBraApp.clearApuMaterialProviderOffer('${item.localId}', '${comp.localId}')">volver al precio de referencia</button>`
+ : `Precio de referencia NEXOBRA · <button type="button" class="link-button" onclick="window.nexoBraApp.openApuMaterialProviderPicker('${item.localId}', '${comp.localId}')">elegir proveedor</button>`}</span>` : ''}
  </div>
  <div class="apu-item-header-actions">
- <input type="number" value="${item.quantity}" min="0.0001" step="0.01"
+ ${renderApuItemPhaseSelect(item)}
+ <input type="number" value="${item.quantity}" min="0.0001" step="0.01" aria-label="Cantidad"
  onchange="window.nexoBraApp.updateApuItemQuantity('${item.localId}', parseFloat(this.value) || 0.0001)">
  <span style="font-size:0.78rem; color:var(--text-muted);">${ST.escapeHtml(item.task_unidad_snapshot)}</span>
- <button class="apu-item-remove" title="Quitar material" onclick="window.nexoBraApp.removeApuBudgetItem('${item.localId}')">&times;</button>
+ <button class="apu-item-remove" title="Quitar" onclick="window.nexoBraApp.removeApuBudgetItem('${item.localId}')">&times;</button>
  </div>
  </div>
  </div>`;
@@ -1648,7 +1844,7 @@ function renderApuItemPhaseSelect(item) {
 
 /** Tarjeta de UNA tarea del presupuesto (número, resumen, desglose plegable) -- separado de renderBudgetItems (05/11) para poder agrupar las tarjetas por rubro sin duplicar este template. */
 function renderApuItemCard({ item, lineas, herramientas, materialesCost, manoObraCost, equiposCost, total }, nro) {
- if (item.item_kind === 'material_directo') {
+ if (isLooseItem(item)) {
  return renderMaterialDirectoCard(item, nro, lineas, total);
  }
  // La descripción no se guarda como snapshot en el item (no cambia el
@@ -1673,7 +1869,7 @@ function renderApuItemCard({ item, lineas, herramientas, materialesCost, manoObr
  <strong>${ST.escapeHtml(item.task_nombre_snapshot)}</strong>
  <span>${ST.escapeHtml(item.task_rubro_snapshot || 'Sin rubro')} · cant: ${ST.formatQty(item.quantity)} ${ST.escapeHtml(item.task_unidad_snapshot)} · precio unit: ${ST.formatMoney(unitPrice)} · subtotal: ${ST.formatMoney(total)}${item.item_kind === 'custom' ? ' · <span class="apu-badge-modificado">personalizada</span>' : ''}</span>
  <span style="display:block; margin-top:2px; font-size:0.78rem; color:var(--text-muted);">materiales: ${ST.formatMoney(materialesCost)} · mano de obra: ${ST.formatMoney(manoObraCost)} (${ST.formatMoney(manoObraUnit)}/${ST.escapeHtml(item.task_unidad_snapshot)}) · equipos/herramientas: ${ST.formatMoney(equiposCost)}</span>
- ${catalogTask && catalogTask.descripcion ? `<span style="display:block; margin-top:4px; white-space:pre-line;"><strong>Incluye:</strong> ${ST.escapeHtml(catalogTask.descripcion)}</span>` : ''}
+ ${catalogTask && catalogTask.descripcion ? `<span style="display:block; margin-top:4px; white-space:pre-line;">${ST.escapeHtml(catalogTask.descripcion)}</span>` : ''}
  ${expanded && catalogTask && catalogTask.imagen_url ? `<img class="apu-task-ref-img apu-task-ref-img-small" src="${ST.escapeHtml(catalogTask.imagen_url)}" alt="Referencia: ${ST.escapeHtml(catalogTask.nombre)}" loading="lazy">` : ''}
  </div>
  <div class="apu-item-header-actions">
@@ -1750,7 +1946,7 @@ export function toggleApuRubroGroup(rubroKey) {
 function revealApuBudgetItem(item) {
  if (!item) return;
  expandedRubroGroups.add(item.task_rubro_snapshot || 'Sin rubro');
- if (ST.state.apuBudgetItems.length === 1 && item.item_kind !== 'material_directo') {
+ if (ST.state.apuBudgetItems.length === 1 && !isLooseItem(item)) {
  expandedItemIds.add(item.localId);
  }
  updateApuBudgetUI();
@@ -1784,7 +1980,7 @@ export function renderBudgetItems(breakdown) {
  <div class="apu-rubro-group">
  <button type="button" class="apu-rubro-group-header" onclick="window.nexoBraApp.toggleApuRubroGroup(${rubroKey})">
  <span>${expanded ? '▾' : '▸'} ${ST.escapeHtml(rubro)}</span>
- <span class="apu-rubro-group-meta">${entries.length} tarea${entries.length === 1 ? '' : 's'} · ${ST.formatMoney(subtotal)}</span>
+ <span class="apu-rubro-group-meta">${entries.length} ítem${entries.length === 1 ? '' : 's'} · ${ST.formatMoney(subtotal)}</span>
  </button>
  ${expanded ? `<div class="apu-rubro-group-body">${entries.map(({ entry, nro }) => renderApuItemCard(entry, nro)).join('')}</div>` : ''}
  </div>`;
@@ -2393,7 +2589,7 @@ export async function loadMyApuBudgets() {
  <div class="computation-row">
  <div class="computation-row-info">
  <h4>${ST.escapeHtml(b.name)}</h4>
- <span>${count} tarea${count === 1 ? '' : 's'} · actualizado el ${fecha}${b.locality ? ' · ' + b.locality : ''}</span>
+ <span>${count} ítem${count === 1 ? '' : 's'} · actualizado el ${fecha}${b.locality ? ' · ' + b.locality : ''}</span>
  </div>
  <div class="computation-row-actions">
  <button onclick="window.nexoBraApp.openApuBudget('${b.id}')">Abrir</button>

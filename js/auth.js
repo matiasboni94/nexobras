@@ -13,6 +13,29 @@ import * as ST from './state.js';
     document.body.style.overflow = 'hidden';
   }
 
+  /**
+   * (17/11) "Sumá tu negocio" (encabezado, menú del celular, pie): sin cuenta
+   * abre el registro con "Soy proveedor" ya elegido; con cuenta de proveedor
+   * (o admin) va a "Mi Proveedor"; con cuenta común abre "Mi Perfil", que
+   * tiene el botón "Convertirme en proveedor".
+   */
+  export function startProviderSignup() {
+    ST.logEvent('provider_cta', 'Sumá tu negocio');
+    if (!ST.authState.user) {
+      showAuthTab('register');
+      const radio = document.querySelector('input[name="register-role"][value="provider"]');
+      if (radio) radio.checked = true;
+      openAuthModal();
+      return;
+    }
+    const role = ST.authState.profile && ST.authState.profile.role;
+    if (role === 'provider' || role === 'admin') {
+      window.nexoBraApp.switchView('provider');
+      return;
+    }
+    openProfileModal();
+  }
+
   export function closeAuthModal() {
     ST.authModal.classList.remove('open');
     ST.authModalBackdrop.classList.remove('open');

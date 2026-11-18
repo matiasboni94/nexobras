@@ -6,6 +6,7 @@ import * as Computo from './computo.js';
 import * as Main from './main.js';
 import * as Pricing from './pricing.js';
 import * as Provider from './provider.js';
+import * as Apu from './apu.js';
 import * as ST from './state.js';
 
  export function initProviderMap() {
@@ -936,77 +937,43 @@ import * as ST from './state.js';
  const material = NEXOBRA_DATA.find(m => m.id === materialId);
  if (!offer || !material) return;
 
- const cartIndex = ST.mapState.offerPickerCartIndex;
-
- // Caso 1: el material YA está en Mi Cómputo (llegó del catálogo en modo
- // referencia, o de un Excel cotizado) y lo que se quiere es asignarle un
- // proveedor sin tocar la cantidad que ya tenía cargada.
- if (cartIndex !== null && cartIndex !== undefined && ST.state.computoCart[cartIndex]) {
- const existingItem = ST.state.computoCart[cartIndex];
- existingItem.unit = offer.unit;
- existingItem.providerOfferId = offer.offer_id;
- existingItem.providerBranchId = offer.branch_id;
- existingItem.providerBusinessName = offer.business_name;
- existingItem.providerBranchName = offer.branch_name;
- existingItem.providerWhatsapp = offer.whatsapp_phone;
- existingItem.providerPrice = offer.amount;
- existingItem.roundedFrom = null;
- ST.mapState.offerPickerCartIndex = null;
- Computo.saveCart();
- Computo.updateCartUI();
- closeOfferPicker();
- ST.showToast(`${material.denominacion.substring(0, 30)} → ${offer.business_name}`);
- return;
- }
-
+ // (17/11) Mi Cómputo se unió con la Calculadora: el material con el
+ // precio de este proveedor entra como material suelto del presupuesto.
  const qtyInput = document.getElementById(`qty-${materialId}`);
- const typedQty = qtyInput ? Math.max(1, parseFloat(qtyInput.value) || 1) : 1;
+ const typedQty = qtyInput ? Math.max(1, ST.parseLocaleNumber(qtyInput.value) || 1) : 1;
 
  // Si venías mirando en "Cómputo Métrico" (ej: 10 metros de hierro) y el
- // proveedor vende por unidad de compra discreta (ej: barras de 12m), no
- // le podés pedir "10 metros" -- hay que redondear hacia arriba a cuántas
- // unidades de compra hacen falta. Si ya estabas en modo Venta, o el
- // proveedor vende justo por la unidad de cómputo (ej: por kg), no hace
- // falta convertir nada.
+ // proveedor vende por unidad de compra (ej: barras de 12 m), no le podés
+ // pedir "10 metros": se redondea hacia arriba a unidades de compra enteras.
  let qty = typedQty;
+ let mode = ST.state.pricingMode === 'venta' ? 'venta' : 'computo';
  let roundedFrom = null;
- const proveedorVendePorUnidadDeCompra = offer.unit === material.unidadVenta;
+ const proveedorVendePorUnidadDeCompra = offer.unit === material.unidadVenta && material.unidadVenta !== material.unidadComputo;
  const envase = Number(material.envase) || 1;
- if (ST.state.pricingMode === 'computo' && proveedorVendePorUnidadDeCompra && envase > 0 && offer.unit !== material.unidadComputo) {
+ if (mode === 'computo' && proveedorVendePorUnidadDeCompra && envase > 0) {
  qty = Math.ceil(typedQty / envase);
+ mode = 'venta';
  roundedFrom = { qty: typedQty, unit: material.unidadComputo };
  }
-
- const existingIndex = ST.state.computoCart.findIndex(i => i.id === materialId && i.type === 'material' && i.providerOfferId === offer.offer_id);
- if (existingIndex > -1) {
- ST.state.computoCart[existingIndex].qty += qty;
- } else {
- ST.state.computoCart.push({
- id: materialId,
- denominacion: material.denominacion,
- rubro: material.rubro,
+ try {
+ Apu.addCatalogMaterialToBudget(materialId, qty, mode, {
+ id: offer.offer_id,
+ branch_id: offer.branch_id,
+ amount: offer.amount,
  unit: offer.unit,
- qty: qty,
- type: 'material',
- mode: ST.state.pricingMode,
- providerOfferId: offer.offer_id,
- providerBranchId: offer.branch_id,
- providerBusinessName: offer.business_name,
- providerBranchName: offer.branch_name,
- providerWhatsapp: offer.whatsapp_phone,
- providerPrice: offer.amount,
- roundedFrom: roundedFrom
+ provider_business_name: offer.business_name,
+ provider_branch_name: offer.branch_name,
+ provider_whatsapp: offer.whatsapp_phone
  });
+ } catch (err) {
+ ST.showToast(err.message);
+ return;
  }
-
- if (roundedFrom) {
- ST.showToast(`Necesitás ${roundedFrom.qty} ${roundedFrom.unit} → se redondeó a ${qty} ${offer.unit}${qty === 1 ? '' : 's'} para poder comprarlo.`);
- }
-
- Computo.saveCart();
- Computo.updateCartUI();
+ if (ST.headerCartCount) ST.headerCartCount.textContent = ST.state.apuBudgetItems.length;
  closeOfferPicker();
- ST.showToast(`Agregado desde ${offer.business_name}: ${material.denominacion.substring(0, 30)}`);
+ ST.showToast(roundedFrom
+ ? `Necesitás ${ST.formatQty(roundedFrom.qty)} ${roundedFrom.unit} → se redondeó a ${qty} ${offer.unit} de ${offer.business_name}. Está en tu presupuesto.`
+ : `Agregado a tu presupuesto con el precio de ${offer.business_name}: ${material.denominacion.substring(0, 30)}`);
  }
 
  export function setupOfferPickerListeners() {

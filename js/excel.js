@@ -1,6 +1,7 @@
 // NEXOBRA - excel.js
 
 import * as ST from './state.js';
+import * as Apu from './apu.js';
 import * as Computo from './computo.js';
 import * as Pricing from './pricing.js';
 
@@ -310,45 +311,29 @@ import * as Pricing from './pricing.js';
  }
 
  /**
- * Pasa los materiales matcheados del cotizador de Excel a "Mi Cómputo",
- * reutilizando el mismo carrito (state.computoCart) que ya soporta guardar,
- * abrir, editar cantidades y exportar. Así "guardar el Excel en mi cuenta"
- * no es un sistema aparte: es simplemente cargarlo en el cómputo de siempre.
+ * Pasa los materiales matcheados del cotizador de Excel al presupuesto de la
+ * Calculadora de Obra (17/11: "Mi Cómputo" se unió con la Calculadora), como
+ * materiales sueltos, cada uno en la unidad que se eligió para esa fila.
  */
- export function saveExcelToComputo() {
+ export async function saveExcelToComputo() {
  const matched = ST.state.excelProcessedRows.filter(r => r.matchedItem);
  if (matched.length === 0) {
  ST.showToast('No hay materiales coincidentes para guardar.');
  return;
  }
-
+ await Apu.loadApuCatalog();
+ let agregados = 0;
  matched.forEach(row => {
- const item = row.matchedItem;
  const mode = row.mode || ST.excelPricingMode.value;
- const unit = mode === 'venta' ? item.unidadVenta : item.unidadComputo;
- const existingIndex = ST.state.computoCart.findIndex(
- i => i.id === item.id && i.type === 'material' && i.mode === mode && !i.providerOfferId
- );
- if (existingIndex > -1) {
- ST.state.computoCart[existingIndex].qty += row.requestedQty;
- } else {
- ST.state.computoCart.push({
- id: item.id,
- denominacion: item.denominacion,
- rubro: item.rubro,
- unit: unit,
- qty: row.requestedQty,
- type: 'material',
- mode: mode
+ try {
+ Apu.addCatalogMaterialToBudget(row.matchedItem.id, row.requestedQty, mode === 'venta' ? 'venta' : 'computo');
+ agregados++;
+ } catch (err) { /* cantidad vacía o material que ya no está: se saltea */ }
  });
- }
- });
-
- Computo.saveCart();
- Computo.updateCartUI();
  closeExcelModal();
- Computo.openDrawer();
- ST.showToast(`${matched.length} material${matched.length === 1 ? '' : 'es'} agregado${matched.length === 1 ? '' : 's'} a Mi Cómputo. Elegí proveedor en cada ítem para armar tu lista de compra.`);
+ ST.logEvent('apu_task_added', 'lista de Excel');
+ window.nexoBraApp.switchView('apu');
+ ST.showToast(`${agregados} material${agregados === 1 ? '' : 'es'} de tu Excel en el presupuesto. Elegí proveedor en cada uno o mandale la lista a los que quieras.`);
  }
 
  export async function exportProcessedExcel() {

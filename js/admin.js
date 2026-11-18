@@ -2712,10 +2712,12 @@ const DASH_DEVICE_LABELS = { mobile: 'Celular', tablet: 'Tablet', desktop: 'Comp
 const DASH_PAGE_LABELS = {
  '/': 'Inicio', '/catalogo': 'Catálogo', '/proveedores': 'Proveedores', '/calculadora-de-obra': 'Calculadora de Obra',
  '/mano-de-obra': 'Mano de Obra', '/guia-de-uso': 'Guía de Uso', '/quienes-somos': 'Quiénes Somos', '/contacto': 'Contacto',
- '/mis-presupuestos': 'Mis Presupuestos', '/mis-presupuestos-de-obra': 'Mis Obras', '/mi-proveedor': 'Mi Proveedor', '/admin': 'Panel de Admin'
+ '/mis-presupuestos': 'Listas anteriores (Mi Cómputo)', '/mis-presupuestos-de-obra': 'Mis presupuestos', '/mi-proveedor': 'Mi Proveedor', '/admin': 'Panel de Admin',
+ '/costo-m2': 'Costo por m²'
 };
 const DASH_EVENT_LABELS = {
- search: 'Búsquedas de materiales', apu_task_added: 'Tareas agregadas a la Calculadora',
+ search: 'Búsquedas de materiales', apu_task_added: 'Ítems agregados al presupuesto (tareas, materiales, mano de obra)',
+ provider_cta: 'Toques en "Sumá tu negocio"',
  register_prompt: 'Toques en "Registrarme" desde la Calculadora', signup_start: 'Registros empezados',
  signup: 'Registros terminados', provider_contact: 'Contactos a proveedores por WhatsApp',
  save_budget: 'Presupuestos guardados', share_budget: 'Presupuestos compartidos por link', export: 'Excel descargados'
