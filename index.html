@@ -351,8 +351,8 @@
  <!-- CATALOG HEADER -->
  <div class="catalog-header-banner">
  <div>
- <h2 class="catalog-title" id="catalog-header-title">Catálogo Completo</h2>
- <p class="catalog-subtitle" id="catalog-header-subtitle">Consultor técnico de precios y rendimientos de obra</p>
+ <h2 class="catalog-title" id="catalog-header-title">Precios de materiales</h2>
+ <p class="catalog-subtitle" id="catalog-header-subtitle">Precios de referencia NEXOBRA, con los de corralones de tu zona.</p>
  </div>
  <button type="button" class="btn-excel-inline" data-action="open-excel" title="Subí tu lista de materiales en Excel y cotizala de una vez">
  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>
@@ -376,75 +376,55 @@
  <!-- Si lo que se busca matchea una palabra clave de algún proveedor, se sugiere acá -->
  <div id="catalog-provider-suggestion" class="catalog-provider-suggestion" style="display:none;"></div>
 
- <!-- CONTROLS CARD: DUAL PRICING & CATEGORIES -->
- <section class="controls-card" id="app-controls">
- 
- <div class="controls-header">
- <!-- Dual Mode Switcher -->
- <div class="pricing-mode-selector">
- <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted);">UNIDAD DE PRECIO:</span>
- <div class="mode-toggle-group" role="group" aria-label="Selector de modalidad de precios">
- <button class="mode-btn active" id="mode-venta" data-mode="venta" title="Ver precios por unidad de bulto/venta comercial">
- <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
- <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
- </svg>
- <span>Venta Comercial (Envase)</span>
- </button>
- <button class="mode-btn" id="mode-computo" data-mode="computo" title="Ver precios por unidad métrica de cómputo (m², m³, ml, kg)">
- <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
- <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
- <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
- </svg>
- <span>Cómputo Métrico (m²/m³/ml)</span>
- </button>
- </div>
- </div>
+ <!-- (18/11, maqueta aprobada por el usuario) Controles del catálogo en una
+ sola fila: rubros arriba, y abajo cantidad de resultados, ordenar, comparar
+ con corralones cerca y "Más opciones" (mes, descarga, vista tabla, radio).
+ Se sacó el selector "Venta / Cómputo": el catálogo muestra siempre el precio
+ por unidad de venta y a cuánto equivale el envase (pedido del usuario: "la
+ unidad es bolsa"). Los botones viejos quedan ocultos para no romper el JS. -->
+ <section id="app-controls" class="catalog-controls">
+ <div class="category-filter-bar" id="rubros-filter-container"><!-- Populated via JavaScript --></div>
 
- <!-- Sort & View Controls -->
- <div class="view-sort-controls">
- <label for="sort-select" style="font-size: 0.82rem; font-weight: 600; color: var(--text-muted);">Ordenar:</label>
+ <div class="catalog-toolbar">
+ <div class="catalog-toolbar-count">
+ <strong class="results-count" id="visible-count">0</strong> materiales<span id="active-filter-label"></span>
+ </div>
+ <div class="catalog-toolbar-actions">
+ <label for="sort-select" class="catalog-toolbar-label">Ordenar</label>
  <select id="sort-select" class="sort-select">
- <option value="relevance">Relevancia / Nomenclatura</option>
+ <option value="relevance">Relevancia</option>
  <option value="price-asc">Menor precio</option>
  <option value="price-desc">Mayor precio</option>
  <option value="alpha-asc">Nombre A-Z</option>
  </select>
-
- <!-- View toggler (Grid vs Table) -->
- <button class="view-toggle-btn active" id="btn-view-grid" title="Vista en tarjetas">
- <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
- <rect x="3" y="3" width="7" height="7"></rect>
- <rect x="14" y="3" width="7" height="7"></rect>
- <rect x="14" y="14" width="7" height="7"></rect>
- <rect x="3" y="14" width="7" height="7"></rect>
- </svg>
+ <button class="mode-btn catalog-compare-btn" id="btn-toggle-compare-providers" type="button">Comparar con corralones cerca</button>
+ <details class="catalog-more">
+ <summary>Más opciones</summary>
+ <div class="catalog-more-panel">
+ <div class="catalog-more-row">
+ <span class="catalog-toolbar-label">Precios al mes de</span>
+ <select id="price-year-select" class="sort-select" aria-label="Año"></select>
+ <select id="price-month-select" class="sort-select" aria-label="Mes"></select>
+ </div>
+ <div class="catalog-more-row">
+ <span class="catalog-toolbar-label">Vista</span>
+ <button class="view-toggle-btn active" id="btn-view-grid" title="Vista en tarjetas" aria-label="Vista en tarjetas">
+ <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
  </button>
- <button class="view-toggle-btn" id="btn-view-table" title="Vista en tabla de cómputo">
- <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
- <line x1="8" y1="6" x2="21" y2="6"></line>
- <line x1="8" y1="12" x2="21" y2="12"></line>
- <line x1="8" y1="18" x2="21" y2="18"></line>
- <line x1="3" y1="6" x2="3.01" y2="6"></line>
- <line x1="3" y1="12" x2="3.01" y2="12"></line>
- <line x1="3" y1="18" x2="3.01" y2="18"></line>
- </svg>
+ <button class="view-toggle-btn" id="btn-view-table" title="Vista en tabla" aria-label="Vista en tabla">
+ <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
  </button>
  </div>
-
+ <div class="catalog-more-row">
+ <button type="button" id="btn-download-full-catalog" class="btn-action-drawer btn-copy" title="Descarga todos los materiales con sus precios para el mes elegido (Excel)">Descargar catálogo en Excel</button>
+ <button class="btn-action-drawer btn-copy" id="btn-open-methodology-catalog" type="button">Cómo se calcula el valor</button>
  </div>
-
- <div class="controls-header" style="margin-top: 1rem;">
- <div class="pricing-mode-selector">
- <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted);">PRECIO DE REFERENCIA</span>
- <button class="mode-btn" id="btn-toggle-compare-providers" type="button">Comparar con proveedores cercanos
- </button>
  </div>
- <button class="btn-action-drawer btn-copy" id="btn-open-methodology-catalog" type="button">Cómo se calcula el valor
- </button>
+ </details>
  </div>
-
- <div id="catalog-providers-controls" style="display:none; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap;">
- <label for="catalog-radius-select" style="font-size:0.8rem; font-weight:700; color:var(--text-muted);">Radio de búsqueda:</label>
+ </div>
+ <div class="catalog-providers-row" id="catalog-providers-controls" style="display:none;">
+ <label for="catalog-radius-select" class="catalog-toolbar-label">Corralones a</label>
  <select id="catalog-radius-select" class="sort-select">
  <option value="10">10 km</option>
  <option value="25" selected>25 km</option>
@@ -453,35 +433,14 @@
  </select>
  <span id="catalog-providers-status" style="font-size:0.78rem; color:var(--text-subtle);"></span>
  </div>
+ <p class="catalog-ref-note"><span id="reference-price-status">Valores de referencia</span> · Precios orientativos, sin impuestos ni flete.</p>
 
- <!-- RUBRO FILTER PILLS -->
- <div class="category-filter-bar" id="rubros-filter-container">
- <!-- Populated via JavaScript -->
+ <!-- Ya no se usan (el catálogo muestra siempre unidad de venta): se dejan ocultos porque main.js les agrega listeners. -->
+ <div hidden>
+ <button class="mode-btn active" id="mode-venta" data-mode="venta" type="button">Venta</button>
+ <button class="mode-btn" id="mode-computo" data-mode="computo" type="button">Cómputo</button>
  </div>
-
  </section>
-
- <!-- RESULTS SUMMARY -->
- <div class="results-summary">
- <div class="results-summary-row">
- <div>
- <span>Mostrando </span>
- <span class="results-count" id="visible-count">0</span>
- <span> materiales</span>
- <span id="active-filter-label" style="font-weight: 600; color: var(--brand-dark);"></span>
- </div>
- <div class="price-month-picker" style="margin-right: 6%;">
- <label for="price-year-select">Ver precios actualizados a:</label>
- <select id="price-year-select" class="sort-select"></select>
- <select id="price-month-select" class="sort-select"></select>
- <button type="button" id="btn-download-full-catalog" class="btn-action-drawer btn-copy" style="font-size: 0.75rem; padding: 6px 10px; white-space: nowrap; flex-shrink: 0;" title="Descarga los 943 materiales con sus precios para el mes elegido arriba (Excel)">Descargar catálogo</button>
- </div>
- </div>
- <div style="font-size: 0.8rem; color: var(--text-subtle); width: 100%;">
- <span id="reference-price-status">Valores de referencia · Base: <strong>Abril 2025</strong> · Metodología y actualización visibles en cada ítem</span>
- <br><span style="font-size: 0.72rem;">Precios orientativos. No incluyen impuestos ni flete. Este período también se aplica a Mano de Obra, para que tu presupuesto quede con una sola fecha de referencia.</span>
- </div>
- </div>
 
  <!-- PRODUCTS CONTAINER (GRID VIEW) -->
  <div class="products-grid" id="products-grid">
@@ -496,8 +455,8 @@
  <th>Código</th>
  <th>Denominación Técnica</th>
  <th>Rubro / Categoría</th>
- <th>Precio Venta</th>
- <th>Precio Cómputo</th>
+ <th>Precio</th>
+ <th>Equivale a</th>
  <th style="text-align: right;">Acción</th>
  </tr>
  </thead>
@@ -1053,6 +1012,16 @@
  </div>
 
  <!-- =========================================================================
+ FICHA DE UN MATERIAL (/material/<ID>-<nombre>) -- (18/11, maqueta aprobada)
+ Precio por unidad de venta y a cuánto equivale, cómo varió, y dónde
+ comprarlo con el precio de cada corralón. Se llena desde js/catalog.js
+ (renderMaterialPage).
+ ========================================================================= -->
+ <div id="material-view" class="view-section" style="display: none;">
+ <div class="container material-page" id="material-page-content"></div>
+ </div>
+
+ <!-- =========================================================================
  VISTA 3: MANO DE OBRA (UOCRA Zona A)
  ========================================================================= -->
  <div id="labor-view" class="view-section" style="display: none;">
@@ -1110,6 +1079,8 @@
  <p class="costo-m2-note">¿Querés que te avisemos cuando esté? Escribinos desde <button type="button" class="link-button" data-goto-view="contact">Contacto</button>.</p>
  </div>
  </div>
+ <!-- (18/11) Borrador del cómputo de la vivienda tipo (IPRODHA Prototipo A 2021): solo para administradores, hasta validarlo. js/costo-m2.js -->
+ <section id="costo-m2-draft" class="costo-m2-draft" hidden></section>
  </div>
  </div>
 
@@ -1595,20 +1566,33 @@
  <div class="catalog-header-banner">
  <div>
  <h2 class="catalog-title">Calculadora de Obra</h2>
- <p class="catalog-subtitle">Tu presupuesto en un solo lugar: sumá tareas completas (te armamos materiales, mano de obra y equipos con los rendimientos de referencia de NEXOBRA), o materiales y mano de obra sueltos, desde acá o desde el catálogo.</p>
+ <p class="catalog-subtitle">Sumá tareas completas, o materiales y mano de obra sueltos. Te armamos la lista y el costo.</p>
  </div>
  <button class="btn-computo" id="btn-new-apu-budget">+ Nuevo presupuesto</button>
  </div>
 
+ <!-- (18/11, maqueta aprobada) La Calculadora en 3 pasos: Agregar → Mi presupuesto → Pedir y compartir. Js: Apu.showApuStep(). -->
+ <nav class="apu-steps" aria-label="Pasos de la Calculadora">
+ <div class="apu-steps-tabs" role="tablist">
+ <button type="button" role="tab" id="apu-step-tab-agregar" data-apu-step="agregar" aria-controls="apu-step-agregar" aria-selected="true"><span class="apu-step-num">1</span> Agregar</button>
+ <button type="button" role="tab" id="apu-step-tab-presupuesto" data-apu-step="presupuesto" aria-controls="apu-step-presupuesto" aria-selected="false" tabindex="-1"><span class="apu-step-num">2</span> Mi presupuesto <span class="apu-step-badge" id="apu-step-count">0</span></button>
+ <button type="button" role="tab" id="apu-step-tab-pedir" data-apu-step="pedir" aria-controls="apu-step-pedir" aria-selected="false" tabindex="-1"><span class="apu-step-num">3</span> Pedir y compartir</button>
+ </div>
+ <div class="apu-steps-total"><span>Total estimado</span><strong id="apu-steps-total">$ 0,00</strong></div>
+ </nav>
+
  <!-- Aviso para quien usa la Calculadora de Obra sin cuenta (06/11): sin registrarse solo puede calcular una tarea a la vez (ver Apu.enforceApuAnonSingleItemLimit/updateApuGatingUI) -- armar un presupuesto con varias tareas, organizarlo en fases, guardarlo y compartirlo queda para cuentas registradas. -->
  <div id="apu-anon-banner" class="provider-announcement-banner" style="display:none; margin-bottom:16px; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
- <span>📌 Estás usando la Calculadora sin cuenta: podés calcular <strong>una tarea a la vez</strong> (ej. "Mampostería de 30") sumar <strong>todos los materiales y la mano de obra sueltos que quieras</strong> y mandarle tu pedido a los proveedores por WhatsApp. Registrate gratis para armar un presupuesto con varias tareas, organizarlo en fases, guardarlo, compartirlo por link y bajarlo en Excel.</span>
+ <span><strong>Sin cuenta:</strong> una tarea a la vez, materiales y mano de obra sueltos sin límite, y pedidos a proveedores por WhatsApp. Registrate gratis para sumar varias tareas, fases, guardar, compartir por link y bajar el Excel.</span>
  <button type="button" class="btn-computo" onclick="window.nexoBraApp.openApuRegisterPrompt()" style="white-space:nowrap;">Registrarme gratis</button>
  </div>
 
- <!-- Buscador de tareas -->
- <div class="provider-section" style="margin-bottom: 20px;">
+
+ <!-- PASO 1: AGREGAR -->
+ <section id="apu-step-agregar" class="apu-step-panel" role="tabpanel" aria-labelledby="apu-step-tab-agregar">
+ <div class="provider-section apu-add-box">
  <div class="provider-section-body" style="padding-top: 16px;">
+ <h3 class="apu-step-title">¿Qué tarea vas a hacer?</h3>
  <div class="excel-config-grid" style="margin-bottom:10px;">
  <div class="config-field" style="grid-column: span 2;">
  <label for="apu-task-search">Buscar tarea</label>
@@ -1622,10 +1606,17 @@
  </div>
  </div>
  <div id="apu-task-results" class="apu-task-results"><!-- Apu.renderTaskResults() --></div>
- <p style="margin-top:10px; font-size:0.8rem; color:var(--text-muted);">
- ¿No encontrás la tarea que buscás?
- <button type="button" id="btn-open-apu-custom-task" style="background:none; border:none; color:var(--color-accent, #3b82f6); font-weight:700; text-decoration:underline; cursor:pointer; font-size:0.8rem; padding:0;">Creá tu propia APU</button>
- </p>
+ <div id="apu-added-confirm" class="apu-added-confirm" role="status" hidden></div>
+ </div>
+ </div>
+
+ <h3 class="apu-step-title">¿Algo más?</h3>
+ <div class="apu-extras">
+ <button type="button" class="apu-extra-card" data-apu-extra="material"><span class="apu-extra-icon" aria-hidden="true">+</span><strong>Material suelto</strong><span>Un material del catálogo, sin tarea. Para pedirle precio a un corralón.</span></button>
+ <button type="button" class="apu-extra-card" data-apu-extra="labor"><span class="apu-extra-icon" aria-hidden="true">h</span><strong>Mano de obra</strong><span>Horas de oficial, medio oficial o ayudante, con el valor UOCRA del mes.</span></button>
+ <button type="button" class="apu-extra-card" id="btn-open-excel-modal"><span class="apu-extra-icon" aria-hidden="true">xls</span><strong>Subir lista en Excel</strong><span>Tu planilla de materiales, cotizada y cargada en el presupuesto.</span></button>
+ <button type="button" class="apu-extra-card" id="btn-open-apu-custom-task"><span class="apu-extra-icon" aria-hidden="true">T</span><strong>Crear tu propia tarea</strong><span>Si no está en la lista: armala con sus materiales y mano de obra.</span></button>
+ </div>
  <details class="drawer-obra-data" id="apu-direct-material-section" style="margin-top:10px;">
  <summary>+ Agregar un material suelto (sin APU, para pedirle precio a un proveedor)</summary>
  <div style="margin-top:8px;">
@@ -1643,24 +1634,19 @@
  <button type="button" class="btn-computo" id="btn-apu-add-direct-labor">Agregar</button>
  </div>
  </details>
- <div class="apu-excel-cta">
- <span>¿Tenés tu lista de materiales en una planilla?</span>
- <button type="button" class="btn-excel-inline" id="btn-open-excel-modal">
- <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>
- <span>Subir lista en Excel</span>
- </button>
- </div>
- </div>
- </div>
+ </section>
 
- <!-- Presupuesto en curso -->
+ <!-- PASO 2: MI PRESUPUESTO -->
+ <section id="apu-step-presupuesto" class="apu-step-panel" role="tabpanel" aria-labelledby="apu-step-tab-presupuesto" hidden>
  <div id="apu-budget-meta" class="drawer-computation-name" style="margin-bottom: 14px;">
  <input type="text" id="apu-budget-name" class="form-select" value="Mi presupuesto de obra" placeholder="Nombre del presupuesto/obra">
  <button class="btn-save-computation" id="btn-save-apu-budget" title="Guardar presupuesto">
  <span id="btn-save-apu-budget-label">Guardar</span>
  </button>
+ <button type="button" class="btn-action-drawer btn-copy apu-settings-btn" id="btn-apu-settings" aria-expanded="false" aria-controls="apu-settings-panel">Ajustes: obra, Factor K y fases</button>
  </div>
 
+ <div id="apu-settings-panel" class="apu-settings-panel" hidden>
  <details class="drawer-obra-data" id="apu-obra-data">
  <summary>Datos de la obra + factor K (opcional)</summary>
  <div class="drawer-obra-data-grid">
@@ -1704,51 +1690,51 @@
  </div>
  </details>
 
- <!-- Resumen tipo planilla (06/11): vista de solo lectura con el mismo formato que una planilla de cómputo y presupuesto tradicional -- numerado por rubro/ítem, con el total y la incidencia % de cada rubro. No reemplaza las tarjetas editables de abajo (ahí se sigue editando cada tarea), es solo un resumen de un vistazo. -->
- <!-- (18/11, auditoría 12/11) Resultado simple para quien usa la Calculadora sin cuenta: qué comprar, cuánto sale y qué hacer después. El detalle completo sigue más abajo. -->
- <div id="apu-quick-result" class="apu-quick-result" style="display:none;"></div>
-
- <details class="provider-section" id="apu-summary-section" style="margin-top: 16px; margin-bottom: 20px; display:none;" open>
- <summary>Resumen del presupuesto (planilla)</summary>
- <div class="provider-section-body">
- <div class="table-view-container">
- <table class="materials-table apu-summary-table">
- <thead><tr><th>R/I</th><th>Rubro / Tarea</th><th>Un</th><th>Cant</th><th style="text-align:right;">Precio Unitario</th><th style="text-align:right;">Total Ítem</th><th style="text-align:right;">Total Rubro</th><th style="text-align:right;">Incidencia</th></tr></thead>
- <tbody id="apu-summary-body"></tbody>
- </table>
  </div>
- </div>
- </details>
-
- <div id="apu-budget-items" class="apu-budget-items"><!-- Apu.renderBudgetItems() --></div>
 
  <div id="apu-budget-empty" class="computo-empty-state">
  <div class="empty-icon"></div>
  <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Tu presupuesto está vacío</h4>
- <p style="font-size: 0.85rem; color: var(--text-muted);">Buscá una tarea arriba y agregala con su cantidad, o sumá materiales y mano de obra sueltos desde acá o desde el catálogo.</p>
+ <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Sumá una tarea, materiales o mano de obra sueltos, acá o desde Precios.</p>
+ <button type="button" class="btn-computo" data-apu-goto="agregar">Agregar tareas o materiales</button>
  </div>
 
+ <div class="apu-budget-layout">
+ <div class="apu-budget-main">
+ <div id="apu-budget-items" class="apu-budget-items"><!-- Apu.renderBudgetItems() --></div>
+
+ <button type="button" class="apu-add-more" data-apu-goto="agregar">+ Agregar más tareas o materiales</button>
+ </div>
+ <aside class="apu-budget-side">
  <div id="apu-budget-footer" class="drawer-footer" style="position:static; border:none; padding:16px 0 0; display:none;">
  <div class="summary-row"><span>Materiales:</span><strong id="apu-total-materiales">$ 0,00</strong></div>
  <div class="summary-row"><span>Mano de obra:</span><strong id="apu-total-mano-obra">$ 0,00</strong></div>
  <div class="summary-row"><span>Equipos + Herramientas:</span><strong id="apu-total-equipos">$ 0,00</strong></div>
- <div class="summary-row total-row"><span>Total Estimado:</span><span id="apu-total-general" style="color: var(--brand-yellow); text-shadow: 0 0 1px #000;">$ 0,00</span></div>
- <p style="font-size: 0.7rem; color: var(--text-subtle); margin: 6px 0 0; line-height: 1.4;">Valores orientativos: materiales con precio de referencia NEXOBRA y mano de obra con el jornal UOCRA del mes. No incluyen cargas sociales, impuestos ni fletes: sumalos con tu Factor K.</p>
-
- <!-- (18/11) "Mandar pedido a este proveedor", también sin cuenta: los materiales con un proveedor elegido se agrupan por proveedor, con su botón de WhatsApp (Apu.renderApuProviderOrders). -->
- <div id="apu-provider-orders" class="apu-provider-orders" style="display:none;"></div>
-
- <div class="drawer-actions" id="apu-budget-drawer-actions">
- <button class="btn-action-drawer" id="btn-share-apu-budget" style="background: var(--color-accent, #3b82f6); color: #fff;">Compartir por link</button>
- <button class="btn-action-drawer" id="btn-export-apu-full" style="background: var(--color-success); color: #fff;">Presupuesto completo (Excel)</button>
- <button class="btn-action-drawer btn-copy" id="btn-share-apu-provider">Compartir a un proveedor</button>
- </div>
+ <div class="summary-row total-row"><span>Total estimado:</span><span id="apu-total-general" style="color: var(--brand-yellow); text-shadow: 0 0 1px #000;">$ 0,00</span></div>
+ <p style="font-size: 0.7rem; color: var(--text-subtle); margin: 6px 0 0; line-height: 1.4;">Valores orientativos: materiales con precio de referencia NEXOBRA y mano de obra con el jornal UOCRA del mes. No incluyen cargas sociales, impuestos ni fletes: sumalos con el Factor K en Ajustes.</p>
+ <button type="button" class="btn-computo apu-goto-pedir" data-apu-goto="pedir">Pedir y compartir →</button>
  <button class="btn-action-drawer" id="btn-clear-apu-budget" style="background: none; color: #EF4444; font-size: 0.78rem; text-decoration: underline; margin-top: 4px;">Vaciar presupuesto</button>
+
+
  </div>
+ </aside>
+ </div>
+ </section>
+
+ <!-- PASO 3: PEDIR Y COMPARTIR -->
+ <section id="apu-step-pedir" class="apu-step-panel" role="tabpanel" aria-labelledby="apu-step-tab-pedir" hidden>
+ <div class="computo-empty-state apu-when-empty">
+ <h4 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Todavía no hay nada para pedir</h4>
+ <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Agregá tareas o materiales y acá te armamos la lista para comprar y el pedido para los corralones.</p>
+ <button type="button" class="btn-computo" data-apu-goto="agregar">Agregar tareas o materiales</button>
+ </div>
+ <div class="apu-needs-items">
+ <!-- (18/11, auditoría 12/11) Resultado simple para quien usa la Calculadora sin cuenta: qué comprar, cuánto sale y qué hacer después. El detalle completo sigue más abajo. -->
+ <div id="apu-quick-result" class="apu-quick-result" style="display:none;"></div>
 
  <!-- Lista de materiales consolidada -->
- <details class="provider-section" id="apu-consolidated-section" style="margin-top: 24px; display:none;">
- <summary>Lista de materiales consolidada (todas las tareas del presupuesto)</summary>
+ <details class="provider-section" id="apu-consolidated-section" style="margin-top: 16px; display:none;" open>
+ <summary>Lista para comprar (todos los materiales del presupuesto)</summary>
  <div class="provider-section-body">
  <div class="table-view-container">
  <table class="materials-table">
@@ -1769,6 +1755,33 @@
  </div>
  </details>
 
+ <div class="provider-section apu-pedir-block">
+ <div class="provider-section-body">
+ <h3 class="apu-step-title">Pedir precio</h3>
+ <p class="material-muted" style="margin:0 0 12px;">Mandale la lista por WhatsApp a los corralones que elijas. No necesitás cuenta.</p>
+ <!-- (18/11) "Mandar pedido a este proveedor", también sin cuenta: los materiales con un proveedor elegido se agrupan por proveedor, con su botón de WhatsApp (Apu.renderApuProviderOrders). -->
+ <div id="apu-provider-orders" class="apu-provider-orders" style="display:none;"></div>
+
+ <div class="drawer-actions" id="apu-budget-drawer-actions">
+ <button class="btn-action-drawer" id="btn-share-apu-budget" style="background: var(--color-accent, #3b82f6); color: #fff;">Compartir por link</button>
+ <button class="btn-action-drawer" id="btn-export-apu-full" style="background: var(--color-success); color: #fff;">Presupuesto completo (Excel)</button>
+ <button class="btn-action-drawer btn-copy" id="btn-share-apu-provider">Compartir a un proveedor</button>
+ </div>
+ </div>
+ </div>
+ <!-- Resumen tipo planilla (06/11): vista de solo lectura con el mismo formato que una planilla de cómputo y presupuesto tradicional -- numerado por rubro/ítem, con el total y la incidencia % de cada rubro. No reemplaza las tarjetas editables de abajo (ahí se sigue editando cada tarea), es solo un resumen de un vistazo. -->
+ <details class="provider-section" id="apu-summary-section" style="margin-top: 16px; display:none;">
+ <summary>Resumen del presupuesto (planilla)</summary>
+ <div class="provider-section-body">
+ <div class="table-view-container">
+ <table class="materials-table apu-summary-table">
+ <thead><tr><th>R/I</th><th>Rubro / Tarea</th><th>Un</th><th>Cant</th><th style="text-align:right;">Precio Unitario</th><th style="text-align:right;">Total Ítem</th><th style="text-align:right;">Total Rubro</th><th style="text-align:right;">Incidencia</th></tr></thead>
+ <tbody id="apu-summary-body"></tbody>
+ </table>
+ </div>
+ </div>
+ </details>
+
  <!-- Curva de inversiones (06/11): a partir de la fecha estimada de cada fase y el monto de las tareas asignadas a ella, arma la curva de inversión (gasto por etapa + acumulado) que se usa para organizar dónde está ubicada cada tarea en el tiempo. Solo se muestra si el usuario creó alguna fase (mismo criterio que "Materiales por fase"); dentro, si ninguna fase tiene fecha estimada todavía, se avisa en vez de mostrar un gráfico vacío. -->
  <details class="provider-section" id="apu-curva-inversion-section" style="margin-top: 24px; display:none;">
  <summary>Curva de inversiones (por fase)</summary>
@@ -1778,7 +1791,14 @@
  <canvas id="apu-curva-inversion-chart" height="90" style="display:none;"></canvas>
  <p id="apu-curva-inversion-note" style="font-size:0.72rem; color:var(--text-subtle); margin-top:8px;"></p>
  </div>
- </details>
+ </details> </div>
+ </section>
+
+ <!-- Barra fija del celular: total y siguiente paso. -->
+ <div class="apu-bottom-bar" id="apu-bottom-bar" hidden>
+ <div><span class="apu-bottom-label">Total</span><strong id="apu-bottom-total">$ 0,00</strong></div>
+ <button type="button" class="btn-computo" id="apu-bottom-next">Ver mi presupuesto</button>
+ </div>
  </div>
  </div>
 
@@ -2116,12 +2136,27 @@
  <div class="catalog-header-banner">
  <div>
  <h2 class="catalog-title">Panel de Administración</h2>
- <p class="catalog-subtitle">Editor de materiales, aprobación de proveedores y precios pendientes.</p>
+ <p class="catalog-subtitle" id="admin-page-subtitle">Elegí qué querés hacer.</p>
  </div>
  </div>
 
+ <!-- (18/11, pedido del usuario) El panel pasa a ser un menú: cada tarjeta abre su propia página (#tablero, #indices...). Antes estaba todo junto en una sola página larga. Admin.showAdminPage(). -->
+ <nav id="admin-menu" class="admin-menu" aria-label="Secciones del panel">
+ <button type="button" class="admin-menu-card" data-admin-go="tablero"><strong>Tablero del sitio</strong><span>Visitas, recorrido, campañas, búsquedas y diagnóstico del sitio.</span></button>
+ <button type="button" class="admin-menu-card" data-admin-go="pendientes"><strong>Pendientes</strong><span>Proveedores y precios para aprobar, reclamos de fichas y reseñas reportadas.</span><em class="admin-menu-badge" id="admin-menu-badge-pendientes" hidden></em></button>
+ <button type="button" class="admin-menu-card" data-admin-go="indices"><strong>Índices y precios base</strong><span>Cargar IPC y UOCRA del mes, y actualizar precios base desde Excel.</span></button>
+ <button type="button" class="admin-menu-card" data-admin-go="materiales"><strong>Materiales</strong><span>Editor del catálogo y sugerencias técnicas de proveedores.</span><em class="admin-menu-badge" id="admin-menu-badge-materiales" hidden></em></button>
+ <button type="button" class="admin-menu-card" data-admin-go="proveedores"><strong>Proveedores</strong><span>Crear y editar fichas, cargar precios, importar Excel y transferir.</span></button>
+ <button type="button" class="admin-menu-card" data-admin-go="relevamiento"><strong>Relevamiento de precios</strong><span>Canasta para pedir presupuesto a corralones y precios de la zona.</span></button>
+ <button type="button" class="admin-menu-card" data-admin-go="apus"><strong>APUs de la Calculadora</strong><span>Revisar, describir y habilitar tareas.</span></button>
+ </nav>
+ <div id="admin-page-bar" class="admin-page-bar" hidden>
+ <button type="button" class="btn-action-drawer" data-admin-go="">&larr; Menú del panel</button>
+ <h3 id="admin-page-title"></h3>
+ </div>
+
  <!-- TABLERO DEL SITIO (16/11, a pedido del usuario: los contadores que estaban en el home pasan acá, solo para administradores, ampliados con el recorrido de las visitas y su origen. Datos: función get_admin_dashboard, migración 032). -->
- <details class="provider-section admin-dash" open>
+ <details class="provider-section admin-dash" open data-admin-page="tablero">
  <summary>Tablero del sitio</summary>
  <div class="provider-section-body">
  <div class="admin-dash-toolbar">
@@ -2185,7 +2220,7 @@
  </details>
 
  <!-- (16/11, auditoría 12/11: "sin pruebas automáticas") Chequeo rápido del sitio en vivo, para correr después de cada subida a GitHub. -->
- <details class="provider-section">
+ <details class="provider-section" data-admin-page="tablero">
  <summary>Diagnóstico del sitio</summary>
  <div class="provider-section-body">
  <p class="admin-dash-note">Revisa en el sitio publicado que lo importante siga en su lugar: páginas, buscadores (sitemap, robots, 404), archivos internos ocultos, conexión con la base y Calculadora. Correlo después de cada subida a GitHub.</p>
@@ -2195,7 +2230,7 @@
  </details>
 
  <!-- F2: EDITOR DE MATERIALES -->
- <details class="provider-section" open>
+ <details class="provider-section" open data-admin-page="materiales">
  <summary>Editor de materiales</summary>
  <div class="provider-section-body">
  <button class="btn-choose-provider" id="btn-open-new-material-admin" type="button" style="margin: 0 0 14px;">
@@ -2304,31 +2339,8 @@
  </div>
  </details>
 
- <!-- CARGA MASIVA DE PRECIOS BASE (REVISTA) -->
- <details class="provider-section">
- <summary>Actualizar precios base desde Excel (revista)</summary>
- <div class="provider-section-body">
- <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">Para cuando salga una edición nueva de la revista de precios. El Excel tiene que tener las columnas <strong>Código</strong>, <strong>Precio Venta</strong> y, opcional, <strong>Precio Cómputo</strong>. Por cada material, el precio base anterior queda guardado como historial (no se borra) y este pasa a ser el activo.
- </p>
- <div class="excel-config-grid" style="margin-bottom:14px;">
- <div class="config-field">
- <label for="admin-bulk-base-month">Mes base de estos precios</label>
- <input type="month" id="admin-bulk-base-month" class="form-select">
- </div>
- <div class="config-field">
- <label for="admin-bulk-source-name">Fuente (ej: "Revista Noviembre 2026")</label>
- <input type="text" id="admin-bulk-source-name" class="form-select" placeholder="Revista Construir, edición N°...">
- </div>
- </div>
- <input type="file" id="admin-bulk-price-file" accept=".xlsx,.xls,.csv" style="display:none;">
- <label for="admin-bulk-price-file" class="btn-action-drawer btn-copy" style="display:inline-flex; cursor:pointer;">Elegir archivo Excel</label>
- <span id="admin-bulk-price-filename" style="font-size:0.8rem; color:var(--text-muted); margin-left:8px;"></span>
- <div id="admin-bulk-price-preview" style="margin-top:14px;"></div>
- </div>
- </details>
-
  <!-- SUGERENCIAS TÉCNICAS DE PROVEEDORES -->
- <details class="provider-section">
+ <details class="provider-section" data-admin-page="materiales">
  <summary>Sugerencias técnicas pendientes</summary>
  <div class="provider-section-body">
  <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">Marca, descripción técnica y rendimiento que sugirieron proveedores para materiales de su catálogo. Se aplican al material recién cuando las aprobás.
@@ -2338,7 +2350,7 @@
  </details>
 
  <!-- ANALÍTICA DE BÚSQUEDAS -->
- <details class="provider-section">
+ <details class="provider-section" data-admin-page="tablero">
  <summary>Analítica de búsquedas</summary>
  <div class="provider-section-body">
  <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">Qué busca la gente en el catálogo y en el mapa. Las búsquedas con <strong>0 resultados</strong> son las más valiosas: es literalmente lo que alguien quiso encontrar y no está en NEXOBRA todavía (ni en el catálogo, ni con proveedores cerca).
@@ -2352,7 +2364,7 @@
  </details>
 
  <!-- ÍNDICES: IPC Y MANO DE OBRA -->
- <details class="provider-section" open>
+ <details class="provider-section" open data-admin-page="indices">
  <summary>Índices (IPC y Mano de Obra)</summary>
  <div class="provider-section-body">
  <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">Cargá acá el valor de cada mes para el IPC (materiales) o para cualquiera de los roles de UOCRA (mano de obra). Si volvés a cargar un mes que ya existía, se actualiza el valor (no se duplica).
@@ -2378,8 +2390,31 @@
  </div>
  </details>
 
+ <!-- CARGA MASIVA DE PRECIOS BASE (REVISTA) -->
+ <details class="provider-section" data-admin-page="indices">
+ <summary>Actualizar precios base desde Excel (revista)</summary>
+ <div class="provider-section-body">
+ <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">Para cuando salga una edición nueva de la revista de precios. El Excel tiene que tener las columnas <strong>Código</strong>, <strong>Precio Venta</strong> y, opcional, <strong>Precio Cómputo</strong>. Por cada material, el precio base anterior queda guardado como historial (no se borra) y este pasa a ser el activo.
+ </p>
+ <div class="excel-config-grid" style="margin-bottom:14px;">
+ <div class="config-field">
+ <label for="admin-bulk-base-month">Mes base de estos precios</label>
+ <input type="month" id="admin-bulk-base-month" class="form-select">
+ </div>
+ <div class="config-field">
+ <label for="admin-bulk-source-name">Fuente (ej: "Revista Noviembre 2026")</label>
+ <input type="text" id="admin-bulk-source-name" class="form-select" placeholder="Revista Construir, edición N°...">
+ </div>
+ </div>
+ <input type="file" id="admin-bulk-price-file" accept=".xlsx,.xls,.csv" style="display:none;">
+ <label for="admin-bulk-price-file" class="btn-action-drawer btn-copy" style="display:inline-flex; cursor:pointer;">Elegir archivo Excel</label>
+ <span id="admin-bulk-price-filename" style="font-size:0.8rem; color:var(--text-muted); margin-left:8px;"></span>
+ <div id="admin-bulk-price-preview" style="margin-top:14px;"></div>
+ </div>
+ </details>
+
  <!-- GESTIONAR PROVEEDORES (crear, cargar precios y transferir a un dueño real) -->
- <details class="provider-section" open>
+ <details class="provider-section" open data-admin-page="proveedores">
  <summary>Gestionar proveedores</summary>
  <div class="provider-section-body">
  <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">Creá un proveedor vos mismo y cargale sus datos y precios reales como primer paso -- ideal para arrancar con un corralón que todavía no quiere cargar nada por su cuenta. Más adelante, si el negocio quiere hacerse cargo, se lo podés <strong>transferir</strong> a su propio email sin perder el catálogo ya cargado.
@@ -2573,7 +2608,7 @@
  </details>
 
  <!-- (18/11) Relevamiento de precios en corralones (migración 037). -->
- <details class="provider-section admin-survey" open>
+ <details class="provider-section admin-survey" open data-admin-page="relevamiento">
  <summary>Relevamiento de precios (canasta)</summary>
  <div class="provider-section-body">
  <p class="admin-dash-note">1) Mandale la canasta a cada corralón (WhatsApp o planilla). 2) Con lo que te contesten, creá o abrí su ficha en "Gestionar proveedores" y cargá los precios en "Cargar precios del relevamiento". 3) Mostrales su ficha con "Reclamá tu negocio". Acá abajo ves cómo va la zona: precios de los últimos 60 días, en unidad de compra.</p>
@@ -2592,7 +2627,7 @@
  </details>
 
  <!-- (18/11) "Reclamá tu negocio": pedidos de dueños de fichas cargadas por NEXOBRA (migración 036). -->
- <details class="provider-section" open>
+ <details class="provider-section" open data-admin-page="pendientes">
  <summary>Reclamos de fichas ("Reclamá tu negocio")</summary>
  <div class="provider-section-body">
  <p class="admin-dash-note">Personas que dicen ser dueñas de una ficha que cargaste vos. Llamalas al teléfono que dejaron para confirmarlo antes de aprobar: al aprobar, la ficha pasa a su cuenta con todos los precios cargados y la administran desde "Mi Proveedor".</p>
@@ -2601,7 +2636,7 @@
  </details>
 
  <!-- F3: CORRALONES PENDIENTES -->
- <details class="provider-section" open>
+ <details class="provider-section" open data-admin-page="pendientes">
  <summary>Proveedores pendientes de aprobación</summary>
  <div class="provider-section-body">
  <div id="admin-pending-providers" class="computations-list"></div>
@@ -2610,7 +2645,7 @@
  </details>
 
  <!-- F4: AGENDA DE PRECIOS PENDIENTES -->
- <details class="provider-section" open>
+ <details class="provider-section" open data-admin-page="pendientes">
  <summary>Precios pendientes de aprobación</summary>
  <div class="provider-section-body">
  <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">Materiales nuevos y cambios de precio que cargaron los proveedores. El stock se refleja al instante y no aparece acá.</p>
@@ -2619,7 +2654,7 @@
  </details>
 
  <!-- RESEÑAS REPORTADAS -->
- <details class="provider-section" open>
+ <details class="provider-section" open data-admin-page="pendientes">
  <summary>Reseñas reportadas</summary>
  <div class="provider-section-body">
  <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:14px;">Reseñas que algún usuario marcó como inapropiadas. Podés eliminar la reseña (no se puede deshacer) o descartar el reporte si te parece que está bien como está.
@@ -2629,7 +2664,7 @@
  </details>
 
  <!-- ADMINISTRAR APUs (16/11, pedido del usuario): habilitar cada tarea a medida que se revisa, con descripción, imagen de referencia y rubro. Solo las habilitadas aparecen en la Calculadora (migración 033). -->
- <details class="provider-section admin-apu-panel" open>
+ <details class="provider-section admin-apu-panel" open data-admin-page="apus">
  <summary>Administrar APUs de la Calculadora</summary>
  <div class="provider-section-body">
  <p class="admin-dash-note">Solo las tareas <strong>habilitadas</strong> aparecen en la Calculadora de Obra. Abrí cada una con "Revisar": corregí rubro, descripción y componentes, sumale una imagen si querés, mirá el costo por unidad que va a ver la gente, y habilitala cuando esté lista. Los presupuestos que los usuarios ya guardaron no cambian.</p>
