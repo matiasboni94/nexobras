@@ -506,7 +506,11 @@ import * as ST from './state.js';
 
  export function updateReferenceStatus() {
  if (!ST.referencePriceStatus) return;
- ST.referencePriceStatus.innerHTML = `Valores de referencia NEXOBRA · Período: <strong>${ST.REFERENCE_PRICE_INFO.period}</strong> · Fuente: ${ST.REFERENCE_PRICE_INFO.source} · Actualizado: ${ST.REFERENCE_PRICE_INFO.updatedAt}`;
+ // (18/11) Texto corto, en una línea debajo de los controles del catálogo.
+ ST.referencePriceStatus.innerHTML = ST.state.priceMonth
+ ? `Precios de referencia de <strong>${ST.escapeHtml(ST.REFERENCE_PRICE_INFO.period)}</strong>`
+ : 'Precios de referencia NEXOBRA';
+ ST.referencePriceStatus.title = `Fuente: ${ST.REFERENCE_PRICE_INFO.source} · Actualizado: ${ST.REFERENCE_PRICE_INFO.updatedAt}`;
  }
 
  export function toBaseMonthLabel(value) {

@@ -103,6 +103,8 @@ import * as ST from './state.js';
       MapModule.loadOfferSubscriptionIds();
       // (18/11) Si venía de "Reclamá tu negocio" sin cuenta, se le abre el formulario al volver.
       setTimeout(() => MapModule.resumePendingProviderClaim(), 300);
+      // (18/11) Borrador de Costo por m² (solo admin): si entró directo a /costo-m2, se dibuja cuando llega el perfil.
+      if (ST.state.currentView === 'costo-m2') window.nexoBraApp?.loadCostoM2View?.();
 
       // (16/11, auditoría 12/11 falla 8) "¿Cómo nos conociste?" para TODAS
       // las cuentas, no solo las que se registran con email:

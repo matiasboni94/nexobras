@@ -5,6 +5,7 @@ import * as Apu from './apu.js';
 import * as Auth from './auth.js';
 import * as Catalog from './catalog.js';
 import * as Computo from './computo.js';
+import * as CostoM2 from './costo-m2.js';
 import * as Excel from './excel.js';
 import * as MapModule from './map.js';
 import * as Pricing from './pricing.js';
@@ -103,6 +104,7 @@ import * as ST from './state.js';
  const VIEW_NAV = {
  home: ['home'],
  catalog: ['precios', 'precios-materiales'],
+ material: ['precios', 'precios-materiales'],
  labor: ['precios', 'precios-mano-obra'],
  apu: ['apu'], 'my-apu-budgets': ['apu'], 'my-computations': ['apu'],
  'providers-directory': ['proveedores'], 'provider-public': ['proveedores'],
@@ -122,10 +124,10 @@ import * as ST from './state.js';
  // esa URL (ej. porque esta llamada vino de resolver el link al cargar,
  // o de un popstate del propio botón "atrás"), no duplicamos entrada.
  const targetPath = VIEW_ROUTES[viewName];
- // La página de un material (/material/...) también es la vista "catalog":
- // ahí no se cambia la URL. Cualquier otra entrada al catálogo sale de esa ficha.
- const enFichaMaterial = viewName === 'catalog' && openingMaterialPage;
- if (!enFichaMaterial) ST.state.materialFocusId = null;
+ // La ficha de un material (/material/...) es su propia vista (18/11) y
+ // no cambia la URL: ya la puso openMaterialPage().
+ const enFichaMaterial = viewName === 'material' && openingMaterialPage;
+ ST.state.materialFocusId = null;
  if (targetPath && window.location.pathname !== targetPath && !enFichaMaterial) {
  history.pushState({ view: viewName }, '', targetPath);
  }
@@ -154,6 +156,8 @@ import * as ST from './state.js';
  if (directoryViewEl) directoryViewEl.style.display = viewName === 'providers-directory' ? 'block' : 'none';
  const providerPublicViewEl = document.getElementById('provider-public-view');
  if (providerPublicViewEl) providerPublicViewEl.style.display = viewName === 'provider-public' ? 'block' : 'none';
+ const materialViewEl = document.getElementById('material-view');
+ if (materialViewEl) materialViewEl.style.display = viewName === 'material' ? 'block' : 'none';
  const costoM2ViewEl = document.getElementById('costo-m2-view');
  if (costoM2ViewEl) costoM2ViewEl.style.display = viewName === 'costo-m2' ? 'block' : 'none';
  if (viewName === 'providers-directory') {
@@ -165,7 +169,7 @@ import * as ST from './state.js';
  const navKeys = VIEW_NAV[viewName] || [];
  document.querySelectorAll('[data-nav]').forEach(btn => btn.classList.toggle('active', navKeys.includes(btn.dataset.nav)));
  document.querySelectorAll('.precios-tab').forEach(tab => {
- const on = tab.dataset.gotoView === viewName;
+ const on = tab.dataset.gotoView === (viewName === 'material' ? 'catalog' : viewName);
  tab.classList.toggle('active', on);
  tab.setAttribute('aria-selected', on ? 'true' : 'false');
  });
@@ -184,6 +188,7 @@ import * as ST from './state.js';
  Catalog.renderRubroPills();
  Catalog.renderProducts();
  }
+ if (viewName === 'costo-m2') CostoM2.loadCostoM2View();
  if (viewName === 'labor' && !ST.laborState.loaded) {
  Pricing.loadLaborSeries().then(Pricing.reconcilePriceMonth);
  }
@@ -203,6 +208,9 @@ import * as ST from './state.js';
  }
  }
  if (viewName === 'apu') {
+ // (18/11) La Calculadora en 3 pasos: se abre en el pedido (ej. "Ver mi
+ // presupuesto") o según si ya hay algo cargado.
+ Apu.showApuStep(Apu.initialApuStep(), { scroll: false });
  // A diferencia de "Mis Presupuestos de Obra", la calculadora en sí no
  // pide login para entrar -- pero desde el 06/11 sin cuenta solo se puede
  // calcular UNA tarea a la vez (ver Apu.enforceApuAnonSingleItemLimit):
@@ -319,17 +327,18 @@ import * as ST from './state.js';
  const path = ST.materialPath(item.id, item.denominacion);
  if (push && window.location.pathname !== path) history.pushState({ view: 'catalog', material: id }, '', path);
  else if (window.location.pathname !== path) history.replaceState({ view: 'catalog', material: id }, '', path);
- ST.state.searchQuery = '';
- if (ST.catalogSearchInput) ST.catalogSearchInput.value = '';
- ST.state.activeRubro = 'Todos';
- ST.state.materialFocusId = id;
  openingMaterialPage = true;
- try { switchView('catalog'); } finally { openingMaterialPage = false; }
- Catalog.renderRubroPills();
- Catalog.renderProducts();
+ try { switchView('material'); } finally { openingMaterialPage = false; }
+ Catalog.renderMaterialPage(id);
  document.title = `${item.denominacion}: precio de referencia | NEXOBRA`;
  window.scrollTo({ top: 0 });
  return false;
+ }
+
+ /** Abre la Calculadora en un paso puntual (ej. "Ver mi presupuesto"). */
+ export function openApuStep(step) {
+ Apu.requestApuStep(step);
+ switchView('apu');
  }
 
  export function goToProviderPublicPage(slug) {
@@ -623,7 +632,34 @@ import * as ST from './state.js';
  });
 
  // Drawer triggers -- (17/11) "Mi presupuesto" abre la Calculadora (Mi Cómputo se unió con ella).
- ST.btnOpenDrawer.addEventListener('click', () => switchView('apu'));
+ ST.btnOpenDrawer.addEventListener('click', () => openApuStep('presupuesto'));
+
+ // (18/11) Pasos de la Calculadora: pestañas, botones "ir a paso", "¿Algo más?" y Ajustes.
+ const apuViewEl = document.getElementById('apu-view');
+ if (apuViewEl) {
+ apuViewEl.addEventListener('click', (e) => {
+ const stepBtn = e.target.closest('[data-apu-step]');
+ if (stepBtn) { Apu.showApuStep(stepBtn.dataset.apuStep); return; }
+ const gotoBtn = e.target.closest('[data-apu-goto]');
+ if (gotoBtn) { Apu.showApuStep(gotoBtn.dataset.apuGoto); return; }
+ const extraBtn = e.target.closest('[data-apu-extra]');
+ if (extraBtn) { Apu.openApuExtra(extraBtn.dataset.apuExtra); return; }
+ if (e.target.closest('#btn-apu-settings')) Apu.toggleApuSettings();
+ });
+ const tablist = apuViewEl.querySelector('.apu-steps-tabs');
+ if (tablist) tablist.addEventListener('keydown', (e) => {
+ const steps = ['agregar', 'presupuesto', 'pedir'];
+ const i = steps.indexOf(Apu.currentApuStep());
+ let next = null;
+ if (e.key === 'ArrowRight') next = steps[(i + 1) % steps.length];
+ else if (e.key === 'ArrowLeft') next = steps[(i + steps.length - 1) % steps.length];
+ else if (e.key === 'Home') next = steps[0];
+ else if (e.key === 'End') next = steps[steps.length - 1];
+ if (!next) return;
+ e.preventDefault();
+ Apu.showApuStep(next, { scroll: false, focusTab: true });
+ });
+ }
  ST.drawerCloseBtn.addEventListener('click', Computo.closeDrawer);
  ST.drawerBackdrop.addEventListener('click', Computo.closeDrawer);
 
@@ -798,6 +834,12 @@ import * as ST from './state.js';
  switchView,
  goToProviderPublicPage,
  openMaterialPage,
+ openApuStep,
+ loadCostoM2View: CostoM2.loadCostoM2View,
+ openCostoM2InCalculator: CostoM2.openCostoM2InCalculator,
+ changeMaterialPageQty: Catalog.changeMaterialPageQty,
+ addMaterialPageToBudget: Catalog.addMaterialPageToBudget,
+ whatsappMaterialOffer: Catalog.whatsappMaterialOffer,
 addToComputo: Computo.addToComputo, // (17/11) ahora suma a la Calculadora, ver computo.js
 changeCardQty: Computo.changeCardQty,
 updateItemQtyInCart: Computo.updateItemQtyInCart,

@@ -1,5 +1,6 @@
 // NEXOBRA - catalog.js
 
+import * as Apu from './apu.js';
 import * as Computo from './computo.js';
 import * as Main from './main.js';
 import * as MapModule from './map.js';
@@ -134,10 +135,43 @@ import * as ST from './state.js';
  }
  }
 
+ /**
+ * (18/11, pedido del usuario) A cuánto equivale la unidad de venta: "1 Bolsa
+ * = 30 kg · $ 410 por kg", "1 Millar = 1.000 un", o, cuando la unidad de
+ * cómputo es el mismo envase (cemento en "bl"), lo que dice el nombre:
+ * "Bolsa de 50 kg". null si no hay nada útil para decir.
+ */
+ export function packageEquivalence(item) {
+ const venta = String(item.unidadVenta || '').trim();
+ const computo = String(item.unidadComputo || '').trim();
+ const envase = Number(item.envase) || 1;
+ const norm = (u) => u.toLowerCase().replace('²', '2').replace('³', '3').replace(/\.$/, '');
+ // "ml" en el catálogo es metro lineal: se muestra "m" para no confundir con mililitros.
+ const pretty = (u) => ({ ml: 'm', m2: 'm²', m3: 'm³' }[norm(u)] || u);
+ if (venta && computo && norm(venta) !== norm(computo) && envase !== 1 && norm(computo) !== 'bl') {
+ const precioComputo = Pricing.getReferencePrice(item, 'computo').currentPrice;
+ const precioTxt = isNaN(precioComputo) ? '' : ` · ${ST.formatMoney(precioComputo)} por ${pretty(computo)}`;
+ return `1 ${venta} = ${ST.formatQty(envase)} ${pretty(computo)}${precioTxt}`;
+ }
+ // Envases cuyo contenido figura en el nombre ("Cemento Portland 50kg"): no se
+ // aplica a m³ ni a unidades sueltas, para no leer "300 kg cemento" de un hormigón.
+ const esEnvase = /^(bolsa|bolsón|bolson|balde|lata|tambor|bid[oó]n|caja|pote|frasco|cartucho|rollo)$/i.test(venta);
+ const m = esEnvase && String(item.denominacion || '').match(/(\d+(?:[.,]\d+)?)\s*(kg|kgs|grs?|g|lts?|l|litros|cc|ml)\b/i);
+ if (m) {
+ const unidad = { kgs: 'kg', gr: 'g', grs: 'g', lt: 'l', lts: 'l', litros: 'l' }[m[2].toLowerCase()] || m[2].toLowerCase();
+ const contenido = ST.parseLocaleNumber(m[1]);
+ const precioVenta = Pricing.getReferencePrice(item, 'venta').currentPrice;
+ const porUnidad = (['kg', 'l'].includes(unidad) && contenido > 0 && !isNaN(precioVenta))
+ ? ` · ${ST.formatMoney(precioVenta / contenido)} por ${unidad}` : '';
+ return `${venta} de ${m[1]} ${unidad}${porUnidad}`;
+ }
+ return null;
+ }
+
  export function updateCatalogHeader() {
  if (ST.state.activeRubro === 'Todos') {
- ST.catalogHeaderTitle.textContent = 'Catálogo Completo';
- ST.catalogHeaderSubtitle.textContent = 'Consultor técnico de precios y rendimientos de obra';
+ ST.catalogHeaderTitle.textContent = 'Precios de materiales';
+ ST.catalogHeaderSubtitle.textContent = 'Precios de referencia NEXOBRA, con los de corralones de tu zona.';
  } else {
  const meta = RUBROS_METADATA[ST.state.activeRubro] || { icon: "", desc: "" };
  ST.catalogHeaderTitle.textContent = ST.state.activeRubro;
@@ -299,6 +333,8 @@ import * as ST from './state.js';
  // buscar. Los materiales aparecen recién cuando hay una intención clara
  // (buscaste algo, o elegiste un rubro puntual).
  const sinFiltroActivo = !ST.state.searchQuery.trim() && ST.state.activeRubro === 'Todos' && !ST.state.materialFocusId;
+ // (18/11) Sin filtro se ven las tarjetas de rubros: la barra de orden/comparar y la paginación no aplican.
+ if (ST.catalogView) ST.catalogView.classList.toggle('catalog-browse-mode', sinFiltroActivo);
  if (sinFiltroActivo) {
  ST.visibleCount.textContent = NEXOBRA_DATA.length;
  ST.activeFilterLabel.textContent = '';
@@ -341,122 +377,55 @@ import * as ST from './state.js';
  <button class="btn-action-drawer" type="button" onclick="window.nexoBraApp.clearCatalogSearch()">Ver todo el catálogo</button>
  </div>` : '';
 
- // Grid HTML
+ // Grid HTML -- (18/11, maqueta aprobada) tarjeta más simple: rubro,
+ // nombre (link a la ficha), precio por unidad de venta y a cuánto equivale
+ // el envase, referencia del mes, ofertas de corralones (si se comparó) y
+ // cantidad + Agregar. Etiquetas, ficha técnica e historial pasaron a la
+ // ficha del material.
+ const mesLabel = ST.state.priceMonth ? ST.monthLabel(ST.state.priceMonth) : '';
  ST.productsGrid.innerHTML = focusBanner + visible.map(item => {
- const isVentaMode = ST.state.pricingMode === 'venta';
- const mainTrace = Pricing.getReferencePrice(item, ST.state.pricingMode);
- const secondaryTrace = Pricing.getReferencePrice(item, isVentaMode ? 'computo' : 'venta');
-
+ const trace = Pricing.getReferencePrice(item, 'venta');
+ const mainPrice = trace.currentPrice;
+ const equiv = packageEquivalence(item);
  const oferta = ST.state.compareNearbyProviders ? ST.providerPricesState.byMaterial[item.id] : null;
- const mainPrice = mainTrace.currentPrice;
- const mainUnit = mainTrace.unit;
-
- let priceBoxExtra;
+ const fuente = trace.isMarketSourced
+ ? 'Precio de mercado real'
+ : trace.projectedFromEarlierMonth
+ ? `Referencia NEXOBRA · proyectado con IPC de ${ST.monthLabel(trace.projectedFromEarlierMonth)}`
+ : `Referencia NEXOBRA${mesLabel ? ' · ' + mesLabel : ''}`;
+ let ofertasHtml = '';
  if (oferta) {
- // Comparación: nunca reemplaza el precio de referencia, solo dice cuánto se alejan los proveedores cercanos de ESE precio.
- const pctMin = Math.round(((oferta.min_price - mainPrice) / mainPrice) * 100);
- const pctMax = Math.round(((oferta.max_price - mainPrice) / mainPrice) * 100);
- const fmtPct = (p) => `${p > 0 ? '+' : ''}${p}%`;
- priceBoxExtra = `
- <div class="price-secondary-row" style="color: #15803d;">
- <span> ${oferta.offers_count} proveedor${oferta.offers_count === 1 ? '' : 'es'} cerca</span>
- <strong>${fmtPct(pctMin)} a ${fmtPct(pctMax)} vs. referencia</strong>
- </div>
- `;
+ ofertasHtml = `<button type="button" class="card-offers card-offers-yes" onclick="window.nexoBraApp.openOfferPicker('${item.id}')">${oferta.offers_count} corralón${oferta.offers_count === 1 ? '' : 'es'} cerca · desde ${ST.formatMoney(oferta.min_price)} <span aria-hidden="true">›</span></button>`;
  } else if (ST.state.compareNearbyProviders) {
- priceBoxExtra = `
- <div class="price-secondary-row" style="color: var(--text-subtle);">
- <span>Sin proveedores cercanos cargados para este material</span>
- </div>
- `;
- } else {
- const secPrice = secondaryTrace.currentPrice;
- const secUnit = secondaryTrace.unit;
- const secLabel = isVentaMode ? 'Cómputo métrico' : 'Venta x bulto';
- priceBoxExtra = `
- <div class="price-secondary-row">
- <span>${secLabel}:</span>
- <strong>${ST.formatMoney(secPrice)} / ${secUnit}</strong>
- </div>
- `;
+ ofertasHtml = '<div class="card-offers card-offers-no">Todavía sin precios de corralones cerca</div>';
  }
-
- const tagsHtml = item.tags.slice(0, 4).map(t => 
- `<span class="card-tag-item" data-tag="${ST.escapeHtml(t)}">#${ST.escapeHtml(t)}</span>`
- ).join('');
-
  return `
- <article class="product-card" id="card-${item.id}">
- <div>
+ <article class="product-card product-card-v2" id="card-${item.id}">
  <div class="card-top">
- <span class="card-code">${item.id}</span>
  <span class="card-rubro-badge">${ST.escapeHtml(item.rubro)}</span>
+ <span class="card-code">${item.id}</span>
  </div>
  <h3 class="product-title"><a class="product-title-link" href="${ST.materialPath(item.id, item.denominacion)}" onclick="return window.nexoBraApp.openMaterialPage('${ST.escapeHtml(item.id)}', event)">${ST.escapeHtml(item.denominacion)}</a></h3>
- <div class="product-category-tree">${ST.escapeHtml(item.categoria)} &rsaquo; ${ST.escapeHtml(item.subcategoria)}</div>
- ${item.brand || item.technical_description || item.yield_value ? `
- <div class="card-tech-info">
- ${item.brand ? `<span class="card-tech-brand">${ST.escapeHtml(item.brand)}</span>` : ''}
- ${item.yield_value ? `<span class="card-tech-yield">${item.yield_value} ${ST.escapeHtml(item.yield_unit) || ''}</span>` : ''}
- ${item.technical_description ? `<p class="card-tech-desc">${ST.escapeHtml(item.technical_description)}</p>` : ''}
- </div>
- ` : ''}
- </div>
-
- <div>
- <div class="card-price-box">
  ${isNaN(mainPrice) ? `
- <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-muted); padding: 4px 0;">Sin referencia NEXOBRA todavía
- </div>
- <div class="price-secondary-row" style="color: var(--text-subtle);">
- <span>Material nuevo, sin precio base cargado — mirá si algún proveedor lo tiene</span>
- </div>
+ <div class="card-price-v2"><span class="card-price-none">Sin precio de referencia todavía</span></div>
  ` : `
- <div class="price-main-row">
+ <div class="card-price-v2">
  <span class="price-main-val">${ST.formatMoney(mainPrice)}</span>
- <span class="price-unit-tag">/ ${mainUnit}</span>
+ <span class="price-unit-tag">/ ${ST.escapeHtml(item.unidadVenta || trace.unit)}</span>
  </div>
- ${priceBoxExtra}
- ${mainTrace.isMarketSourced
- ? '<div class="price-source-tag market">Precio de mercado real</div>'
- : mainTrace.projectedFromEarlierMonth
- ? `<div class="price-source-tag ipc" title="El IPC de ${mainTrace.targetPeriod} todavía no se publicó (sale a mitad del mes siguiente)">Proyectado con IPC de ${ST.monthLabel(mainTrace.projectedFromEarlierMonth)}</div>`
- : '<div class="price-source-tag ipc">Proyectado por IPC</div>'
- }
- <button class="btn-material-history" onclick='window.nexoBraApp.openMaterialHistoryChart(${ST.escAttr(item.id)}, ${ST.escAttr(item.denominacion)})'>Ver evolución histórica</button>
+ ${equiv ? `<div class="card-equiv">${ST.escapeHtml(equiv)}</div>` : ''}
+ <div class="card-source">${ST.escapeHtml(fuente)}</div>
  `}
- </div>
-
- ${''}
-
- <div class="card-tags">
- ${tagsHtml}
- </div>
-
- ${oferta ? `
- <div style="display:flex; gap:6px; align-items:stretch;">
- <button class="btn-choose-provider" style="margin-top:0; flex:1;" onclick="window.nexoBraApp.openOfferPicker('${item.id}')">Ver ${oferta.offers_count} oferta${oferta.offers_count === 1 ? '' : 's'} y elegir proveedor
- </button>
- <button class="btn-alert-toggle ${ST.alertsState.byMaterial[item.id] ? 'active' : ''}" title="${ST.alertsState.byMaterial[item.id] ? 'Ya tenés una alerta armada — tocá para sacarla' : 'Avisame si baja de precio'}" onclick='window.nexoBraApp.toggleMaterialAlert(${ST.escAttr(item.id)}, ${ST.escAttr(item.denominacion)})'>
- 
- </button>
- </div>
- ` : ''}
-
+ ${ofertasHtml}
  <div class="card-actions">
  <div class="qty-control">
- <button class="qty-btn" onclick="window.nexoBraApp.changeCardQty('${item.id}', -1)" title="Reducir cantidad">-</button>
- <input type="number" id="qty-${item.id}" class="qty-input" value="1" min="1" max="999">
- <button class="qty-btn" onclick="window.nexoBraApp.changeCardQty('${item.id}', 1)" title="Aumentar cantidad">+</button>
+ <button class="qty-btn" onclick="window.nexoBraApp.changeCardQty('${item.id}', -1)" title="Reducir cantidad" aria-label="Menos">-</button>
+ <input type="number" id="qty-${item.id}" class="qty-input" value="1" min="1" max="999" aria-label="Cantidad en ${ST.escapeHtml(item.unidadVenta || '')}">
+ <button class="qty-btn" onclick="window.nexoBraApp.changeCardQty('${item.id}', 1)" title="Aumentar cantidad" aria-label="Más">+</button>
  </div>
  <button class="btn-add-computo" id="btn-add-${item.id}" onclick="window.nexoBraApp.addToComputo('${item.id}')">
- <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
- <line x1="12" y1="5" x2="12" y2="19"></line>
- <line x1="5" y1="12" x2="19" y2="12"></line>
- </svg>
- <span>Sumar</span>
+ <span>Agregar</span>
  </button>
- </div>
  </div>
  </article>
  `;
@@ -465,12 +434,12 @@ import * as ST from './state.js';
  // Table HTML
  ST.productsTableBody.innerHTML = visible.map(item => {
  const ventaTrace = Pricing.getReferencePrice(item, 'venta');
- const computoTrace = Pricing.getReferencePrice(item, 'computo');
+ const equiv = packageEquivalence(item);
  return `
  <tr>
  <td><span class="card-code">${item.id}</span></td>
  <td>
- <strong>${ST.escapeHtml(item.denominacion)}</strong>
+ <a class="product-title-link" href="${ST.materialPath(item.id, item.denominacion)}" onclick="return window.nexoBraApp.openMaterialPage('${ST.escapeHtml(item.id)}', event)"><strong>${ST.escapeHtml(item.denominacion)}</strong></a>
  <div style="font-size: 0.76rem; color: var(--text-subtle);">${ST.escapeHtml(item.subcategoria)}</div>
  </td>
  <td>
@@ -478,17 +447,12 @@ import * as ST from './state.js';
  </td>
  <td>
  <strong>${ST.formatMoney(ventaTrace.currentPrice)}</strong>
- <span style="font-size: 0.8rem; color: var(--text-muted);">/ ${ventaTrace.unit}</span>
- <div class="table-price-trace">Base ${ST.formatMoney(ventaTrace.basePrice)} · × ${ST.formatFactor(ventaTrace.factor)}</div>
+ <span style="font-size: 0.8rem; color: var(--text-muted);">/ ${ST.escapeHtml(ventaTrace.unit || '')}</span>
  </td>
- <td>
- <span style="color: #2563EB; font-weight: 700;">${ST.formatMoney(computoTrace.currentPrice)}</span>
- <span style="font-size: 0.8rem; color: var(--text-muted);">/ ${computoTrace.unit}</span>
- <div class="table-price-trace">Base ${ST.formatMoney(computoTrace.basePrice)} · × ${ST.formatFactor(computoTrace.factor)}</div>
- </td>
+ <td class="table-equiv">${equiv ? ST.escapeHtml(equiv) : '<span class="text-subtle">—</span>'}</td>
  <td style="text-align: right;">
  <button class="btn-add-computo" style="padding: 6px 12px; font-size: 0.78rem; display: inline-flex;" onclick="window.nexoBraApp.addToComputo('${item.id}')">
- + Cómputo
+ + Agregar
  </button>
  </td>
  </tr>
@@ -546,3 +510,197 @@ import * as ST from './state.js';
  }
 
  // --- CÓMPUTO CART MANAGEMENT ---
+
+
+ // ===========================================================================
+ // FICHA DE UN MATERIAL (/material/<ID>-<nombre>) -- (18/11, maqueta aprobada)
+ // Reemplaza al "catálogo filtrado a un solo material". Muestra el precio por
+ // unidad de venta y a cuánto equivale, cómo varió, y dónde comprarlo con el
+ // precio de cada corralón ("Agregar con este precio" / WhatsApp).
+ // ===========================================================================
+ const materialPageState = { id: null, offers: [] };
+
+ export function renderMaterialPage(id) {
+ const cont = document.getElementById('material-page-content');
+ const item = NEXOBRA_DATA.find(m => m.id === id);
+ if (!cont || !item) return;
+ materialPageState.id = id;
+ materialPageState.offers = [];
+ const trace = Pricing.getReferencePrice(item, 'venta');
+ const equiv = packageEquivalence(item);
+ const mesLabel = ST.state.priceMonth ? ST.monthLabel(ST.state.priceMonth) : '';
+ const fuente = trace.isMarketSourced
+ ? 'Precio de mercado real'
+ : trace.projectedFromEarlierMonth
+ ? `Precio de referencia · proyectado con IPC de ${ST.monthLabel(trace.projectedFromEarlierMonth)}`
+ : `Precio de referencia${mesLabel ? ' · ' + mesLabel : ''}`;
+ const unidad = item.unidadVenta || trace.unit || '';
+ const arbol = [item.categoria, item.subcategoria].filter(Boolean).map(ST.escapeHtml).join(' › ');
+ const rubroAttr = ST.escAttr(item.rubro);
+ cont.innerHTML = `
+ <nav class="material-crumbs" aria-label="Ruta">
+ <a href="/catalogo" onclick="event.preventDefault(); window.nexoBraApp.switchView('catalog')">Precios</a>
+ <span aria-hidden="true">›</span>
+ <a href="/catalogo" onclick='event.preventDefault(); window.nexoBraApp.switchView("catalog", ${rubroAttr})'>${ST.escapeHtml(item.rubro)}</a>
+ <span aria-hidden="true">›</span>
+ <span>${ST.escapeHtml(item.denominacion)}</span>
+ </nav>
+ <div class="material-layout">
+ <div class="material-main">
+ <section class="material-card material-hero">
+ <span class="card-rubro-badge">${ST.escapeHtml(item.rubro)} · ${ST.escapeHtml(item.id)}</span>
+ <h1>${ST.escapeHtml(item.denominacion)}</h1>
+ ${arbol ? `<p class="material-tree">${arbol}</p>` : ''}
+ <div class="material-buy">
+ <div class="material-price">
+ <div class="material-price-label">${ST.escapeHtml(fuente)}</div>
+ ${isNaN(trace.currentPrice)
+ ? '<div class="material-price-row"><span class="card-price-none">Sin precio de referencia todavía</span></div>'
+ : `<div class="material-price-row"><span class="material-price-val">${ST.formatMoney(trace.currentPrice)}</span><span class="material-price-unit">/ ${ST.escapeHtml(unidad)}</span></div>`}
+ <div class="material-equiv">${equiv ? ST.escapeHtml(equiv) + ' · ' : ''}<a href="/quienes-somos" onclick="event.preventDefault(); window.nexoBraApp.switchView('about')">cómo se calcula</a></div>
+ </div>
+ <div class="material-add">
+ <label for="material-page-qty">Cantidad</label>
+ <div class="qty-control">
+ <button class="qty-btn" type="button" onclick="window.nexoBraApp.changeMaterialPageQty(-1)" aria-label="Menos">-</button>
+ <input type="number" id="material-page-qty" class="qty-input" value="1" min="1" max="9999" aria-label="Cantidad en ${ST.escapeHtml(unidad)}">
+ <button class="qty-btn" type="button" onclick="window.nexoBraApp.changeMaterialPageQty(1)" aria-label="Más">+</button>
+ </div>
+ <span class="material-add-unit">${ST.escapeHtml(unidad)}</span>
+ <button type="button" class="btn-add-computo material-add-btn" id="material-page-add" onclick="window.nexoBraApp.addMaterialPageToBudget(null)">Agregar a mi presupuesto</button>
+ </div>
+ </div>
+ </section>
+ <section class="material-card" aria-labelledby="material-history-title">
+ <div class="material-card-head">
+ <h2 id="material-history-title">Cómo varió el precio</h2>
+ <span id="material-history-summary" class="material-muted"></span>
+ </div>
+ <div id="material-history" class="material-history"><p class="material-muted">Cargando historial...</p></div>
+ </section>
+ </div>
+ <aside class="material-card material-where" aria-labelledby="material-where-title">
+ <h2 id="material-where-title">Dónde comprarlo</h2>
+ <p class="material-muted">Precios cargados por cada corralón o relevados por NEXOBRA. Zona piloto: Oberá.</p>
+ <div id="material-offers" class="material-offers"><p class="material-muted">Buscando corralones...</p></div>
+ </aside>
+ </div>
+ `;
+ loadMaterialHistory(item);
+ loadMaterialOffers(item);
+ }
+
+ async function loadMaterialHistory(item) {
+ const box = document.getElementById('material-history');
+ const summary = document.getElementById('material-history-summary');
+ if (!box) return;
+ if (!ST.supabaseClient) { box.innerHTML = '<p class="material-muted">No se pudo cargar el historial.</p>'; return; }
+ const { data, error } = await ST.supabaseClient
+ .from('material_reference_anchors_cache')
+ .select('target_month, anchor_price, is_market_sourced')
+ .eq('material_id', item.id)
+ .eq('price_kind', 'sale')
+ .not('anchor_price', 'is', null)
+ .order('target_month');
+ if (materialPageState.id !== item.id) return; // ya se fue a otra ficha
+ if (error || !data || data.length < 2) {
+ box.innerHTML = '<p class="material-muted">Todavía no hay suficiente historial de precios para este material.</p>';
+ return;
+ }
+ const rows = data.slice(-12);
+ const vals = rows.map(r => Number(r.anchor_price));
+ const min = Math.min(...vals), max = Math.max(...vals);
+ // Coordenadas en píxeles reales del recuadro (sin estirar el SVG), así los puntos quedan redondos en el celular.
+ const W = Math.max(280, Math.round(box.clientWidth || 900));
+ const H = W < 500 ? 150 : 200;
+ const x0 = 8, x1 = W - 10, yTop = 16, yBot = H - 18;
+ const x = (i) => x0 + (rows.length === 1 ? 0 : i * (x1 - x0) / (rows.length - 1));
+ const y = (v) => max === min ? (yTop + yBot) / 2 : yBot - (v - min) * (yBot - yTop) / (max - min);
+ const pts = rows.map((r, i) => `${x(i).toFixed(1)},${y(vals[i]).toFixed(1)}`).join(' ');
+ const dots = rows.map((r, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(vals[i]).toFixed(1)}" r="${i === rows.length - 1 ? 6 : 4}" class="${r.is_market_sourced ? 'mh-dot-market' : 'mh-dot'}"><title>${ST.monthLabel(r.target_month)}: ${ST.formatMoney(vals[i])}${r.is_market_sourced ? ' (precio de mercado real)' : ' (proyectado por IPC)'}</title></circle>`).join('');
+ const variacion = vals[0] > 0 ? Math.round((vals[vals.length - 1] / vals[0] - 1) * 100) : null;
+ if (summary) summary.textContent = `Últimos ${rows.length} meses${variacion === null ? '' : ` · ${variacion > 0 ? '+' : ''}${variacion} %`}`;
+ box.innerHTML = `
+ <svg role="img" aria-label="Precio de referencia de los últimos ${rows.length} meses, de ${ST.formatMoney(vals[0])} a ${ST.formatMoney(vals[vals.length - 1])}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="mh-svg">
+ <line x1="0" y1="${yBot + 10}" x2="${W}" y2="${yBot + 10}" class="mh-axis"></line>
+ <line x1="0" y1="${yTop - 6}" x2="${W}" y2="${yTop - 6}" class="mh-grid"></line>
+ <polyline points="${pts}" class="mh-line"></polyline>
+ ${dots}
+ </svg>
+ <div class="mh-labels"><span>${ST.monthLabel(rows[0].target_month)} · ${ST.formatMoney(vals[0])}</span><span>${ST.monthLabel(rows[rows.length - 1].target_month)} · ${ST.formatMoney(vals[vals.length - 1])}</span></div>
+ <p class="material-muted mh-legend"><span class="mh-legend-item"><span class="mh-key mh-key-market"></span>precio de mercado real</span><span class="mh-legend-item"><span class="mh-key"></span>proyectado por IPC</span></p>
+ `;
+ }
+
+ async function loadMaterialOffers(item) {
+ const box = document.getElementById('material-offers');
+ if (!box) return;
+ const offers = await Apu.fetchOffersForMaterial(item.id);
+ if (materialPageState.id !== item.id) return;
+ materialPageState.offers = offers;
+ if (!offers.length) {
+ box.innerHTML = `
+ <div class="material-offers-empty">
+ <p>Todavía ningún corralón cargó su precio para este material.</p>
+ <p class="material-muted">¿Tenés un corralón o vendés materiales? Cargá tus precios gratis y aparecé acá.</p>
+ <button type="button" class="btn-action-drawer" onclick="window.nexoBraApp.startProviderSignup()">Sumá tu negocio</button>
+ </div>`;
+ return;
+ }
+ box.innerHTML = offers.map((o, idx) => {
+ const nombre = o.provider_business_name || o.provider_branch_name || 'Corralón';
+ const sucursal = o.provider_branch_name && o.provider_branch_name !== nombre ? o.provider_branch_name : '';
+ const detalle = [sucursal, o.locality].filter(Boolean).map(ST.escapeHtml).join(' · ');
+ const nombreHtml = o.branch_slug
+ ? `<a href="/proveedor/${encodeURIComponent(o.branch_slug)}" onclick='event.preventDefault(); window.nexoBraApp.goToProviderPublicPage(${ST.escAttr(o.branch_slug)})'>${ST.escapeHtml(nombre)}</a>`
+ : `<span>${ST.escapeHtml(nombre)}</span>`;
+ return `
+ <div class="material-offer">
+ <div class="material-offer-top">
+ <strong class="material-offer-name">${nombreHtml}</strong>
+ <span class="material-offer-price">${ST.formatMoney(o.amount)}<small> / ${ST.escapeHtml(o.unit || '')}</small></span>
+ </div>
+ <div class="material-offer-detail">${detalle}${detalle ? ' · ' : ''}${ST.offerAgeTag(o.reported_at)}</div>
+ <div class="material-offer-actions">
+ <button type="button" class="btn-action-drawer" onclick="window.nexoBraApp.addMaterialPageToBudget(${idx})">Agregar con este precio</button>
+ ${o.provider_whatsapp ? `<button type="button" class="whatsapp-mini-btn material-offer-wa" onclick="window.nexoBraApp.whatsappMaterialOffer(${idx})">WhatsApp</button>` : ''}
+ </div>
+ </div>`;
+ }).join('');
+ }
+
+ export function changeMaterialPageQty(delta) {
+ const input = document.getElementById('material-page-qty');
+ if (!input) return;
+ input.value = Math.max(1, (ST.parseLocaleNumber(input.value) || 1) + delta);
+ }
+
+ export function addMaterialPageToBudget(offerIdx = null) {
+ const item = NEXOBRA_DATA.find(m => m.id === materialPageState.id);
+ if (!item) return;
+ const input = document.getElementById('material-page-qty');
+ const qty = input ? Math.max(1, ST.parseLocaleNumber(input.value) || 1) : 1;
+ const offer = offerIdx === null ? null : materialPageState.offers[offerIdx];
+ try {
+ Apu.addCatalogMaterialToBudget(item.id, qty, 'venta', offer || null);
+ } catch (err) {
+ ST.showToast(err.message);
+ return;
+ }
+ ST.logEvent('apu_task_added', offer ? 'material desde la ficha, con precio de proveedor' : 'material desde la ficha');
+ if (ST.headerCartCount) ST.headerCartCount.textContent = ST.state.apuBudgetItems.length;
+ const quien = offer ? ` con el precio de ${offer.provider_business_name || offer.provider_branch_name}` : '';
+ ST.showToast(`+${ST.formatQty(qty)} ${item.unidadVenta || ''} de ${item.denominacion.substring(0, 32)}${quien}, en tu presupuesto.`, { actionLabel: 'Ver mi presupuesto', onAction: () => Main.openApuStep('presupuesto') });
+ }
+
+ export function whatsappMaterialOffer(idx) {
+ const o = materialPageState.offers[idx];
+ const item = NEXOBRA_DATA.find(m => m.id === materialPageState.id);
+ if (!o || !item || !o.provider_whatsapp) return;
+ const input = document.getElementById('material-page-qty');
+ const qty = input ? Math.max(1, ST.parseLocaleNumber(input.value) || 1) : 1;
+ const digits = String(o.provider_whatsapp).replace(/\D/g, '');
+ const text = `Hola! Vi en NEXOBRA que tenés ${item.denominacion} a ${ST.formatMoney(o.amount)}/${o.unit || ''}. Necesitaría ${ST.formatQty(qty)} ${item.unidadVenta || ''}. ¿Lo tenés disponible?`;
+ ST.logProviderInteraction(o.branch_id, o.provider_id, 'whatsapp_click', item.id, item.denominacion, null);
+ window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+ }

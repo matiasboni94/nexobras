@@ -272,7 +272,8 @@ import * as ST from './state.js';
 
  /** Toast con un botón para ir al presupuesto. */
  function toastAddedToBudget(text) {
- ST.showToast(text);
+ // (18/11) "Agregado ✓ · Ver mi presupuesto": acceso directo a la Calculadora.
+ ST.showToast(text, ST.state.currentView === 'apu' ? {} : { actionLabel: 'Ver mi presupuesto', onAction: () => Main.openApuStep('presupuesto') });
  if (ST.headerCartCount) ST.headerCartCount.textContent = ST.state.apuBudgetItems.length;
  }
 

@@ -1145,7 +1145,8 @@ export function addApuDirectLaborFromPanel() {
  const item = addLaborDirectoToBudget(rateId, qty);
  ST.logEvent('apu_task_added', 'mano de obra suelta');
  revealApuBudgetItem(item);
- ST.showToast(`Agregado: ${item.task_nombre_snapshot}`);
+ // (18/11) La confirmación se ve en el paso "Agregar" (showApuAddedConfirm); el aviso solo si no.
+ if (apuStep === 'presupuesto') ST.showToast(`Agregado: ${item.task_nombre_snapshot}`);
 }
 
 /** Busca en el catálogo real para el buscador de "Agregar material suelto" -- mismo criterio que searchMaterialsForCustomTask, reusado tal cual. */
@@ -1187,7 +1188,8 @@ export function addApuDirectMaterial(materialId) {
  const item = addMaterialDirectoToBudget(materialId, quantity);
  revealApuBudgetItem(item);
  ST.logEvent('apu_task_added', 'Material suelto: ' + item.task_nombre_snapshot);
- ST.showToast(`+ Agregado: ${item.task_nombre_snapshot}`);
+ // (18/11) La confirmación se ve en el paso "Agregar" (showApuAddedConfirm); el aviso solo si no.
+ if (apuStep === 'presupuesto') ST.showToast(`Agregado: ${item.task_nombre_snapshot}`);
 }
 
 // --- Estado del borrador mientras el modal "Crear tu propia APU" está
@@ -1402,6 +1404,7 @@ export function newApuBudget() {
  document.getElementById('share-link-box-apu')?.remove();
  updateApuBudgetNameUI();
  updateApuBudgetUI();
+ if (ST.state.currentView === 'apu') showApuStep('agregar', { scroll: false });
  ST.showToast('Empezaste un presupuesto de obra nuevo.');
 }
 
@@ -1410,6 +1413,7 @@ export function clearApuBudgetWithConfirm() {
  if (confirm('¿Deseas vaciar todo tu presupuesto de obra?')) {
  clearBudget();
  updateApuBudgetUI();
+ showApuStep('agregar', { scroll: false });
  ST.showToast('Presupuesto de obra vaciado.');
  }
 }
@@ -1636,7 +1640,8 @@ export function addApuTaskToBudget(apuTaskId) {
  if (panel) panel.style.display = 'none';
  revealApuBudgetItem(item);
  ST.logEvent('apu_task_added', item.task_nombre_snapshot);
- ST.showToast(`+ Agregado: ${item.task_nombre_snapshot}`);
+ // (18/11) La confirmación se ve en el paso "Agregar" (showApuAddedConfirm); el aviso solo si no.
+ if (apuStep === 'presupuesto') ST.showToast(`Agregado: ${item.task_nombre_snapshot}`);
 }
 
 // =========================================================
@@ -1705,8 +1710,124 @@ export function updateApuBudgetUI() {
  if (ST.apuTotalManoObra) ST.apuTotalManoObra.textContent = ST.formatMoney(totalManoObra);
  if (ST.apuTotalEquipos) ST.apuTotalEquipos.textContent = ST.formatMoney(totalEquipos);
  if (ST.apuTotalGeneral) ST.apuTotalGeneral.textContent = ST.formatMoney(breakdown.total);
+ updateApuStepChrome(breakdown.total);
 
  return breakdown;
+}
+
+// =========================================================
+// (18/11, maqueta aprobada) La Calculadora en 3 pasos:
+// Agregar → Mi presupuesto → Pedir y compartir.
+// =========================================================
+const APU_STEPS = ['agregar', 'presupuesto', 'pedir'];
+let apuStep = 'agregar';
+let requestedApuStep = null;
+
+/** Para entrar a la Calculadora directo en un paso (ej. "Ver mi presupuesto" desde un aviso). */
+export function requestApuStep(step) { requestedApuStep = APU_STEPS.includes(step) ? step : null; }
+
+/** Paso con el que se abre la Calculadora: el pedido, o según si ya hay algo cargado. */
+export function initialApuStep() {
+ const step = requestedApuStep;
+ requestedApuStep = null;
+ return step || (ST.state.apuBudgetItems.length ? 'presupuesto' : 'agregar');
+}
+
+export function currentApuStep() { return apuStep; }
+
+export function showApuStep(step, { scroll = true, focusTab = false } = {}) {
+ if (!APU_STEPS.includes(step)) step = 'agregar';
+ apuStep = step;
+ APU_STEPS.forEach(s => {
+ const panel = document.getElementById(`apu-step-${s}`);
+ const tab = document.getElementById(`apu-step-tab-${s}`);
+ if (panel) panel.hidden = s !== step;
+ if (tab) {
+ tab.setAttribute('aria-selected', s === step ? 'true' : 'false');
+ tab.tabIndex = s === step ? 0 : -1;
+ }
+ });
+ if (focusTab) document.getElementById(`apu-step-tab-${step}`)?.focus();
+ if (step !== 'agregar') hideApuAddedConfirm();
+ // Sin cuenta, "Tu resultado" ya muestra qué comprar: la lista completa queda plegada.
+ if (step === 'pedir' && ST.apuConsolidatedSection) ST.apuConsolidatedSection.open = !!ST.authState.user;
+ updateApuStepChrome();
+ if (scroll) {
+ const nav = document.querySelector('.apu-steps');
+ const header = document.getElementById('main-header');
+ if (nav) {
+ const top = nav.getBoundingClientRect().top + window.scrollY - (header ? header.offsetHeight : 0) - 8;
+ if (window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' });
+ }
+ }
+}
+
+let lastApuTotal = 0;
+function updateApuStepChrome(total = null) {
+ if (total !== null) lastApuTotal = total;
+ const n = ST.state.apuBudgetItems.length;
+ const count = document.getElementById('apu-step-count');
+ if (count) {
+ count.textContent = n;
+ count.hidden = n === 0;
+ }
+ const totalTxt = ST.formatMoney(lastApuTotal);
+ const stepsTotal = document.getElementById('apu-steps-total');
+ if (stepsTotal) stepsTotal.textContent = totalTxt;
+ const bottomTotal = document.getElementById('apu-bottom-total');
+ if (bottomTotal) bottomTotal.textContent = totalTxt;
+ const view = document.getElementById('apu-view');
+ if (view) view.classList.toggle('apu-empty', n === 0);
+ const bar = document.getElementById('apu-bottom-bar');
+ if (bar) bar.hidden = n === 0;
+ const next = document.getElementById('apu-bottom-next');
+ if (next) {
+ const cfg = {
+ agregar: ['presupuesto', `Ver mi presupuesto (${n})`],
+ presupuesto: ['pedir', 'Pedir y compartir'],
+ pedir: ['presupuesto', 'Volver a mi presupuesto'],
+ }[apuStep];
+ next.dataset.apuGoto = cfg[0];
+ next.textContent = cfg[1];
+ }
+}
+
+function showApuAddedConfirm(item) {
+ const box = document.getElementById('apu-added-confirm');
+ if (!box || !item) return;
+ const unidad = item.task_unidad_snapshot || '';
+ box.innerHTML = `<span><strong>✓ Agregado:</strong> ${ST.escapeHtml(item.task_nombre_snapshot)} — ${ST.formatQty(item.quantity)} ${ST.escapeHtml(unidad)}</span>
+ <button type="button" class="apu-added-link" data-apu-goto="presupuesto">Ver mi presupuesto →</button>`;
+ box.hidden = false;
+}
+
+function hideApuAddedConfirm() {
+ const box = document.getElementById('apu-added-confirm');
+ if (box) box.hidden = true;
+}
+
+/** "¿Algo más?": abre el bloque de material o mano de obra sueltos y lleva el foco ahí. */
+export function openApuExtra(kind) {
+ const id = kind === 'labor' ? 'apu-direct-labor-section' : 'apu-direct-material-section';
+ const det = document.getElementById(id);
+ if (!det) return;
+ det.open = true;
+ det.scrollIntoView({ behavior: 'smooth', block: 'center' });
+ const target = det.querySelector(kind === 'labor' ? '#apu-direct-labor-role' : '#apu-direct-material-search');
+ if (target) setTimeout(() => target.focus({ preventScroll: true }), 250);
+}
+
+export function toggleApuSettings(force = null) {
+ const panel = document.getElementById('apu-settings-panel');
+ const btn = document.getElementById('btn-apu-settings');
+ if (!panel) return;
+ const open = force === null ? panel.hidden : force;
+ panel.hidden = !open;
+ if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+ if (open) {
+ const det = document.getElementById('apu-obra-data');
+ if (det) det.open = true;
+ }
 }
 
 function renderMaterialVariantSelect(item, l) {
@@ -1961,6 +2082,9 @@ function revealApuBudgetItem(item) {
  expandedItemIds.add(item.localId);
  }
  updateApuBudgetUI();
+ // (18/11) En el paso "Agregar" no se salta al presupuesto: se confirma ahí
+ // mismo ("Agregado ✓ · Ver mi presupuesto") para poder seguir sumando.
+ if (apuStep !== 'presupuesto') { showApuAddedConfirm(item); return; }
  requestAnimationFrame(() => {
  const card = document.getElementById(`apu-item-${item.localId}`);
  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3234,11 +3358,11 @@ function localityLooksNearObra(locality) {
 }
 
 /** Trae todas las ofertas aprobadas de provider_offers para un material, de sucursales activas -- sin filtro geográfico (ver nota arriba). */
-async function fetchOffersForMaterial(materialId) {
+export async function fetchOffersForMaterial(materialId) {
  if (!ST.supabaseClient) return [];
  const { data, error } = await ST.supabaseClient
  .from('provider_offers')
- .select('id, branch_id, amount, unit, reported_at, provider_branches!inner(name, locality, whatsapp_phone, active, providers(business_name, active, contact_phone))')
+ .select('id, branch_id, amount, unit, reported_at, provider_branches!inner(name, locality, whatsapp_phone, active, slug, provider_id, providers(business_name, active, contact_phone))')
  .eq('material_id', materialId)
  .eq('status', 'approved')
  .eq('provider_branches.active', true)
@@ -3258,6 +3382,8 @@ async function fetchOffersForMaterial(materialId) {
  locality: row.provider_branches?.locality || '',
  provider_business_name: row.provider_branches?.providers?.business_name || '',
  provider_branch_name: row.provider_branches?.name || '',
+ provider_id: row.provider_branches?.provider_id || null,
+ branch_slug: row.provider_branches?.slug || null,
  provider_whatsapp: row.provider_branches?.whatsapp_phone || row.provider_branches?.providers?.contact_phone || null // mismo fallback que el resto del sitio
  }));
  // Primero las de la localidad de la obra (si hay una cargada), después el resto -- ya vienen ordenadas por precio dentro de cada grupo.
@@ -3616,7 +3742,7 @@ export function renderApuQuickResult(breakdown) {
  <ul>
  ${materiales.slice(0, MAX).map(m => `<li><span>${ST.escapeHtml(m.denominacion)}</span><strong>${ST.formatQty(m.cantidadAPedir)} ${ST.escapeHtml(m.unidadCompra || m.unidad)}</strong></li>`).join('')}
  </ul>
- ${materiales.length > MAX ? `<p class="apu-quick-more">y ${materiales.length - MAX} material${materiales.length - MAX === 1 ? '' : 'es'} más en el detalle de abajo.</p>` : ''}
+ ${materiales.length > MAX ? `<p class="apu-quick-more">y ${materiales.length - MAX} material${materiales.length - MAX === 1 ? '' : 'es'} más en la lista de abajo.</p>` : ''}
  </div>` : ''}
  ${manoObra.length ? `
  <div class="apu-quick-section">
@@ -3628,7 +3754,7 @@ export function renderApuQuickResult(breakdown) {
  ${materiales.length ? '<button type="button" class="btn-action-drawer" onclick="window.nexoBraApp.copyApuQuickList()">Copiar la lista</button>' : ''}
  <button type="button" class="btn-action-drawer" onclick="window.nexoBraApp.openApuRegisterPrompt()">Registrarme gratis para guardarlo</button>
  </div>
- <p class="apu-quick-note">Valores orientativos, sin cargas sociales, impuestos ni fletes. El detalle de cada tarea está más abajo.</p>`;
+ <p class="apu-quick-note">Valores orientativos, sin cargas sociales, impuestos ni fletes. El detalle de cada tarea está en Mi presupuesto.</p>`;
 }
 
 export function copyApuQuickList() {

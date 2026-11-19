@@ -623,7 +623,7 @@
  * cae al factor estático precioVenta/precioBase como respaldo para no romper
  * la vista, pero deja marcado dynamic:false para que la UI lo aclare.
  */
- export function showToast(message) {
+ export function showToast(message, { actionLabel = null, onAction = null } = {}) {
  const toast = document.createElement('div');
  toast.className = 'toast';
  toast.innerHTML = `
@@ -637,13 +637,23 @@
  // lugar del código un toast llega a mostrar un dato que escribió un
  // usuario (nombre de proveedor, etc.), nunca se interpreta como HTML.
  toast.querySelector('span').textContent = message;
+ // (18/11) Toast con acción, ej. "Agregado ✓ · Ver mi presupuesto". Dura
+ // un poco más para que dé tiempo a tocarlo.
+ if (actionLabel && typeof onAction === 'function') {
+ const btn = document.createElement('button');
+ btn.type = 'button';
+ btn.className = 'toast-action';
+ btn.textContent = actionLabel;
+ btn.addEventListener('click', () => { toast.remove(); onAction(); });
+ toast.appendChild(btn);
+ }
  toastContainer.appendChild(toast);
  setTimeout(() => {
  toast.style.opacity = '0';
  toast.style.transform = 'translateY(10px)';
  toast.style.transition = '0.3s ease';
  setTimeout(() => toast.remove(), 300);
- }, 2800);
+ }, actionLabel ? 5000 : 2800);
  }
 
  // --- NAVIGATION VIEW SWITCHER ---
