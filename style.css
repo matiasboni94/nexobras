@@ -977,3 +977,38 @@ html[data-theme=dark] .casa-leyenda .ley.muro{background:#C9CED6}
 /* "Más opciones" del catálogo: los botones no se salen del ancho */
 .catalog-more-panel{max-width:calc(100vw - 24px);box-sizing:border-box}
 .catalog-more-row .btn-action-drawer{min-width:0;white-space:normal}
+
+/* (21/11-i) Armá tu casa en 3 pasos: Terreno y casa · Cómo se construye · Presupuesto */
+.casa-pasos{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-lg);padding:6px;margin:0 0 16px;box-shadow:var(--shadow-sm);position:sticky;top:76px;z-index:20}
+.casa-pasos-tabs{display:flex;gap:4px;flex-wrap:wrap}
+.casa-paso{display:inline-flex;align-items:center;gap:8px;border:none;background:transparent;color:var(--text-muted);font:inherit;font-size:.9rem;font-weight:600;padding:10px 14px;border-radius:12px;cursor:pointer}
+.casa-paso span{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--bg-subtle);color:var(--text-main);font-size:.8rem;font-weight:800}
+.casa-paso:hover{background:var(--bg-subtle);color:var(--text-main)}
+.casa-paso.on{background:var(--brand-dark);color:#fff}
+.casa-paso.on span{background:var(--brand-yellow);color:#1E2229}
+.casa-paso.hecho span{background:var(--color-success);color:#fff}
+.casa-paso:focus-visible{outline:2px solid var(--brand-yellow);outline-offset:2px}
+.casa-pasos-total{display:flex;flex-direction:column;align-items:flex-end;padding:0 12px;line-height:1.2}
+.casa-pasos-total span{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted)}
+.casa-pasos-total strong{font-size:1.2rem;font-weight:800}
+.casa-pasos-total small{font-size:.72rem;color:var(--text-muted)}
+.casa-pasos-pie{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:18px 0 6px;padding-top:14px;border-top:1px solid var(--border-light)}
+.casa-pasos-pie .btn-action-drawer{flex:0 1 auto;color:var(--text-main);background:var(--bg-card);border:1px solid var(--border-light)}
+.casa-pasos-pie .btn-computo{min-height:44px;padding:10px 20px}
+@media (min-width:1000px){.casa-fija{position:sticky;top:156px;align-self:flex-start}}
+.casa-paso3{display:flex;flex-direction:column;gap:14px}
+.casa-resumen-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 28px}
+.casa-resumen h4{display:flex;align-items:center;justify-content:space-between;font-size:.9rem;margin:6px 0 6px;padding-bottom:6px;border-bottom:1px solid var(--border-light)}
+.casa-resumen ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+.casa-resumen li{display:flex;justify-content:space-between;gap:12px;font-size:.84rem}
+.casa-resumen li span{color:var(--text-muted)}
+.casa-resumen li b{text-align:right;font-weight:600}
+@media (max-width:760px){
+ .casa-pasos{top:75px;padding:4px;gap:6px}
+ .casa-pasos-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}
+ .casa-paso{justify-content:center;flex-direction:column;padding:8px 4px;font-size:.74rem;gap:4px;text-align:center}
+ .casa-pasos-total{width:100%;flex-direction:row;align-items:baseline;justify-content:space-between;padding:4px 10px 6px;gap:8px}
+ .casa-pasos-total small{display:none}
+ .casa-resumen-grid{grid-template-columns:1fr}
+ .casa-pasos-pie .btn-computo{flex:1}
+}
