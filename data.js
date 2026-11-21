@@ -2488,7 +2488,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACF-001",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Fibroasfálticas",
  "subcategoria": "Chapas Fibroasfálticas",
  "denominacion": "Fibroasfálticas liviana (1,6 m x 0,6 m)",
@@ -2511,7 +2511,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACF-002",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Fibroasfálticas",
  "subcategoria": "Chapas Fibroasfálticas",
  "denominacion": "Fibroasfálticas intermedia (1,6 m x 0,6 m)",
@@ -2534,7 +2534,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACF-003",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Fibroasfálticas",
  "subcategoria": "Chapas Fibroasfálticas",
  "denominacion": "Fibroasfálticas reforzada (1,6 m x 0,6 m)",
@@ -2557,7 +2557,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACF-004",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Fibroasfálticas",
  "subcategoria": "Chapas Fibroasfálticas",
  "denominacion": "Fibroasfálticas reforzada (2,1 m x 0,9 m)",
@@ -2580,7 +2580,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-001",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Galvanizadas",
  "denominacion": "Chapas Galvanizadas Nº 25 (1,1 m x 3,0 m)",
@@ -2602,7 +2602,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-002",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Galvanizadas",
  "denominacion": "Chapas Galvanizadas Nº 25 (1,1 m x 3,5 m)",
@@ -2626,7 +2626,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-003",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Galvanizadas",
  "denominacion": "Chapas Galvanizadas Nº 25 (1,1 m x 5.0 m)",
@@ -2648,7 +2648,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-004",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Galvanizadas",
  "denominacion": "Chapas Galvanizadas Nº 25 (1,1 m x 6.0 m)",
@@ -2670,7 +2670,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-005",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Galvanizadas",
  "denominacion": "Chapas Galvanizadas Nº 25 (1,1 m x 7.0 m)",
@@ -2694,7 +2694,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-006",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Galvanizadas",
  "denominacion": "Chapas Galvanizadas Nº 25 (1,1 m x 8,5 m)",
@@ -2716,7 +2716,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-007",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Galvanizadas",
  "denominacion": "Chapas Galvanizadas Nº 25 (1,1 m x 10,0 m)",
@@ -2738,7 +2738,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-008",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Galvanizadas",
  "denominacion": "Chapas Galvanizadas Nº 25 (1,1 m x 13,0 m)",
@@ -2760,7 +2760,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-009",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Galvanizadas",
  "denominacion": "Chapas Galvanizadas Nº 27 (1,1 m x 3,0 m)",
@@ -2784,7 +2784,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-010",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Galvanizadas",
  "denominacion": "Chapas Galvanizadas Nº 27 (1,1 m x 3,5 m)",
@@ -2808,7 +2808,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-011",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Galvanizadas",
  "denominacion": "Chapas Galvanizadas Nº 27 (1,1 m x 5,0 m)",
@@ -2832,7 +2832,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-012",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Acanalada N°27 (1,08 m x 3,00 m)",
@@ -2856,7 +2856,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-013",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Acanalada N°25 (1,08 m x 3,00 m)",
@@ -2880,7 +2880,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-014",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Acanalada N°25 (1,08 m x 5,00 m)",
@@ -2904,7 +2904,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-015",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Acanalada N°25 (1,08 m x 6,00 m)",
@@ -2928,7 +2928,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-016",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Acanalada N°25 (1,08 m x 7,00 m)",
@@ -2952,7 +2952,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-017",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Acanalada N°25 (1,08 m x 9,00 m)",
@@ -2976,7 +2976,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-018",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Trapezoidal N°25 (1,1 m x 3,0 m)",
@@ -3000,7 +3000,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-019",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Trapezoidal N°25 (1,1 m x 5,0 m)",
@@ -3024,7 +3024,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-020",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Trapezoidal N°25 (1,1 m x 8,0 m)",
@@ -3049,7 +3049,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-021",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Trapezoidal N°25 (1,1 m x 10,0 m)",
@@ -3074,7 +3074,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-022",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Trapezoidal N°25 (1,1 m x 13,0 m)",
@@ -3099,7 +3099,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-023",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Acanalada N°25 Negra (1,08 m x 4,00 m)",
@@ -3124,7 +3124,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-024",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Acanalada N°25 Negra (1,08 m x 6,00 m)",
@@ -3149,7 +3149,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-025",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Acanalada N°25 Negra (1,08 m x 8,00 m)",
@@ -3174,7 +3174,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-026",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Acanalada N°25 Negra (1,08 m x 13,00 m)",
@@ -3199,7 +3199,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-027",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Trapezoidal N°25 Negra (1,1 m x 4,0 m)",
@@ -3224,7 +3224,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-028",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Trapezoidal Negra N°25 (1,1 m x 7,0 m)",
@@ -3249,7 +3249,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-029",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Trapezoidal Negra N°25 (1,1 m x 10,0 m)",
@@ -3274,7 +3274,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-030",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Trapezoidal N°25 Verde (1,1 m x 4,0 m)",
@@ -3299,7 +3299,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-031",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Trapezoidal N°25 Verde (1,1 m x 10,0 m)",
@@ -3324,7 +3324,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-032",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Trapezoidal N°25 Azul (1,1 m x 7,5 m)",
@@ -3349,7 +3349,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-033",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Trapezoidal N°25 Azul (1,1 m x 10,5 m)",
@@ -3374,7 +3374,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACM-034",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Metálicas",
  "subcategoria": "Chapas Cincalum",
  "denominacion": "Chapa Trapezoidal N°25 Blanca (1,1 m x 4,0 m)",
@@ -3399,7 +3399,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CACP-001",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Plásticas",
  "subcategoria": "Chapas Traslúcidas",
  "denominacion": "Ch° traslúcida estándar verde y blanca (1,1 m x 1,0 m)",
@@ -3423,8 +3423,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAH-001",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Hidrófugas",
  "denominacion": "Sika 1 Hidrof. Tipo ceresita (5 kg)",
  "tags": [
@@ -3446,8 +3446,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAH-002",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Hidrófugas",
  "denominacion": "Sika top seal 107 flex",
  "tags": [
@@ -3469,8 +3469,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAH-003",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Hidrófugas",
  "denominacion": "Sika 1 Hidrof. (200 kg)",
  "tags": [
@@ -3492,8 +3492,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAH-004",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Hidrófugas",
  "denominacion": "Sika Guard 700S (20 lt)",
  "tags": [
@@ -3516,8 +3516,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAH-005",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Hidrófugas",
  "denominacion": "Sika Guard Imper. p/ ladrillos incoloro (20 lt)",
  "tags": [
@@ -3540,8 +3540,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAH-006",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Hidrófugas",
  "denominacion": "Sika fill tapagot Sellador incoloro p/goteras (5 lt)",
  "tags": [
@@ -3563,8 +3563,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAH-007",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Hidrófugas",
  "denominacion": "Revest, fibrado impermeable p/ techos (20 kg)",
  "tags": [
@@ -3586,8 +3586,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAH-008",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Hidrófugas",
  "denominacion": "Inartol infiltración (10 lts)",
  "tags": [
@@ -3607,8 +3607,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAH-009",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Hidrófugas",
  "denominacion": "Fieltro con aluminio 38mm (Rollo 1,2 m x 18 m)",
  "tags": [
@@ -3632,8 +3632,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAH-010",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Hidrófugas",
  "denominacion": "Emulsión asfáltica mega Flex (4 lt)",
  "tags": [
@@ -3653,8 +3653,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAH-011",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Hidrófugas",
  "denominacion": "Pintura asfáltica inertol tech 18lt",
  "tags": [
@@ -3674,8 +3674,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAH-012",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Hidrófugas",
  "denominacion": "Membrana asfáltica 35kg (Rollo 1 m x 10 m)",
  "tags": [
@@ -3697,8 +3697,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAI-001",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas y acústicas",
  "subcategoria": "Ignífuga",
  "denominacion": "Alumair línea fuego burbuja 30mm (60 m2)",
  "tags": [
@@ -3721,8 +3721,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAJD-001",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Junta de Dilatación",
  "denominacion": "Asfalto sólido en trozos",
  "tags": [
@@ -3744,8 +3744,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAJD-002",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Junta de Dilatación",
  "denominacion": "Sellador elástico mono componente poliuretano",
  "tags": [
@@ -3766,8 +3766,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAJD-003",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Junta de Dilatación",
  "denominacion": "Sika sella vial x 20kg pan",
  "tags": [
@@ -3789,8 +3789,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAJD-004",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Junta de Dilatación",
  "denominacion": "Junta pre moldeada x 4,50m",
  "tags": [
@@ -3811,8 +3811,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAJD-005",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Junta de Dilatación",
  "denominacion": "Base poliuretano tipo Sika flex 1A grus 310cc cartucho",
  "tags": [
@@ -3834,8 +3834,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAJD-006",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Junta de Dilatación",
  "denominacion": "Telgopor 15mm baja densidad (1 m x 2 m)",
  "tags": [
@@ -3855,8 +3855,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CAJD-007",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Hidráulicas",
  "subcategoria": "Junta de Dilatación",
  "denominacion": "Telgopor 20mm baja densidad (1 m x 2 m)",
  "tags": [
@@ -3876,8 +3876,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATA-001",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas y acústicas",
  "subcategoria": "Térmicas y acústicas",
  "denominacion": "Lana de vidrio hidrorrepelente Revestida con foil de aluminio 50mm (Rollo 1,2 m x 18 m)",
  "tags": [
@@ -3903,8 +3903,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATA-002",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas y acústicas",
  "subcategoria": "Térmicas y acústicas",
  "denominacion": "Lana de vidrio hidrorrepelente Revestida con foil de aluminio - papel kraft 50mm (Rollo 1,2 m x 12 m)",
  "tags": [
@@ -3931,8 +3931,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATA-003",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas y acústicas",
  "subcategoria": "Térmicas y acústicas",
  "denominacion": "Espuma de poliuretano 25mm",
  "tags": [
@@ -3956,8 +3956,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATA-004",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas y acústicas",
  "subcategoria": "Térmicas y acústicas",
  "denominacion": "Lana de vidrio P.F 1,20x1,20 x 20mm",
  "tags": [
@@ -3979,8 +3979,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATA-005",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas y acústicas",
  "subcategoria": "Térmicas y acústicas",
  "denominacion": "Placa fibrocemento alta dens/ pisos 1,20x2,40x15mm",
  "tags": [
@@ -4002,8 +4002,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATA-006",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas y acústicas",
  "subcategoria": "Térmicas y acústicas",
  "denominacion": "Revestido con PVC 1,22 x 0,61m",
  "tags": [
@@ -4023,8 +4023,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATA-007",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas y acústicas",
  "subcategoria": "Térmicas y acústicas",
  "denominacion": "Revestido con PVC 0,61 x 0,61m",
  "tags": [
@@ -4044,7 +4044,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATC-001",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Cerámicas",
  "subcategoria": "Teja Portuguesa",
  "denominacion": "Teja Portuguesa natural",
@@ -4067,7 +4067,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATC-002",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Cerámicas",
  "subcategoria": "Teja Portuguesa",
  "denominacion": "Teja Portuguesa esmaltada",
@@ -4090,7 +4090,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATC-003",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Cerámicas",
  "subcategoria": "Teja Francesa",
  "denominacion": "Teja Francesa natural 26,2x45mm",
@@ -4112,7 +4112,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATC-004",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Cerámicas",
  "subcategoria": "Teja Francesa",
  "denominacion": "Teja Francesa esmaltada color 26,2x45",
@@ -4134,7 +4134,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATC-005",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Cerámicas",
  "subcategoria": "Teja Cumbrera",
  "denominacion": "Teja Cumbrera / caballete / natural",
@@ -4156,7 +4156,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATC-006",
- "rubro": "Cubiertas y Aislaciones",
+ "rubro": "Cubiertas",
  "categoria": "Cerámicas",
  "subcategoria": "Teja Cumbrera",
  "denominacion": "Teja Cumbrera / caballete / esmaltado",
@@ -4178,8 +4178,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATH-001",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas e hidrófugas",
  "subcategoria": "Térmicas e Hidrófugas",
  "denominacion": "Alumair doble 30mm (Rollo 1 m x 30 m)",
  "tags": [
@@ -4201,8 +4201,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATH-002",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas e hidrófugas",
  "subcategoria": "Térmicas e Hidrófugas",
  "denominacion": "Alumair simple 30mm (Rollo 1 m x 30 m)",
  "tags": [
@@ -4224,8 +4224,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATH-003",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas e hidrófugas",
  "subcategoria": "Térmicas e Hidrófugas",
  "denominacion": "Alumair doble 10mm (Rollo 1 m x 30 m)",
  "tags": [
@@ -4247,8 +4247,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATH-004",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas e hidrófugas",
  "subcategoria": "Térmicas e Hidrófugas",
  "denominacion": "Alumair simple 10mm (Rollo 1 m x 30 m)",
  "tags": [
@@ -4270,8 +4270,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATH-005",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas e hidrófugas",
  "subcategoria": "Térmicas e Hidrófugas",
  "denominacion": "Alumair doble 30mm fuego (Rollo 1 m x 60 m)",
  "tags": [
@@ -4293,8 +4293,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATH-006",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas e hidrófugas",
  "subcategoria": "Térmicas e Hidrófugas",
  "denominacion": "Alumair simple 30mm fuego (Rollo 1 m x 60 m)",
  "tags": [
@@ -4316,8 +4316,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATH-007",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas e hidrófugas",
  "subcategoria": "Térmicas e Hidrófugas",
  "denominacion": "Air tech doble 10mm (Rollo 1 m x 30 m)",
  "tags": [
@@ -4339,8 +4339,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATH-008",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas e hidrófugas",
  "subcategoria": "Térmicas e Hidrófugas",
  "denominacion": "Air tech simple 10mm (Rollo 1 m x 30 m)",
  "tags": [
@@ -4362,8 +4362,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATH-009",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas e hidrófugas",
  "subcategoria": "Térmicas e Hidrófugas",
  "denominacion": "Aislamax membrana b/teja espuma simple 5mm (Rollo 1 m x 20 m)",
  "tags": [
@@ -4387,8 +4387,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATH-010",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas e hidrófugas",
  "subcategoria": "Térmicas e Hidrófugas",
  "denominacion": "Aislamax burbuja 10mm 1 cara alum (Rollo 1 m x 30 m)",
  "tags": [
@@ -4410,8 +4410,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATH-011",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas e hidrófugas",
  "subcategoria": "Térmicas e Hidrófugas",
  "denominacion": "Aislamax b/ teja 2mm espuma simple (Rollo 1 m x 20 m)",
  "tags": [
@@ -4433,8 +4433,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CATH-012",
- "rubro": "Cubiertas y Aislaciones",
- "categoria": "Aislaciones",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas e hidrófugas",
  "subcategoria": "Térmicas e Hidrófugas",
  "denominacion": "Aislamax malla sostén 10x10 (Rollo 2 m x 50 m)",
  "tags": [
@@ -5513,8 +5513,8 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "CS-008",
- "rubro": "Construcción en Seco",
- "categoria": "Placas",
+ "rubro": "Aislaciones",
+ "categoria": "Térmicas y acústicas",
  "subcategoria": "Aislante",
  "denominacion": "Placa exsound 1,20x2,40",
  "tags": [
@@ -6166,7 +6166,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "EST-001",
- "rubro": "Estructuras",
+ "rubro": "Prefabricados",
  "categoria": "Casetones",
  "subcategoria": "Casetones Telgopor",
  "denominacion": "Bloques para losas Telgopor 10x42x100",
@@ -6189,7 +6189,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "EST-002",
- "rubro": "Estructuras",
+ "rubro": "Prefabricados",
  "categoria": "Casetones",
  "subcategoria": "Casetones Telgopor",
  "denominacion": "Bloques para losas Telgopor 12x42x100",
@@ -6212,7 +6212,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "EST-003",
- "rubro": "Estructuras",
+ "rubro": "Prefabricados",
  "categoria": "Casetones",
  "subcategoria": "Casetones Telgopor",
  "denominacion": "Bloques para losas Telgopor 16,5x42x100",
@@ -12366,7 +12366,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "ZI-001",
- "rubro": "Cubierta",
+ "rubro": "Cubiertas",
  "categoria": "Zinguería",
  "subcategoria": "Canaleta",
  "denominacion": "Canaleta chapa galv. N 25 des. 0,33m",
@@ -12389,7 +12389,7 @@ const NEXOBRA_DATA = [
  },
  {
  "id": "ZI-005",
- "rubro": "Cubierta",
+ "rubro": "Cubiertas",
  "categoria": "Zinguería",
  "subcategoria": "Cumbrera",
  "denominacion": "Cumbreras chapa galv. N 30 des. 0,30m",
