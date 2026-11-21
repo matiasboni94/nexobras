@@ -24,7 +24,7 @@ const DEFAULTS = {
  nivel: 'B', muro: 'eps2', aisTecho: 'lana5', piso: 'ceramico', abert: 'aluminio', dvh: false, solar: false,
  // (21/11-d) cómo se construye y medidas
  fundacion: 'platea', muroBase: 'lch18', tabique: 'ladrillo', estructTecho: 'metalica', cielo: 'pendiente', cieloMat: 'machimbre',
- altura: 2.6, dims: {}
+ altura: 2.6, dims: {}, paso: 1
 };
 let S = { ...DEFAULTS };
 let ultimo = null; // último cálculo (para "Abrir en la Calculadora")
@@ -725,6 +725,7 @@ function onClick(e) {
  const antes = JSON.stringify(S);
  if (accion === 'toggle') S[valor] = !S[valor];
  else if (accion === 'girar') S.norte = norm(S.norte + Number(valor));
+ else if (accion === 'paso') { S.paso = Number(valor) || 1; guardarEstado(); render(); document.getElementById('casa-root')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
  else if (accion === 'nivel') { S.nivel = valor; Object.assign(S, recetaNivel(valor)); }
  else if (accion === 'reset') { S = { ...DEFAULTS, dims: {} }; }
  else if (accion === 'dim') {
@@ -1092,22 +1093,40 @@ function render() {
  }).join('');
 
  const nMod = paramsTipo().filter(p => D(p.k, p.def) !== p.def).length + (S.altura !== DEFAULTS.altura ? 1 : 0);
- root.innerHTML = `
- <div class="casa-head">
- <div>
- <span class="soon-badge">Vista previa · solo administradores</span>
- <h2>Armá tu casa</h2>
- <p class="casa-muted">Costo directo con las APU y precios del mes (sin Factor K, terreno ni honorarios). Usalo para revisar las APU con una casa completa.</p>
+ // (21/11-i) Pasos: 1 Terreno y casa · 2 Cómo se construye · 3 Presupuesto
+ const PASOS = [[1, 'Terreno y casa'], [2, 'Cómo se construye'], [3, 'Presupuesto']];
+ const paso = [1, 2, 3].includes(S.paso) ? S.paso : 1;
+ const stepper = `
+ <nav class="casa-pasos" aria-label="Pasos de Armá tu casa">
+ <div class="casa-pasos-tabs">${PASOS.map(([n, t]) => `<button type="button" class="casa-paso${n === paso ? ' on' : ''}${n < paso ? ' hecho' : ''}" data-casa="paso:${n}" aria-current="${n === paso ? 'step' : 'false'}"><span>${n}</span>${esc(t)}</button>`).join('')}</div>
+ <div class="casa-pasos-total"><span>Costo directo estimado</span><strong>${money(c.total)}</strong><small>${money(c.total / m2Eq)} por m² · ${f(m2Eq)} m²</small></div>
+ </nav>`;
+ const navPie = `
+ <div class="casa-pasos-pie">
+ ${paso > 1 ? `<button type="button" class="btn-action-drawer btn-copy" data-casa="paso:${paso - 1}">← ${esc(PASOS[paso - 2][1])}</button>` : '<span></span>'}
+ ${paso < 3 ? `<button type="button" class="btn-computo" data-casa="paso:${paso + 1}">Siguiente: ${esc(PASOS[paso][1])} →</button>` : '<span></span>'}
+ </div>`;
+ const nombreAguas = { '1': 'a 1 agua', '2': 'a 2 aguas', '4': 'a 4 aguas', plana: 'plano' }[S.techo];
+ const fila = (k, v) => `<li><span>${esc(k)}</span><b>${esc(v)}</b></li>`;
+ const banosTxt = { no: 'Un baño', pasillo: 'Dos baños (al pasillo)', suite: 'Dos baños (uno en suite)' }[S.bano2] || 'Un baño';
+ const resumenElecciones = `
+ <section class="casa-card casa-resumen">
+ <div class="casa-card-head"><h3>Tu casa</h3><span class="casa-muted">${esc(resumen)}</span></div>
+ <div class="casa-resumen-grid">
+ <div><h4>Terreno y casa <button type="button" class="casa-link" data-casa="paso:1">Cambiar</button></h4><ul>
+ ${fila('Ciudad', `${S.ciudad} · zona ${C.zona}`)}${fila('Lote', `Frente al ${o.nombre} · ${o.lote.esquina ? 'esquina' : 'intermedio'}`)}${fila('Forma', `${tipoNombre} · ${S.dorm} dormitorios`)}${fila('Baños', banosTxt)}${fila('Semicubiertos', [S.galeria ? 'galería' : '', S.cochera ? 'cochera' : ''].filter(Boolean).join(' y ') || 'ninguno')}${fila('Superficie', `${f(P.med.m2Cub)} m² cubiertos${P.med.semi ? ` + ${f(P.med.semi)} semicubiertos` : ''}`)}
+ </ul></div>
+ <div><h4>Cómo se construye <button type="button" class="casa-link" data-casa="paso:2">Cambiar</button></h4><ul>
+ ${fila('Fundación', { platea: 'Platea', zapataH: 'Zapata corrida de hormigón', zapataL: 'Cimiento de ladrillo común' }[S.fundacion])}${fila('Muro exterior', `${BASES_MURO[S.muroBase].n} · ${AIS_MURO[S.muro].n.toLowerCase()}`)}${fila('Tabiques', { ladrillo: 'Ladrillo hueco 12', durlock: 'Placa de yeso', madera: 'Madera' }[S.tabique])}${fila('Techo', S.techo === 'plana' ? 'Losa plana' : `${S.techoMat === 'teja' ? 'Teja' : 'Chapa'} ${nombreAguas} · estructura ${S.estructTecho === 'madera' ? 'de madera' : 'metálica'}`)}${fila('Aislación del techo', TECHOS_AIS[S.aisTecho].n)}${fila('Cielorraso', S.techo === 'plana' ? 'Yeso aplicado' : `${{ machimbre: 'Machimbre', pvc: 'PVC', durlock: 'Placa de yeso' }[S.cieloMat]} · ${S.cielo === 'suspendido' ? 'suspendido' : 'sigue la pendiente'}`)}${fila('Carpinterías', `${{ aluminio: 'Aluminio', pvc: 'PVC', madera: 'Madera' }[S.abert]}${S.dvh ? ' con DVH' : ''}`)}${fila('Fachada', { revoque: 'Clásica', ladrillo: 'Ladrillo visto', contemporanea: 'Contemporánea' }[S.fachada])}${fila('Confort', `Nivel ${S.nivel} (IRAM 11605)`)}
+ </ul></div>
  </div>
- <div class="casa-head-acciones">
- <button type="button" class="btn-action-drawer btn-copy" data-casa="recalcular:1">Recalcular con las APU actuales</button>
- <button type="button" class="btn-action-drawer btn-copy" data-casa="reset:1">Volver a la casa base</button>
- </div>
- </div>
+ </section>`;
+ let cuerpo;
+ if (paso === 1) cuerpo = `
  <div class="casa-layout">
  <div class="casa-opciones">
  <section class="casa-card">
- <h3><span>1</span> Terreno</h3>
+ <h3><span>1</span> Terreno y orientación</h3>
  <div class="casa-chips" role="group" aria-label="Ciudad">${Object.keys(CIUDADES).map(n => btn('ciudad', n, S.ciudad === n, esc(n), 'data-chip="1"')).join('')}</div>
  <p class="casa-muted casa-clima">Zona bioambiental ${esc(C.zona)} (${esc(C.zonaTxt)}) · diseño ${f(C.tdmn)} °C / ${f(C.tdmx)} °C · estación ${esc(C.est)}</p>
  <div class="casa-manzana-fila">
@@ -1128,7 +1147,7 @@ function render() {
  </section>
 
  <section class="casa-card">
- <h3><span>2</span> Forma de la casa</h3>
+ <h3><span>2</span> Forma, ambientes y medidas</h3>
  <div class="casa-grid3">
  ${[['lineal', 'Lineal', 'Lote angosto'], ['compacta', 'Compacta', 'La más económica'], ['L', 'En L', 'Con patio']].map(([k, n, d]) => btn('tipo', k, S.tipo === k, `<b>${n}</b><small>${d}</small>`)).join('')}
  </div>
@@ -1148,8 +1167,22 @@ function render() {
  ${S.verMedidas ? medidasHtml(T) : ''}
  </section>
 
+ </div>
+ <div class="casa-resultados">
  <section class="casa-card">
- <h3><span>3</span> Techo y fachada</h3>
+ <div class="casa-card-head"><h3>Planta en el lote</h3><span class="casa-muted">${esc(resumen)}</span></div>
+ <div class="casa-scroll">${P.html}</div>
+ <div class="casa-consejo"><div class="casa-brujula chica" role="img" aria-label="Norte en la planta"><div class="casa-aguja" style="transform:rotate(${o.aguja}deg)"><i></i><b>N</b></div></div><div><b>${esc(o.titulo)}</b><br>${esc(o.texto)}</div></div>
+ <p class="casa-muted casa-leyenda"><span class="ley muro"></span>Muros <span class="ley puerta"></span>Puertas <span class="ley ventana"></span>Ventanas <span class="ley semi"></span>Semicubierto · Esquema orientativo, no es un plano de obra.</p>
+ </section>
+
+ </div>
+ </div>`;
+ else if (paso === 2) cuerpo = `
+ <div class="casa-layout">
+ <div class="casa-opciones">
+ <section class="casa-card">
+ <h3><span>1</span> Techo y fachada</h3>
  <div class="casa-grid4">
  ${[['1', '1 agua'], ['2', '2 aguas'], ['4', '4 aguas'], ['plana', 'Plano']].map(([k, n]) => btn('techo', k, S.techo === k, n)).join('')}
  </div>
@@ -1163,18 +1196,18 @@ function render() {
  </section>
 
  <section class="casa-card">
- <h3><span>4</span> Confort térmico</h3>
+ <h3><span>2</span> Confort térmico</h3>
  <div class="casa-grid3">
  ${[['C', 'Mínimo'], ['B', 'Recomendado'], ['A', 'Óptimo']].map(([k, n]) => btn('nivel', k, S.nivel === k, `<b>${n}</b><small>Nivel ${k}</small>`)).join('')}
  </div>
- <p class="casa-muted">El nivel elige la aislación de muros y techo que hace falta en ${esc(S.ciudad)} (IRAM 11605). La podés cambiar abajo, en "Cómo se construye", y ver cómo queda cada capa.</p>
+ <p class="casa-muted">El nivel elige la aislación de muros y techo que hace falta en ${esc(S.ciudad)} (IRAM 11605). La podés cambiar abajo, en "Sistema constructivo", y ver cómo queda cada capa.</p>
  <div class="casa-lista">
  ${btn('toggle', 'solar', S.solar, '<b>Termotanque solar</b><small>Agua caliente con energía renovable</small>')}
  </div>
  </section>
 
  <section class="casa-card casa-construye">
- <h3><span>5</span> Cómo se construye</h3>
+ <h3><span>3</span> Sistema constructivo</h3>
  <p class="casa-muted">Cada dibujo cambia con lo que elegís. Son esquemas orientativos, no detalles de obra.</p>
 
  <h4 class="casa-sub">Fundación y piso</h4>
@@ -1211,15 +1244,7 @@ function render() {
  ${corteCarpinteria()}
  </section>
  </div>
-
- <div class="casa-resultados">
- <section class="casa-card">
- <div class="casa-card-head"><h3>Planta en el lote</h3><span class="casa-muted">${esc(resumen)}</span></div>
- <div class="casa-scroll">${P.html}</div>
- <div class="casa-consejo"><div class="casa-brujula chica" role="img" aria-label="Norte en la planta"><div class="casa-aguja" style="transform:rotate(${o.aguja}deg)"><i></i><b>N</b></div></div><div><b>${esc(o.titulo)}</b><br>${esc(o.texto)}</div></div>
- <p class="casa-muted casa-leyenda"><span class="ley muro"></span>Muros <span class="ley puerta"></span>Puertas <span class="ley ventana"></span>Ventanas <span class="ley semi"></span>Semicubierto · Esquema orientativo, no es un plano de obra.</p>
- </section>
-
+ <div class="casa-resultados casa-fija">
  <section class="casa-card">
  <div class="casa-card-head"><h3>Fachada principal</h3><span class="casa-muted">Techo ${{ '1': 'a 1 agua', '2': 'a 2 aguas', '4': 'a 4 aguas', plana: 'plano' }[S.techo]} · pendiente ${Math.round(fach.pend * 100)} % · alero ${f(fach.AL, 2)} m</span></div>
  <div class="casa-fachada-fila">
@@ -1232,6 +1257,11 @@ function render() {
  </div>
  </section>
 
+ </div>
+ </div>`;
+ else cuerpo = `
+ <div class="casa-paso3">
+ ${resumenElecciones}
  <section class="casa-card casa-costo">
  <h3>Costo directo con las APU del mes</h3>
  <div class="casa-costo-fila">
@@ -1263,6 +1293,20 @@ function render() {
  </table>
  </div>
  </section>
- </div>
  </div>`;
+ root.innerHTML = `
+ <div class="casa-head">
+ <div>
+ <span class="soon-badge">Vista previa · solo administradores</span>
+ <h2>Armá tu casa</h2>
+ <p class="casa-muted">Costo directo con las APU y precios del mes (sin Factor K, terreno ni honorarios). Usalo para revisar las APU con una casa completa.</p>
+ </div>
+ <div class="casa-head-acciones">
+ <button type="button" class="btn-action-drawer btn-copy" data-casa="recalcular:1">Recalcular con las APU actuales</button>
+ <button type="button" class="btn-action-drawer btn-copy" data-casa="reset:1">Volver a la casa base</button>
+ </div>
+ </div>
+ ${stepper}
+ ${cuerpo}
+ ${navPie}`;
 }
