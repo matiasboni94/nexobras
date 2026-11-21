@@ -63,7 +63,7 @@
  </a>
 
  <!-- MAIN NAV LINKS -->
- <!-- (17/11) Menú de 4 entradas (auditoría 12/11): Precios (materiales + mano de obra) · Calculadora · Proveedores · Costo por m². Quiénes Somos, Guía y Contacto pasaron al pie de página y al menú del celular. -->
+ <!-- (17/11) Menú de 4 entradas (auditoría 12/11): Precios (materiales + mano de obra) · Calculadora · Proveedores · Costo por m². Quiénes Somos y Contacto pasaron al pie de página y al menú del celular. (21/11) La Guía tiene su botón "?" en el encabezado y "¿Cómo funciona?" en cada sección. -->
  <nav class="nav-links-desktop">
  <button class="nav-link" id="nav-btn-catalogo" data-nav="precios" title="Precios de materiales y mano de obra">Precios</button>
  <button class="nav-link" id="nav-btn-apu" data-nav="apu" title="Calculadora de Obra">Calculadora</button>
@@ -94,6 +94,12 @@
  </svg>
  <span>Mi presupuesto</span>
  <span class="computo-counter" id="header-cart-count">0</span>
+ </button>
+
+ <!-- (21/11) La Guía de uso vuelve a estar a la vista: ícono "?" (con texto "Guía" desde 1440 px). -->
+ <button class="btn-theme-toggle btn-guia" id="btn-header-guia" type="button" data-goto-view="guide" title="Guía de uso: cómo usar NEXOBRA" aria-label="Guía de uso">
+ <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+ <span>Guía</span>
  </button>
 
  <button class="btn-theme-toggle" id="btn-theme-toggle" type="button" title="Cambiar tema claro/oscuro" aria-label="Cambiar tema claro/oscuro">
@@ -149,10 +155,10 @@
  <button class="mobile-menu-link" id="mobile-nav-btn-apu" data-nav="apu">Calculadora de Obra</button>
  <button class="mobile-menu-link" id="mobile-nav-btn-proveedores" data-nav="proveedores">Proveedores</button>
  <button class="mobile-menu-link" id="mobile-nav-btn-costo-m2" data-nav="costo-m2" data-goto-view="costo-m2">Costo por m²</button>
+ <button class="mobile-menu-link" id="mobile-nav-btn-guia" data-nav="guide">Guía de uso</button>
  <button class="mobile-menu-link mobile-menu-cta" id="mobile-nav-btn-sumate" type="button">Sumá tu negocio</button>
  <div class="mobile-menu-secondary">
  <button class="mobile-menu-link" id="mobile-nav-btn-quienes-somos" data-nav="about">Quiénes Somos</button>
- <button class="mobile-menu-link" id="mobile-nav-btn-guia" data-nav="guide">Guía de Uso</button>
  <button class="mobile-menu-link" id="mobile-nav-btn-contacto" data-nav="contact">Contacto</button>
  </div>
  </nav>
@@ -170,6 +176,11 @@
  <p class="hero-main-desc">
  <strong>NEXOBRA</strong> es el nexo entre tu obra y los proveedores de tu zona. Calculá cada tarea con precios de referencia trazables (con fecha, fuente y fórmula), armá tu presupuesto y pedile precio a los corralones por WhatsApp, sin intermediarios en la compra.
  </p>
+ <!-- (21/11, auditoría de pulido) Acciones principales arriba de todo -->
+ <div class="hero-cta-row">
+ <button type="button" class="btn-hero-primary" data-goto-view="apu">Calcular mi obra</button>
+ <button type="button" class="btn-hero-secondary" data-goto-view="catalog">Ver precios de materiales</button>
+ </div>
 
  <!-- (16/11, auditoría 12/11 falla 4) Los contadores de proveedores, usuarios y visitas pasaron al tablero del Panel de Administración (uso interno). En su lugar, lo que el sitio ya ofrece hoy. -->
  <div class="home-stats-row">
@@ -177,8 +188,8 @@
  <strong id="home-fact-materiales">943</strong>
  <span>materiales con precio de referencia</span>
  </div>
- <div class="home-stat-tile">
- <strong id="home-fact-apu">80</strong>
+ <div class="home-stat-tile" style="display:none">
+ <strong id="home-fact-apu">–</strong>
  <span>análisis de costos de obra (APU)</span>
  </div>
  <div class="home-stat-tile">
@@ -353,6 +364,7 @@
  <div>
  <h2 class="catalog-title" id="catalog-header-title">Precios de materiales</h2>
  <p class="catalog-subtitle" id="catalog-header-subtitle">Precios de referencia NEXOBRA, con los de corralones de tu zona.</p>
+ <button type="button" class="guia-link" data-guide-section="precios">¿Cómo funciona?</button>
  </div>
  <button type="button" class="btn-excel-inline" data-action="open-excel" title="Subí tu lista de materiales en Excel y cotizala de una vez">
  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>
@@ -1034,6 +1046,7 @@
  <div>
  <h2 class="catalog-title">Mano de Obra</h2>
  <p class="catalog-subtitle">Jornales de referencia UOCRA, Zona A. Valores por hora sin cargas sociales (Sereno: valor mensual).</p>
+ <button type="button" class="guia-link" data-guide-section="precios">¿Cómo funciona?</button>
  </div>
  <div class="price-month-picker">
  <label for="labor-year-select">Ver jornales actualizados a:</label>
@@ -1060,6 +1073,7 @@
  <span class="soon-badge">Próximamente</span>
  <h2 class="catalog-title">Costo por m² de construcción</h2>
  <p class="catalog-subtitle">Cuánto cuesta hoy construir una vivienda tipo en Misiones, actualizado todos los meses.</p>
+ <button type="button" class="guia-link" data-guide-section="costo-m2">¿Cómo funciona?</button>
  </div>
  </div>
  <div class="costo-m2-grid">
@@ -1247,92 +1261,169 @@
  <div class="catalog-header-banner">
  <div>
  <h2 class="catalog-title">Guía de Uso</h2>
- <p class="catalog-subtitle">Lo esencial para sacarle provecho a NEXOBRA, paso a paso.</p>
+ <p class="catalog-subtitle">Lo esencial para sacarle provecho a NEXOBRA, sección por sección.</p>
  </div>
  </div>
 
+ <!-- (21/11) Índice de la guía: cada sección del menú tiene su parte. Los botones "¿Cómo funciona?" de cada vista traen directo acá (data-guide-section). -->
+ <nav class="guia-indice" aria-label="Secciones de la guía">
+ <button type="button" class="guia-chip" data-guide-section="precios">Precios</button>
+ <button type="button" class="guia-chip" data-guide-section="calculadora">Calculadora</button>
+ <button type="button" class="guia-chip" data-guide-section="proveedores">Proveedores</button>
+ <button type="button" class="guia-chip" data-guide-section="costo-m2">Costo por m²</button>
+ <button type="button" class="guia-chip" data-guide-section="cuenta">¿Necesito cuenta?</button>
+ <button type="button" class="guia-chip" data-guide-section="factor-k">Factor K</button>
+ </nav>
+
+ <section class="guia-seccion" id="guia-precios">
+ <div class="section-heading-center guia-head">
+ <div class="subheading-accent">Precios</div>
+ <h2 class="section-title">Precios de materiales y mano de obra</h2>
+ <p class="section-desc">Precios de referencia NEXOBRA del mes, con los de corralones de tu zona al lado.</p>
+ </div>
  <div class="pilares-grid">
  <article class="pilar-card">
- <div class="pilar-icon-box"></div>
- <h3 class="pilar-title">1. Buscá un material</h3>
- <p class="pilar-text">Desde el home o el mapa, escribí lo que necesitás (aunque sea con el nombre comercial). Vas a ver el precio de referencia y, si activás la comparación, qué proveedores lo tienen cerca tuyo.</p>
+ <h3 class="pilar-title">Buscá un material</h3>
+ <p class="pilar-text">Escribí lo que necesitás, aunque sea con el nombre comercial, o elegí un rubro. Vas a ver el precio de referencia y qué proveedores cercanos lo tienen.</p>
  </article>
  <article class="pilar-card">
- <div class="pilar-icon-box"></div>
- <h3 class="pilar-title">2. Mirá la ficha técnica</h3>
- <p class="pilar-text">Muchos materiales ya tienen marca, descripción técnica y rendimiento cargado (por ejemplo, cuántos m² cubre una bolsa). Y con "Ver evolución histórica" vas a ver cómo varió el precio mes a mes, no solo el valor de hoy.</p>
+ <h3 class="pilar-title">Precio por envase</h3>
+ <p class="pilar-text">Cada material muestra el precio por unidad de venta y a cuánto equivale (por ejemplo, "Bolsa de 50 kg · $ por kg"). La Calculadora después lo pasa a la unidad de cada tarea.</p>
  </article>
  <article class="pilar-card">
- <div class="pilar-icon-box"></div>
- <h3 class="pilar-title">3. Armá tu presupuesto</h3>
- <p class="pilar-text">Sumá materiales y mano de obra desde el catálogo, o tareas completas (mampostería, revoques, contrapisos...) desde la Calculadora: todo va al mismo presupuesto. Podés elegir un proveedor específico para cada material, o dejarlo con el precio de referencia.</p>
+ <h3 class="pilar-title">Ficha técnica e historia</h3>
+ <p class="pilar-text">Muchos materiales tienen marca, descripción y rendimiento cargados. Con "Ver evolución histórica" ves cómo cambió el precio mes a mes.</p>
  </article>
  <article class="pilar-card">
- <div class="pilar-icon-box"></div>
- <h3 class="pilar-title">4. Exportá o compartí</h3>
- <p class="pilar-text">Descargá el presupuesto en Excel, mandale la lista de materiales a los proveedores que elijas por WhatsApp, o generá un <strong>link público</strong> para que tu cliente lo vea directo, sin abrir ningún archivo.</p>
+ <h3 class="pilar-title">Mano de obra (UOCRA)</h3>
+ <p class="pilar-text">En la pestaña "Mano de obra" están los jornales de referencia por categoría, sin cargas sociales. Con "Sumar" van directo a tu presupuesto.</p>
  </article>
  <article class="pilar-card">
- <div class="pilar-icon-box"></div>
- <h3 class="pilar-title">5. ¿Ya tenés tu propio Excel?</h3>
- <p class="pilar-text">Subilo desde "Cotizar lista en Excel" (en el catálogo o en la Calculadora) y NEXOBRA te lo devuelve cotizado, listo para pasarlo a tu presupuesto.</p>
+ <h3 class="pilar-title">¿Ya tenés tu lista en Excel?</h3>
+ <p class="pilar-text">Subila con "Cotizar lista en Excel" y NEXOBRA te la devuelve cotizada, lista para pasarla a la Calculadora.</p>
  </article>
  <article class="pilar-card">
- <div class="pilar-icon-box"></div>
- <h3 class="pilar-title">6. Calificá a los proveedores</h3>
- <p class="pilar-text">Dejá una reseña con estrellas y un comentario corto sobre un proveedor con el que hayas tratado — ayuda a que el resto de la comunidad elija mejor.</p>
- </article>
- <article class="pilar-card">
- <div class="pilar-icon-box"></div>
- <h3 class="pilar-title">7. ¿Sos proveedor?</h3>
- <p class="pilar-text">Registrate con cuenta de Proveedor, cargá tu ubicación y tus precios (individual o por Excel). Una vez aprobados, vas a aparecer en el mapa y en las búsquedas — y podés sugerir marca, descripción y rendimiento para los materiales de tu catálogo.</p>
- </article>
- <article class="pilar-card">
- <div class="pilar-icon-box"></div>
- <h3 class="pilar-title">8. Guardá lo que te sirve</h3>
- <p class="pilar-text">Marcá proveedores favoritos y armá alertas de precio por material y zona — cuando baje, te llega un <strong>mail automático</strong>, no hace falta que entres a revisar.</p>
+ <h3 class="pilar-title">Favoritos y alertas</h3>
+ <p class="pilar-text">Con cuenta, marcá proveedores favoritos y armá alertas de precio por material y zona: cuando baje, te llega un mail.</p>
  </article>
  </div>
+ </section>
 
- <hr style="margin: 3rem 0; border: none; border-top: 1px solid var(--border-light, #eee);">
+ <section class="guia-seccion" id="guia-calculadora">
+ <div class="section-heading-center guia-head">
+ <div class="subheading-accent">Calculadora</div>
+ <h2 class="section-title">Calculadora: tu presupuesto en 3 pasos</h2>
+ <p class="section-desc">Armás la obra tarea por tarea con su análisis de precios (APU): materiales, mano de obra y equipos de cada una.</p>
+ </div>
+ <div class="pilares-grid guia-pasos">
+ <article class="pilar-card">
+ <span class="guia-num">1</span>
+ <h3 class="pilar-title">Agregar</h3>
+ <p class="pilar-text">Buscá una tarea (mampostería, revoque, contrapiso...) y cargá la cantidad, o calculala por medidas (ancho × largo). También podés sumar materiales y mano de obra sueltos.</p>
+ </article>
+ <article class="pilar-card">
+ <span class="guia-num">2</span>
+ <h3 class="pilar-title">Mi presupuesto</h3>
+ <p class="pilar-text">Las tareas quedan numeradas y agrupadas por rubro. Abrí "Ver detalle" para cambiar rendimientos o presentaciones, y cargá tu Factor K y las fases de obra.</p>
+ </article>
+ <article class="pilar-card">
+ <span class="guia-num">3</span>
+ <h3 class="pilar-title">Pedir y compartir</h3>
+ <p class="pilar-text">Bajá la lista de materiales consolidada y mandale el pedido a los proveedores que elijas por WhatsApp. Con cuenta, además: link para tu cliente y presupuesto completo en Excel.</p>
+ </article>
+ </div>
+ </section>
 
- <div class="section-heading-center" style="margin-bottom: 1.5rem;">
+ <section class="guia-seccion" id="guia-proveedores">
+ <div class="section-heading-center guia-head">
+ <div class="subheading-accent">Proveedores</div>
+ <h2 class="section-title">Proveedores de tu zona</h2>
+ <p class="section-desc">NEXOBRA te conecta con quien vende: la compra la hacés directo con el proveedor, sin intermediarios.</p>
+ </div>
+ <div class="pilares-grid">
+ <article class="pilar-card">
+ <h3 class="pilar-title">Buscá cerca tuyo</h3>
+ <p class="pilar-text">Usá tu ubicación y un radio para ver corralones, ferreterías y oficios en el mapa, con sus datos de contacto y sus precios cuando los tienen cargados.</p>
+ </article>
+ <article class="pilar-card">
+ <h3 class="pilar-title">Calificalos</h3>
+ <p class="pilar-text">Dejá una reseña con estrellas y un comentario corto de un proveedor con el que trataste: ayuda al resto a elegir mejor.</p>
+ </article>
+ <article class="pilar-card">
+ <h3 class="pilar-title">¿Tenés un negocio?</h3>
+ <p class="pilar-text">Con "Sumá tu negocio" creás tu cuenta de proveedor, cargás tu ubicación y tus precios (de a uno o por Excel). Si tu ficha ya está, podés reclamarla.</p>
+ </article>
+ </div>
+ </section>
+
+ <section class="guia-seccion" id="guia-costo-m2">
+ <div class="section-heading-center guia-head">
+ <span class="soon-badge">Próximamente</span>
+ <h2 class="section-title">Costo por m²: cuánto cuesta construir tu casa</h2>
+ <p class="section-desc">Estamos terminando de validar las cantidades y los análisis de precios. Así va a funcionar:</p>
+ </div>
+ <div class="pilares-grid guia-pasos">
+ <article class="pilar-card">
+ <span class="guia-num">1</span>
+ <h3 class="pilar-title">Tu terreno</h3>
+ <p class="pilar-text">Elegís la ciudad, ubicás el lote en la manzana y girás el norte. Con eso se ve de dónde viene el sol y para qué lado conviene abrir la casa.</p>
+ </article>
+ <article class="pilar-card">
+ <span class="guia-num">2</span>
+ <h3 class="pilar-title">Tu casa</h3>
+ <p class="pilar-text">Elegís la forma (lineal, compacta o en L), los dormitorios, el techo y la fachada. La planta y el frente se dibujan a medida que cambiás las opciones.</p>
+ </article>
+ <article class="pilar-card">
+ <span class="guia-num">3</span>
+ <h3 class="pilar-title">Confort térmico</h3>
+ <p class="pilar-text">Elegís un nivel de confort y te mostramos qué aislación hace falta en muros y techo para cumplirlo, según la norma IRAM 11605 y el clima de tu ciudad.</p>
+ </article>
+ <article class="pilar-card">
+ <span class="guia-num">4</span>
+ <h3 class="pilar-title">El costo del mes</h3>
+ <p class="pilar-text">Ves el costo total y por m², cuánto pesa cada rubro, y podés abrir el presupuesto completo en la Calculadora para adaptarlo a tu obra.</p>
+ </article>
+ </div>
+ </section>
+
+ <section class="guia-seccion" id="guia-cuenta">
+ <div class="section-heading-center guia-head">
  <div class="subheading-accent">¿Necesitás una cuenta?</div>
- <h2 class="section-title" style="font-size: 1.5rem;">Sin registrarte vs. con una cuenta</h2>
- <p class="section-desc">Podés usar buena parte de NEXOBRA sin crear una cuenta. Con cuenta, se guarda todo para la próxima vez.</p>
+ <h2 class="section-title">Sin registrarte vs. con una cuenta</h2>
+ <p class="section-desc">Buena parte de NEXOBRA se usa sin cuenta. Con cuenta (gratis), se guarda todo para la próxima vez.</p>
  </div>
 
  <div class="guide-compare-grid">
  <div class="guide-compare-col">
  <h3 class="pilar-title" style="margin-bottom: 12px;">Sin registrarte</h3>
  <ul class="guide-compare-list">
- <li>Buscar materiales y ver el precio de referencia</li>
- <li>Ver la ficha técnica y la evolución histórica de precio</li>
- <li>Ver el mapa, comparar precios de proveedores cercanos y ver sus reseñas</li>
- <li>Armar un cómputo/presupuesto y elegir proveedor por material</li>
- <li>Exportar Presupuesto de Referencia o Lista de Compra</li>
+ <li>Buscar materiales y mano de obra, con su precio de referencia y su historia</li>
+ <li>Ver proveedores cercanos, sus precios y sus reseñas</li>
+ <li>Calcular una tarea a la vez en la Calculadora</li>
+ <li>Sumar materiales y mano de obra sueltos, sin límite</li>
+ <li>Bajar la lista de materiales y mandar pedidos a proveedores por WhatsApp</li>
  <li>Subir tu Excel y cotizarlo</li>
- <li>Contactar proveedores por WhatsApp</li>
  </ul>
  </div>
  <div class="guide-compare-col highlight">
  <h3 class="pilar-title" style="margin-bottom: 12px;">✓ Con una cuenta</h3>
  <ul class="guide-compare-list">
- <li>Todo lo anterior, ​y además:</li>
- <li><strong>Guardar tus presupuestos</strong> en la nube, para verlos desde cualquier dispositivo</li>
- <li><strong>Compartirlos por link público</strong>, para que un cliente los vea sin abrir ningún archivo</li>
- <li><strong>Marcar proveedores favoritos</strong> y dejarles una reseña</li>
- <li><strong>Armar alertas de precio</strong> por material y zona, con aviso automático por mail</li>
- <li>Con cuenta de <strong>Proveedor</strong>: cargar tu propio catálogo de precios, aparecer en el mapa y sugerir datos técnicos de tus materiales</li>
+ <li>Todo lo anterior, y además:</li>
+ <li><strong>Presupuestos con todas las tareas</strong> que quieras, con Factor K y fases de obra</li>
+ <li><strong>Guardarlos</strong> en la nube y verlos desde cualquier dispositivo</li>
+ <li><strong>Compartirlos por link</strong> y bajar el <strong>presupuesto completo en Excel</strong></li>
+ <li><strong>Favoritos, reseñas y alertas de precio</strong> con aviso por mail</li>
+ <li>Con cuenta de <strong>Proveedor</strong>: cargar tus precios y aparecer en el mapa</li>
  </ul>
  </div>
  </div>
+ </section>
 
- <hr style="margin: 3rem 0; border: none; border-top: 1px solid var(--border-light, #eee);">
+ <hr class="guia-sep">
 
- <div class="section-heading-center" style="margin-bottom: 1.5rem;">
+ <div class="section-heading-center" style="margin-bottom: 1.5rem;" id="guia-calculadora-detalle">
  <div class="subheading-accent">Para presupuestos más técnicos</div>
- <h2 class="section-title" style="font-size: 1.5rem;">Calculadora de Obra (APU)</h2>
+ <h2 class="section-title" style="font-size: 1.5rem;">Calculadora de Obra: todo lo que tiene</h2>
  <p class="section-desc">Pensada para presupuestar por Análisis de Precios Unitarios: armás la obra tarea por tarea, con el desglose de materiales, mano de obra y equipos de cada una, en vez de cargar ítem por ítem a mano.</p>
  </div>
 
@@ -1394,7 +1485,7 @@
  </article>
  </div>
 
- <div class="section-heading-center" style="margin-bottom: 1.5rem; margin-top: 2.5rem;">
+ <div class="section-heading-center guia-seccion" style="margin-bottom: 1.5rem; margin-top: 2.5rem;" id="guia-factor-k">
  <div class="subheading-accent">Factor K</div>
  <h2 class="section-title" style="font-size: 1.5rem;">¿Qué es el Factor K y cómo se calcula?</h2>
  <p class="section-desc">El Factor K (o "Coeficiente de Resumen") es el número que multiplica el costo puro de un presupuesto para llegar al precio final que se cobra — incluye los gastos que no son ni material ni mano de obra puntual, más los impuestos.</p>
@@ -1460,6 +1551,7 @@
  <div class="container" style="padding: 2rem 1.5rem 4rem;">
  <h2 class="catalog-title">Proveedores</h2>
  <p class="catalog-subtitle">Corralones, ferreterías y profesionales de la construcción cerca tuyo — con o sin precios de materiales cargados.</p>
+ <button type="button" class="guia-link" data-guide-section="proveedores">¿Cómo funciona?</button>
 
  <div class="catalog-search-box" style="margin-bottom: 1rem;">
  <div style="display:flex; flex-wrap:wrap; gap: 10px; align-items:center;">
@@ -1567,6 +1659,7 @@
  <div>
  <h2 class="catalog-title">Calculadora de Obra</h2>
  <p class="catalog-subtitle">Sumá tareas completas, o materiales y mano de obra sueltos. Te armamos la lista y el costo.</p>
+ <button type="button" class="guia-link" data-guide-section="calculadora">¿Cómo funciona?</button>
  </div>
  <button class="btn-computo" id="btn-new-apu-budget">+ Nuevo presupuesto</button>
  </div>
