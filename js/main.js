@@ -116,7 +116,17 @@ import * as ST from './state.js';
  const PROVIDER_PATH_RE = /^\/proveedor\/([a-z0-9-]+)\/?$/i;
  let openingMaterialPage = false; // true solo mientras openMaterialPage() llama a switchView()
 
- export function switchView(viewName, rubroFilter = null, searchString = null) {
+ /** (21/11) Abre la Guía de uso en una sección (precios, calculadora, proveedores, costo-m2, cuenta, factor-k). */
+export function openGuideSection(seccion) {
+ if (ST.state.currentView !== 'guide') switchView('guide');
+ const el = seccion ? document.getElementById('guia-' + seccion) : null;
+ if (el) {
+ history.replaceState(history.state, '', VIEW_ROUTES.guide + '#' + seccion);
+ requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+ } else window.scrollTo({ top: 0 });
+}
+
+export function switchView(viewName, rubroFilter = null, searchString = null) {
  ST.state.currentView = viewName;
 
  // Si esta vista tiene una URL linda y todavía no estamos ahí, la
@@ -473,6 +483,15 @@ import * as ST from './state.js';
  document.getElementById('mobile-menu-backdrop')?.classList.remove('open');
  document.body.style.overflow = '';
  }
+ // (21/11) "¿Cómo funciona?" de cada sección y el índice de la Guía: llevan
+ // a la parte de la guía que corresponde (/guia-de-uso#calculadora, etc.).
+ document.addEventListener('click', (e) => {
+ const btn = e.target.closest('[data-guide-section]');
+ if (!btn) return;
+ e.preventDefault();
+ if (btn.closest('#mobile-menu-panel')) closeMobileMenuPanel();
+ openGuideSection(btn.dataset.guideSection);
+ });
  ['btn-sumate-negocio', 'mobile-nav-btn-sumate', 'footer-btn-sumate', 'home-btn-sumate', 'directory-btn-sumate'].forEach(id => {
  const el = document.getElementById(id);
  if (el) el.addEventListener('click', () => { closeMobileMenuPanel(); Auth.startProviderSignup(); });
@@ -784,6 +803,9 @@ import * as ST from './state.js';
  // ir "para adelante" (ver más arriba).
  const pathView = PATH_TO_VIEW[window.location.pathname];
  if (pathView && pathView !== 'home') switchView(pathView);
+ // (21/11) Link directo a una parte de la guía: /guia-de-uso#calculadora
+ if (pathView === 'guide' && window.location.hash.length > 1) setTimeout(() => openGuideSection(window.location.hash.slice(1)), 400); // después de que termine de armarse la página
+ window.addEventListener('hashchange', () => { if (ST.state.currentView === 'guide' && window.location.hash.length > 1) openGuideSection(window.location.hash.slice(1)); });
 
  // Botón "atrás"/"adelante" del navegador: re-sincroniza la vista visible
  // con la URL a la que el navegador ya volvió. No hace falta llamar a
