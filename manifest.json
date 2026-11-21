@@ -1,7 +1,7 @@
 {
-  "name": "NEXOBRA — Comparador técnico de precios para la construcción",
+  "name": "NEXOBRA — Planificador de obra",
   "short_name": "NEXOBRA",
-  "description": "Comparador de precios de materiales y mano de obra para la construcción, con cómputo de obra y directorio de proveedores.",
+  "description": "Planificá tu obra: precios de materiales y mano de obra, cálculo por tarea, costo por m² y pedidos a los proveedores de tu zona.",
   "start_url": "/?pwa=1",
   "scope": "/",
   "display": "standalone",

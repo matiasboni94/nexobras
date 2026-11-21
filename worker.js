@@ -12,7 +12,7 @@
 // Qué hace (SEO, auditoría del 12/11 -- ronda del 16/11):
 //  - Cada página le llega al buscador con su propio <title>, descripción,
 //    URL canónica y vista previa (og:) -- antes todas eran "NEXOBRA |
-//    Comparador técnico..." porque el sitio es una sola página (SPA).
+//    Planificador de obra..." porque el sitio es una sola página (SPA).
 //  - /proveedor/<slug>: título, descripción y logo del proveedor (lo de
 //    siempre, desde el 17/09).
 //  - /material/<ID>-<nombre>: (nuevo) una URL por material, con su nombre en
@@ -28,8 +28,8 @@
 const SUPABASE_URL = 'https://ibwqkfdfyfdmteheacjz.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_3-UVWAW7oH2NVTd-I5A-aw_Q-BQi67_';
 
-const DEFAULT_TITLE = 'NEXOBRA | Comparador técnico de precios para la construcción';
-const DEFAULT_DESCRIPTION = 'Comparador técnico de precios, materiales y cómputos para la construcción en Argentina. Consultá valores de referencia trazables y ofertas de proveedores locales.';
+const DEFAULT_TITLE = 'NEXOBRA | Planificador de obra: precios, cálculo y proveedores de tu zona';
+const DEFAULT_DESCRIPTION = 'Planificá tu obra con precios reales de materiales, cálculo por tarea y costo por m². NEXOBRA es el nexo entre tu obra y los proveedores de tu zona.';
 const OG_IMAGE_PATH = '/assets/og-nexobra.png';
 
 // Páginas fijas del sitio -- mismas rutas que VIEW_ROUTES en js/main.js.
@@ -64,7 +64,7 @@ const ROUTES = {
   },
   '/quienes-somos': {
     title: 'Quiénes somos | NEXOBRA',
-    description: 'NEXOBRA es un comparador técnico de precios para la construcción en Argentina, con valores de referencia trazables.',
+    description: 'NEXOBRA es un planificador de obra: el nexo entre tu obra y los proveedores de tu zona, con precios de referencia trazables y cálculo por tarea.',
     index: true, priority: '0.4'
   },
   '/contacto': {
@@ -176,7 +176,7 @@ async function serveProvider(request, env, slug) {
     return servePage(request, env, {
       title: `${provider.business_name}${branch.locality ? ' en ' + branch.locality : ''} | NEXOBRA`,
       description: (provider.description ? provider.description.slice(0, 160) : '')
-        || `Lista de precios y contacto de ${provider.business_name} en ${branch.locality || 'tu zona'}, en NEXOBRA — comparador técnico de precios de la construcción.`,
+        || `Lista de precios y contacto de ${provider.business_name} en ${branch.locality || 'tu zona'}, en NEXOBRA, el nexo entre tu obra y los proveedores de tu zona.`,
       image: provider.logo_url || null,
       canonical: `/proveedor/${slug}`,
     });

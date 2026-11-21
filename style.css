@@ -783,3 +783,118 @@ html[data-theme=dark] .offer-age.stale{color:#FBBF24}
 .costo-m2-actions{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
 @media (max-width:600px){.costo-m2-draft{padding:16px}.costo-m2-bar-row{grid-template-columns:110px 1fr 54px}}
 @media (prefers-color-scheme:dark){html:not([data-theme=light]) .costo-m2-note-row{color:#FBBF24}}html[data-theme=dark] .costo-m2-note-row{color:#FBBF24}
+/* (21/11) "Armá tu casa" (js/casa.js): configurador del Costo por m², solo admin por ahora. */
+.casa-root{margin-top:24px}
+.casa-root[hidden]{display:none}
+.casa-muted{color:var(--text-muted);font-size:.82rem;margin:4px 0 0}
+.casa-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:16px}
+.casa-head h2{margin:8px 0 4px;font-size:1.6rem}
+.casa-head-acciones{display:flex;flex-wrap:wrap;gap:8px}
+.casa-head-acciones .btn-action-drawer{font-size:.8rem;padding:9px 12px}
+.casa-layout{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
+.casa-opciones{flex:1 1 360px;max-width:420px;min-width:0;display:flex;flex-direction:column;gap:14px}
+.casa-resultados{flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:14px}
+.casa-card{background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow-sm)}
+.casa-card h3{margin:0 0 12px;font-size:1.02rem;display:flex;align-items:center;gap:8px}
+.casa-card h3 span{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--brand-yellow);color:var(--brand-dark);font-size:.75rem}
+.casa-card-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px 12px;margin-bottom:10px}
+.casa-card-head h3{margin:0}
+.casa-opt{min-height:44px;border:2px solid var(--border-light);background:var(--bg-card);color:var(--text-main);border-radius:12px;padding:8px 10px;font:inherit;font-size:.84rem;font-weight:600;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.25}
+.casa-opt small{font-size:.72rem;font-weight:500;color:var(--text-muted)}
+.casa-opt:hover{border-color:var(--brand-yellow)}
+.casa-opt.on{border-color:#E09E00;background:var(--brand-yellow-light)}
+.casa-opt[aria-disabled=true]{border-style:dashed;color:var(--text-subtle);cursor:not-allowed;background:var(--bg-subtle)}
+.casa-opt:focus-visible{outline:2px solid var(--brand-yellow);outline-offset:2px}
+.casa-grid2,.casa-grid3,.casa-grid4{display:grid;gap:8px;margin-bottom:10px}
+.casa-grid2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.casa-grid3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.casa-grid4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.casa-lista{display:flex;flex-direction:column;gap:8px}
+.casa-lista .casa-opt{align-items:flex-start;text-align:left}
+.casa-chips{display:flex;flex-wrap:wrap;gap:6px}
+.casa-chips .casa-opt{min-height:38px;border-radius:999px;padding:6px 12px;font-size:.8rem}
+.casa-label{display:block;font-size:.8rem;font-weight:700;margin:6px 0}
+.casa-clima{margin:10px 0}
+.casa-manzana-fila{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.casa-manzana{position:relative;width:284px;height:284px;background:#D9DDE3;border-radius:10px;flex:none}
+.casa-manzana-centro{position:absolute;left:30px;top:30px;width:224px;height:224px;background:#EEF1E8;border-radius:4px}
+.casa-lote-btn{position:absolute;border:1px solid #B8C0CC;background:#fff;border-radius:3px;padding:0;cursor:pointer}
+.casa-lote-btn.on{border:3px solid #C2410C;background:#FDEBB3}
+.casa-brujula-col{display:flex;flex-direction:column;align-items:center;gap:8px}
+.casa-girar{display:flex;gap:8px}
+.casa-girar .casa-opt{width:46px;font-size:1.1rem}
+.casa-brujula{position:relative;width:80px;height:80px;border-radius:50%;border:2px solid var(--border-light);background:#fff;flex:none}
+.casa-brujula.chica{width:60px;height:60px}
+.casa-aguja{position:absolute;left:50%;top:50%;width:20px;height:72%;margin-left:-10px;margin-top:-36%;display:flex;flex-direction:column;align-items:center;transform-origin:50% 50%}
+.casa-aguja i{width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:24px solid #C2410C}
+.casa-brujula.chica .casa-aguja i{border-left-width:5px;border-right-width:5px;border-bottom-width:17px}
+.casa-aguja b{font-size:11px;color:#C2410C;line-height:1}
+.casa-frente{margin:10px 0 0;font-size:.88rem}
+.casa-frente .no,.casa-verif .no{color:#B91C1C}
+.casa-verif .ok{color:#047857}
+.casa-scroll{overflow-x:auto;padding-bottom:4px}
+.casa-plano{position:relative;flex:none}
+.casa-plano>div{position:absolute;box-sizing:border-box}
+.casa-calle{left:0;background:#E2E6EC;border-radius:4px;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;transform:rotate(180deg);font-size:10px;font-weight:700;letter-spacing:2px;color:#5E6977}
+.casa-lote{border:1.5px dashed #9AA3B0;background:#F4F7F1}
+.casa-piso{background:#fff}
+.casa-piso.semi{background:rgba(255,255,255,.55);border:1.5px dashed #7A8492}
+.casa-muro{background:#2B3038}
+.casa-hueco{background:#fff}
+.casa-ventana{border:1px solid #2B3038}
+.casa-ven-h{background:linear-gradient(to bottom,#fff 40%,#2B3038 40%,#2B3038 60%,#fff 60%)}
+.casa-ven-v{background:linear-gradient(to right,#fff 40%,#2B3038 40%,#2B3038 60%,#fff 60%)}
+.casa-puerta{border-left:1.5px solid #2B3038;border-right:1px solid #7A8492;border-bottom:1px solid #7A8492;border-bottom-right-radius:100%;transform-origin:0 0}
+.casa-rotulo{transform:translate(-50%,-50%);line-height:1.25;text-align:center;color:#191E24;white-space:nowrap;pointer-events:none}
+.casa-rotulo b,.casa-rotulo span{display:block}
+.casa-rotulo span{color:#5E6977;font-weight:400}
+.casa-cota{border-top:1px solid #9AA3B0;padding-top:3px;text-align:center;font-size:11px;color:#5E6977}
+.casa-cota-v{border-top:none;border-left:1px solid #9AA3B0;padding:0 0 0 3px;writing-mode:vertical-rl;display:flex;align-items:center;justify-content:center}
+.casa-cota-casa{font-size:10px;padding-top:2px}
+.casa-cota-casa.abajo{border-top:none;border-bottom:1px solid #9AA3B0}
+.casa-sol{width:24px;height:24px}
+.casa-consejo{display:flex;gap:12px;align-items:center;margin-top:10px;background:var(--brand-yellow-light);border:1px solid var(--brand-yellow-border);border-radius:12px;padding:10px 12px;font-size:.86rem;line-height:1.45}
+.casa-leyenda{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin-top:10px}
+.casa-leyenda .ley{display:inline-block;width:16px;height:10px;margin-right:-4px}
+.ley.muro{background:#2B3038;height:5px}
+.ley.puerta{width:12px;height:12px;border-left:1.5px solid #2B3038;border-bottom:1px solid #7A8492;border-right:1px solid #7A8492;border-bottom-right-radius:100%}
+.ley.ventana{height:5px;border:1px solid #2B3038;background:#fff}
+.ley.semi{border:1.5px dashed #7A8492}
+.casa-fachada-fila{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+.casa-elev{position:relative;flex:none}
+.casa-elev>div{position:absolute;box-sizing:border-box}
+.casa-elev-cielo{left:0;top:0;right:0;background:#F4F7FB;border-radius:8px}
+.casa-elev-pieza{left:0;top:0}
+.casa-verif{flex:1 1 220px;min-width:0;font-size:.84rem}
+.casa-verif-fila{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-subtle)}
+.casa-costo{background:var(--brand-dark);color:#fff;border-color:var(--brand-dark)}
+.casa-costo h3{color:#D1D5DB;font-size:.8rem;text-transform:uppercase;letter-spacing:.5px}
+.casa-costo-fila{display:flex;flex-wrap:wrap;gap:12px 36px;align-items:flex-end;font-size:.86rem;color:#D1D5DB}
+.casa-total{font-size:2.1rem;font-weight:800;color:var(--brand-yellow);letter-spacing:-.5px}
+.casa-costo-split b{color:#fff}
+.casa-aviso{margin:10px 0 0;padding:8px 10px;border-radius:8px;background:rgba(245,176,0,.14);color:#FCE199;font-size:.82rem}
+.casa-rubros{display:flex;flex-direction:column;gap:6px;margin:14px 0}
+.casa-rubro{display:grid;grid-template-columns:minmax(110px,170px) 1fr 52px;gap:10px;align-items:center;font-size:.8rem}
+.casa-rubro i{height:8px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}
+.casa-rubro em{display:block;height:100%;background:var(--brand-yellow)}
+.casa-rubro b{text-align:right;color:#fff}
+.casa-tabla-box{margin:0}
+.casa-tabla td{vertical-align:top;font-size:.8rem}
+.casa-tabla small{color:var(--text-muted);text-transform:uppercase;font-size:.66rem;letter-spacing:.3px}
+.casa-tabla .nw{white-space:nowrap}
+.casa-med{color:var(--text-muted);min-width:160px}
+.casa-nota{color:#B45309;font-size:.74rem;margin-top:3px}
+.casa-tabla tr.sin-apu td{background:var(--brand-yellow-light)}
+.casa-tabla tr.en-cero td{background:#FEF2F2}
+.casa-link{border:none;background:none;padding:0 0 0 4px;font:inherit;font-weight:700;color:#8A5A00;text-decoration:underline;cursor:pointer}
+@media (prefers-color-scheme:dark){html:not([data-theme=light]) .casa-nota{color:#FBBF24} html:not([data-theme=light]) .casa-tabla tr.en-cero td{background:#3B1D1D}}
+html[data-theme=dark] .casa-nota{color:#FBBF24}
+html[data-theme=dark] .casa-tabla tr.en-cero td{background:#3B1D1D}
+@media (max-width:600px){.casa-opciones{max-width:none}.casa-grid4{grid-template-columns:repeat(2,minmax(0,1fr))}.casa-manzana{transform:scale(.9);transform-origin:left top;margin-bottom:-28px}}
+
+/* (21/11-b) Armá tu casa: botones de 3 columnas sin desbordar en el celular */
+.casa-grid3 .casa-opt{padding-left:6px;padding-right:6px}
+.casa-opt b{overflow-wrap:anywhere;hyphens:auto}
+@media (max-width:420px){.casa-grid3 .casa-opt{font-size:.76rem}.casa-grid3 .casa-opt small{font-size:.66rem}}
+@media (prefers-color-scheme:dark){html:not([data-theme=light]) .casa-leyenda .ley.muro{background:#C9CED6}}
+html[data-theme=dark] .casa-leyenda .ley.muro{background:#C9CED6}
