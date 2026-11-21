@@ -5,6 +5,7 @@ import * as Apu from './apu.js';
 import * as Auth from './auth.js';
 import * as Catalog from './catalog.js';
 import * as Computo from './computo.js';
+import * as Casa from './casa.js';
 import * as CostoM2 from './costo-m2.js';
 import * as Excel from './excel.js';
 import * as MapModule from './map.js';
@@ -82,7 +83,7 @@ import * as ST from './state.js';
  // <title> de cada vista (SEO/pestañas, 16/11) -- los mismos que pone
  // worker.js en el HTML que reciben los buscadores.
  const VIEW_TITLES = {
- home: 'NEXOBRA | Comparador técnico de precios para la construcción',
+ home: 'NEXOBRA | Planificador de obra: precios, cálculo y proveedores de tu zona',
  catalog: 'Catálogo de materiales de construcción con precios de referencia | NEXOBRA',
  labor: 'Mano de obra UOCRA: valor de la hora por categoría | NEXOBRA',
  'my-computations': 'Listas anteriores (Mi Cómputo) | NEXOBRA',
@@ -188,7 +189,7 @@ import * as ST from './state.js';
  Catalog.renderRubroPills();
  Catalog.renderProducts();
  }
- if (viewName === 'costo-m2') CostoM2.loadCostoM2View();
+ if (viewName === 'costo-m2') Casa.loadCasaView();
  if (viewName === 'labor' && !ST.laborState.loaded) {
  Pricing.loadLaborSeries().then(Pricing.reconcilePriceMonth);
  }
@@ -835,7 +836,7 @@ import * as ST from './state.js';
  goToProviderPublicPage,
  openMaterialPage,
  openApuStep,
- loadCostoM2View: CostoM2.loadCostoM2View,
+ loadCostoM2View: Casa.loadCasaView,
  openCostoM2InCalculator: CostoM2.openCostoM2InCalculator,
  changeMaterialPageQty: Catalog.changeMaterialPageQty,
  addMaterialPageToBudget: Catalog.addMaterialPageToBudget,

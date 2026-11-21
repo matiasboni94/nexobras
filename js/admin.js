@@ -800,6 +800,7 @@ export async function deleteIndexValue(id) {
 // ============================================================
 
 export function setupAdminListeners() {
+ document.querySelectorAll('[data-admin-go]').forEach(btn => btn.addEventListener('click', () => goToAdminPage(btn.dataset.adminGo)));
  if (!ST.supabaseClient) return;
  setupAdminDashboardListeners();
  const btnOpenAdmin = document.getElementById('btn-open-admin');
@@ -949,18 +950,88 @@ export function setupAdminListeners() {
  if (btnAdminApuSave) btnAdminApuSave.addEventListener('click', (e) => { e.preventDefault(); saveAdminApuTask(); });
 }
 
+// ============================================================
+// (18/11, pedido del usuario) El panel es un menú: cada tarjeta abre una
+// página con solo sus secciones (data-admin-page en index.html). La página
+// va en el "#" de la dirección (/admin#tablero), así el botón "atrás" del
+// navegador vuelve al menú. Cada página carga sus datos la primera vez que
+// se abre (antes se cargaba todo junto al entrar al panel).
+// ============================================================
+
+const ADMIN_PAGES = {
+ tablero: { title: 'Tablero del sitio', subtitle: 'Visitas, recorrido, campañas, búsquedas y diagnóstico del sitio.', load: () => { loadAdminDashboard(); } },
+ pendientes: { title: 'Pendientes', subtitle: 'Lo que espera tu revisión.', load: () => { loadAdminProviderClaims(); loadPendingProviders(); loadPendingOffers(); loadReportedReviews(); } },
+ indices: { title: 'Índices y precios base', subtitle: 'IPC y UOCRA del mes, y actualización de precios base.', load: () => { loadIndexSeriesOptions(); } },
+ materiales: { title: 'Materiales', subtitle: 'Editor del catálogo y sugerencias técnicas.', load: () => { loadMaterialsBrowse(true); loadTechSuggestions(); } },
+ proveedores: { title: 'Proveedores', subtitle: 'Fichas, precios, importación y transferencias.', load: () => { loadAdminProviderList(); loadAdminSurvey(); } },
+ relevamiento: { title: 'Relevamiento de precios', subtitle: 'Canasta para corralones y precios de la zona.', load: () => { loadAdminSurvey(); } },
+ apus: { title: 'APUs de la Calculadora', subtitle: 'Revisar, describir y habilitar tareas.', load: () => { loadAdminApuTasks(); } },
+};
+const adminPagesLoaded = new Set();
+
+export function showAdminPage(page) {
+ const key = ADMIN_PAGES[page] ? page : '';
+ const menu = document.getElementById('admin-menu');
+ const bar = document.getElementById('admin-page-bar');
+ const subtitle = document.getElementById('admin-page-subtitle');
+ if (menu) menu.hidden = !!key;
+ if (bar) bar.hidden = !key;
+ document.querySelectorAll('#admin-view [data-admin-page]').forEach(sec => {
+ const on = sec.dataset.adminPage === key;
+ sec.hidden = !on;
+ if (on) sec.open = true;
+ });
+ if (key) {
+ const def = ADMIN_PAGES[key];
+ document.getElementById('admin-page-title').textContent = def.title;
+ if (subtitle) subtitle.textContent = def.subtitle;
+ document.title = `${def.title} | Administración | NEXOBRA`;
+ if (!adminPagesLoaded.has(key)) { adminPagesLoaded.add(key); def.load(); }
+ } else {
+ if (subtitle) subtitle.textContent = 'Elegí qué querés hacer.';
+ document.title = 'Administración | NEXOBRA';
+ loadAdminMenuBadges();
+ }
+}
+
+/** Pendientes en las tarjetas del menú (misma idea que la insignia roja del menú de cuenta). */
+async function loadAdminMenuBadges() {
+ if (!ST.supabaseClient) return;
+ const count = (q) => q.then(r => (r && r.count) || 0, () => 0);
+ const [prov, offers, reports, claims, sugg] = await Promise.all([
+ count(ST.supabaseClient.from('providers').select('id', { count: 'exact', head: true }).eq('verification_status', 'pending')),
+ count(ST.supabaseClient.from('provider_offers').select('id', { count: 'exact', head: true }).eq('status', 'pending')),
+ count(ST.supabaseClient.from('review_reports').select('id', { count: 'exact', head: true }).eq('status', 'pending')),
+ count(ST.supabaseClient.from('provider_claims').select('id', { count: 'exact', head: true }).eq('status', 'pending')),
+ count(ST.supabaseClient.from('material_technical_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'pending'))
+ ]);
+ const set = (id, n) => {
+ const el = document.getElementById(id);
+ if (!el) return;
+ el.hidden = !(n > 0);
+ el.textContent = n > 99 ? '99+' : String(n);
+ };
+ set('admin-menu-badge-pendientes', prov + offers + reports + claims);
+ set('admin-menu-badge-materiales', sugg);
+}
+
+function currentAdminHashPage() {
+ return decodeURIComponent((window.location.hash || '').replace(/^#/, ''));
+}
+
 export function loadAdminPanel() {
- loadAdminDashboard();
- loadAdminSurvey();
- loadAdminProviderClaims();
- loadMaterialsBrowse(true);
- loadAdminProviderList();
- loadPendingProviders();
- loadPendingOffers();
- loadIndexSeriesOptions();
- loadTechSuggestions();
- loadReportedReviews();
- loadAdminApuTasks();
+ showAdminPage(currentAdminHashPage());
+}
+
+/** Abre una página del panel (o el menú, con ''): cambia el "#" de la dirección (para el botón atrás) y muestra la página. */
+export function goToAdminPage(page) {
+ const target = page ? '#' + page : '';
+ if ((window.location.hash || '') !== target) {
+ if (target) history.pushState(history.state, '', window.location.pathname + window.location.search + target);
+ else history.pushState(history.state, '', window.location.pathname + window.location.search);
+ }
+ showAdminPage(page);
+ window.scrollTo({ top: 0 });
 }
 
 // ============================================================
@@ -2391,7 +2462,7 @@ function adminApuLocalId(prefix) {
  return `${prefix}-${adminApuLocalSeq}-${Date.now()}`;
 }
 
-async function refreshApuCatalogCache() {
+export async function refreshApuCatalogCache() {
  ST.apuCatalogState.loaded = false;
  await Apu.loadApuCatalog();
 }
