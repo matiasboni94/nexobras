@@ -24,9 +24,13 @@ import * as ST from './state.js';
  icon: "",
  desc: "Ladrillos huecos cerámicos, ladrillos comunes macizos, sistema Retak (HCCA) y bloques U."
  },
- "Cubiertas y Aislaciones": {
+ "Cubiertas": {
  icon: "",
- desc: "Chapas Cincalum acanaladas/trapezoidales, membranas asfálticas, lana de vidrio y tejas."
+ desc: "Chapas Cincalum y galvanizadas acanaladas y trapezoidales, fibroasfálticas, traslúcidas, tejas y zinguería (canaletas, cenefas, babetas)."
+ },
+ "Aislaciones": {
+ icon: "",
+ desc: "Hidráulicas (hidrófugos, impermeabilizantes, membranas y pinturas asfálticas, juntas de dilatación), térmicas y acústicas (lana de vidrio, espumas, placas acústicas, aislantes con aluminio)."
  },
  "Instalaciones": {
  icon: "",
@@ -63,10 +67,6 @@ import * as ST from './state.js';
  "Seguridad e Higiene": {
  icon: "",
  desc: "Cascos Libus, arneses anticaída, botines Pampero/Ombú con puntera de acero, guantes y conos viales."
- },
- "Cubierta": {
- icon: "",
- desc: "Zinguería de chapa galvanizada N°25, canaletas, cenefas, cumbreras, babetas y embudos."
  },
  "Ferretería": {
  icon: "",
@@ -110,7 +110,7 @@ import * as ST from './state.js';
  <div class="card-actions">
  <div class="qty-control">
  <button class="qty-btn" onclick="window.nexoBraApp.changeLaborQty('${role.code}', -1)" title="Reducir cantidad">-</button>
- <input type="number" id="${inputId}" class="qty-input" value="1" min="0.5" step="0.5">
+ <input type="number" id="${inputId}" class="qty-input" value="1" min="0.5" step="0.5" aria-label="${ST.escapeHtml(unidadLabel === 'por mes' ? 'Meses de' : 'Horas de')} ${ST.escapeHtml(role.name)}">
  <button class="qty-btn" onclick="window.nexoBraApp.changeLaborQty('${role.code}', 1)" title="Aumentar cantidad">+</button>
  </div>
  <button class="btn-add-computo" onclick="window.nexoBraApp.addLaborToComputo('${role.code}')">
@@ -237,7 +237,7 @@ import * as ST from './state.js';
 
  // Con una búsqueda activa, contamos SOLO lo que matchea esa búsqueda en
  // cada rubro (y ocultamos los rubros sin ningún resultado) -- así, si
- // buscás "aluminio", ves "Aberturas 12" y "Cubiertas y Aislaciones 5",
+ // buscás "aluminio", ves "Aberturas 12" y "Cubiertas 5",
  // no el total completo de materiales que tiene cada rubro.
  const materialesRelevantes = buscando ? NEXOBRA_DATA.filter(i => itemMatchesSearchTokens(i, tokens)) : NEXOBRA_DATA;
 
