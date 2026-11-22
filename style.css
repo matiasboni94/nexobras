@@ -1012,3 +1012,65 @@ html[data-theme=dark] .casa-leyenda .ley.muro{background:#C9CED6}
  .casa-resumen-grid{grid-template-columns:1fr}
  .casa-pasos-pie .btn-computo{flex:1}
 }
+
+/* (21/11-j) Armá tu casa: croquis siempre a la vista, opciones en solapas y medidas desde el croquis */
+.casa-layout.v2{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:18px;align-items:start}
+.casa-layout.v2 .casa-opciones{max-width:none;gap:12px}
+.casa-visual{position:sticky;top:152px;z-index:5;display:flex;flex-direction:column;gap:14px;min-width:0}
+.casa-visual .casa-corte{margin-top:0}
+.casa-solo-movil{display:none}
+.casa-grupos{display:flex;flex-wrap:wrap;gap:6px}
+.casa-grupo{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 12px 6px 7px;border:1px solid var(--border-light);border-radius:999px;background:var(--bg-card);color:var(--text-main);font:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
+.casa-grupo span{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--bg-subtle);font-size:.7rem;font-weight:800}
+.casa-grupo:hover{border-color:var(--brand-yellow)}
+.casa-grupo.on{background:var(--brand-dark);border-color:var(--brand-dark);color:#fff}
+.casa-grupo.on span{background:var(--brand-yellow);color:#1E2229}
+.casa-grupo:focus-visible,.casa-seguir:focus-visible{outline:2px solid var(--brand-yellow);outline-offset:2px}
+.casa-seguir{display:block;width:100%;margin-top:14px;min-height:42px;padding:9px 14px;border:1px solid var(--brand-yellow-border);border-radius:12px;background:var(--brand-yellow-light);color:var(--text-main);font:inherit;font-size:.86rem;font-weight:700;cursor:pointer}
+.casa-seguir:hover{border-color:var(--brand-yellow)}
+.casa-seguir.fin{background:var(--brand-yellow);border-color:var(--brand-yellow);color:#1E2229}
+.casa-tip{margin:2px 0 8px;font-size:.84rem;color:var(--text-muted)}
+.casa-tip b{color:var(--text-main)}
+.casa-medidas .casa-link[hidden]{display:none}
+.casa-ley-it{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+/* locales tocables en la planta */
+.casa-plano>.casa-local{position:absolute;box-sizing:border-box;margin:0;padding:0;border:0;border-radius:2px;background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.casa-plano>.casa-local:hover{background:rgba(245,176,0,.12);outline:2px solid rgba(245,176,0,.6);outline-offset:-3px}
+.casa-plano>.casa-local.sel{background:rgba(245,176,0,.24);outline:2.5px solid #F5B000;outline-offset:-3px}
+.casa-plano>.casa-local:focus-visible{outline:2.5px solid #1E2229;outline-offset:-3px}
+.casa-local-hint{margin:10px 0 0;padding:8px 12px;border:1px dashed var(--border-light);border-radius:12px;background:var(--bg-subtle);color:var(--text-muted);font-size:.84rem}
+.casa-local-ed{margin-top:10px;padding:10px 12px;border:1px solid var(--brand-yellow-border);border-radius:12px;background:var(--brand-yellow-light)}
+.casa-local-ed .casa-dim{border-bottom-color:var(--brand-yellow-border)}
+.casa-local-tit{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:2px}
+.casa-local-tit b{display:block;font-size:.95rem}
+.casa-local-tit span{display:block;color:var(--text-muted);font-size:.78rem}
+.casa-local-x{flex:none;width:32px;height:32px;border:1px solid var(--border-light);border-radius:10px;background:var(--bg-card);color:var(--text-main);font-size:1.1rem;line-height:1;cursor:pointer}
+.casa-eje{display:inline-block;min-width:14px;color:var(--brand-yellow-hover);font-weight:800}
+.casa-vis-total{font-weight:800;font-size:.9rem}
+@media (max-width:899px){
+ .casa-layout.v2{grid-template-columns:minmax(0,1fr)}
+ .casa-pasos{position:relative;top:auto}
+ .casa-visual{top:74px;gap:0}
+ .casa-visual .casa-card{padding:10px 12px;box-shadow:0 8px 18px -10px rgba(16,24,40,.35)}
+ .casa-visual .casa-card-head{margin-bottom:6px}
+ .casa-visual .casa-card-head h3{font-size:.92rem;margin:0}
+ .casa-solo-esc{display:none!important}
+ .casa-solo-movil{display:block}
+ span.casa-solo-movil{display:inline}
+ .casa-visual .casa-local-ed{padding:8px 10px;margin-top:6px}
+ .casa-visual .casa-medidas-nota{display:none}
+ .casa-visual .casa-local-hint{margin-top:6px;padding:6px 10px;font-size:.8rem}
+ .casa-visual .casa-dim{padding:2px 0}
+ .casa-visual .casa-corte{padding:6px;flex-wrap:nowrap;gap:8px}
+ .casa-visual .casa-corte-svg{max-width:52%;max-height:190px;width:auto}
+ .casa-visual .casa-corte figcaption{font-size:.7rem}
+ .casa-visual .casa-corte figcaption p{display:none}
+ .casa-visual .casa-fachada-fila{gap:8px}
+ .casa-visual .casa-verif{display:none}
+}
+.casa-medidas .casa-link{font-size:.8rem;text-align:left}
+@media (max-width:899px){
+ .casa-grupos{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -2px;padding:2px}
+ .casa-grupos::-webkit-scrollbar{display:none}
+ .casa-grupo{flex:none}
+}
