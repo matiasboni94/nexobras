@@ -25,7 +25,7 @@
 // este archivo TAMBIÉN y cambiá el número de acá abajo (SW_VERSION) --
 // alcanza con sumarle 1. Eso hace que el Service Worker se reinstale solo y
 // tire a la basura la caché anterior.
-const SW_VERSION = 'v48';
+const SW_VERSION = 'v49';
 
 const SHELL_CACHE = `nexobra-shell-${SW_VERSION}`;
 const DATA_CACHE = `nexobra-data-${SW_VERSION}`;
@@ -59,7 +59,7 @@ const SHELL_ASSETS = [
 // "a mejor esfuerzo": si alguno falla al instalar (ej. el CDN está caído
 // justo en ese momento) no rompe el resto de la instalación.
 const EXTERNAL_ASSETS = [
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
 ];
@@ -83,7 +83,9 @@ self.addEventListener('install', (event) => {
     // Uno por uno (no cache.addAll) para que un solo archivo faltante no
     // tire abajo la instalación completa del service worker.
     await Promise.all(SHELL_ASSETS.map((url) => precacheOne(cache, url)));
-    await Promise.all(EXTERNAL_ASSETS.map((url) => precacheOne(cache, url, { noCors: true })));
+    // (22/11, seguridad) Se guardan en modo CORS, no opaco: la página los pide con
+    // integrity + crossorigin, y una copia opaca haría fallar la carga.
+    await Promise.all(EXTERNAL_ASSETS.map((url) => precacheOne(cache, new Request(url, { mode: 'cors', credentials: 'omit' }))));
     self.skipWaiting();
   })());
 });
@@ -105,11 +107,12 @@ async function staleWhileRevalidate(request, cacheName) {
   const cached = await cache.match(request);
   const networkPromise = fetch(request)
     .then((res) => {
-      if (res && (res.ok || res.type === 'opaque')) cache.put(request, res.clone());
+      if (res && res.ok && res.type !== 'opaque') cache.put(request, res.clone());
       return res;
     })
     .catch(() => null);
-  return cached || (await networkPromise) || Response.error();
+  if (cached && cached.type !== 'opaque') return cached;
+  return (await networkPromise) || Response.error();
 }
 
 async function networkFirst(request, cacheName) {
