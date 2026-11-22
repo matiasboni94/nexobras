@@ -24,7 +24,9 @@ const DEFAULTS = {
  nivel: 'B', muro: 'eps2', aisTecho: 'lana5', piso: 'ceramico', abert: 'aluminio', dvh: false, solar: false,
  // (21/11-d) cómo se construye y medidas
  fundacion: 'platea', muroBase: 'lch18', tabique: 'ladrillo', estructTecho: 'metalica', cielo: 'pendiente', cieloMat: 'machimbre',
- altura: 2.6, dims: {}, paso: 1
+ altura: 2.6, dims: {}, paso: 1,
+ // (21/11-j) solapa abierta de cada paso y local que se está editando en el croquis
+ grupo1: 'terreno', grupo2: 'fund', local: ''
 };
 let S = { ...DEFAULTS };
 let ultimo = null; // último cálculo (para "Abrir en la Calculadora")
@@ -449,6 +451,7 @@ function plano(o, T, S_px) {
  ${huecos.map(h => `<div class="casa-hueco" style="${h}"></div>`).join('')}
  ${ventanas.map(v => `<div class="casa-ventana ${v.cls}" style="${v.st}"></div>`).join('')}
  ${puertas.map(p => `<div class="casa-puerta" style="${p}"></div>`).join('')}
+ ${rooms.map(r => { const a = r.u1 - r.u0, b = r.v1 - r.v0, on = S.local === r.id; return `<button type="button" class="casa-local${on ? ' sel' : ''}" data-casa="local:${r.id}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${esc(r.n || 'Pasillo')}: ${f(a, 2)} por ${f(b, 2)} m. Cambiar medidas" title="${esc(r.n || 'Pasillo')}: tocá para cambiar las medidas" style="${rect(r.u0, r.u1, r.v0, r.v1)}"></button>`; }).join('')}
  ${rot.map(ajustarRotulo).filter(r => !r.oculto).map(r => `<div class="casa-rotulo" style="left:${r.x.toFixed(1)}px;top:${r.y.toFixed(1)}px;font-size:${r.fs}px"><b>${esc(r.n)}</b>${SC >= 18 ? `<span>${r.a}</span>` : ''}</div>`).join('')}
  <div class="casa-cota" style="left:${LX}px;top:${loteAbajo + 8}px;width:${LOTE_L * SC}px">25,00 m</div>
  <div class="casa-cota casa-cota-v" style="left:${LX + LOTE_L * SC + 6}px;top:${LT}px;height:${LOTE_A * SC}px">10,00 m</div>
@@ -472,7 +475,7 @@ function fachada(o, T, anchoDisp) {
  const Wf = T.Wf, AL = S.techo === 'plana' ? 0 : (o.oeste ? 0.8 : 0.5), HM = S.altura;
  const pend = pendienteTecho();
  const sube = S.techo === '1' ? Wf * pend : S.techo === 'plana' ? 0.5 : (Wf / 2) * pend;
- const k = Math.max(18, Math.min(40, (anchoDisp - 20) / (Wf + 2 * AL)));
+ const k = Math.max(18, Math.min(56, (anchoDisp - 20) / (Wf + 2 * AL)));
  const W = (Wf + 2 * AL) * k + 20, H = (HM + sube + 0.9) * k + 16;
  const x = (v) => 10 + (AL + (o.medArriba ? v : Wf - v)) * k;
  const yS = H - 10, y = (h) => yS - h * k;
@@ -726,6 +729,7 @@ function onClick(e) {
  if (accion === 'toggle') S[valor] = !S[valor];
  else if (accion === 'girar') S.norte = norm(S.norte + Number(valor));
  else if (accion === 'paso') { S.paso = Number(valor) || 1; guardarEstado(); render(); document.getElementById('casa-root')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+ else if (accion === 'local') S.local = (valor && S.local !== valor) ? valor : '';
  else if (accion === 'nivel') { S.nivel = valor; Object.assign(S, recetaNivel(valor)); }
  else if (accion === 'reset') { S = { ...DEFAULTS, dims: {} }; }
  else if (accion === 'dim') {
@@ -1023,33 +1027,64 @@ function corteCarpinteria() {
  return ficha(svgCorte(W, H, p, body, 'Carpintería'), items, S.abert === 'aluminio' ? 'Puertas exteriores de chapa.' : `Puertas exteriores de ${marco[1].toLowerCase()}.`);
 }
 
-function medidasHtml(T) {
- const byId = (id) => T.rooms.find(r => r.id === id);
- const fila = (k, n, v, min, max, paso, detalle, cambiada, noMenos = v <= min + 1e-9, noMas = v >= max - 1e-9) => `
+// (21/11-j) Medidas editables desde el croquis: se toca un local y aparecen
+// las medidas que lo cambian (la propia primero y las compartidas después).
+const filaDim = (k, n, v, min, max, detalle, cambiada, noMenos = v <= min + 1e-9, noMas = v >= max - 1e-9) => `
  <div class="casa-dim">
- <div class="casa-dim-txt"><b>${esc(n)}</b><small>${detalle}${detalle ? ' · ' : ''}mín. ${f(min, 2)} m${cambiada ? ' · <em>cambiada</em>' : ''}</small></div>
+ <div class="casa-dim-txt"><b>${n}</b><small>${detalle}${detalle ? ' · ' : ''}mín. ${f(min, 2)} m${cambiada ? ' · <em>cambiada</em>' : ''}</small></div>
  <div class="casa-dim-ctrl">
- <button type="button" class="casa-opt" data-casa="dim:${k}|-1" aria-label="Achicar ${esc(n)}" ${noMenos ? `aria-disabled="true" title="${esc(noMenos === true ? 'mínimo' : noMenos)}"` : ''}>−</button>
+ <button type="button" class="casa-opt" data-casa="dim:${k}|-1" aria-label="Achicar: ${esc(n.replace(/<[^>]+>/g, ''))}" ${noMenos ? `aria-disabled="true" title="${esc(noMenos === true ? 'mínimo' : noMenos)}"` : ''}>−</button>
  <output aria-live="polite">${f(v, 2)} m</output>
- <button type="button" class="casa-opt" data-casa="dim:${k}|1" aria-label="Agrandar ${esc(n)}" ${noMas ? `aria-disabled="true" title="${esc(noMas === true ? 'máximo' : noMas)}"` : ''}>+</button>
+ <button type="button" class="casa-opt" data-casa="dim:${k}|1" aria-label="Agrandar: ${esc(n.replace(/<[^>]+>/g, ''))}" ${noMas ? `aria-disabled="true" title="${esc(noMas === true ? 'máximo' : noMas)}"` : ''}>+</button>
  </div>
  </div>`;
- const o = orientacion();
+const nombreLocal = (r) => r.n || 'Pasillo';
+// Para cada medida, qué locales cambian de tamaño si se la toca
+function localesPorMedida(o) {
+ const base = tipologia(o).rooms, guard = S.dims, out = {};
+ const lado = (r) => [r.u1 - r.u0, r.v1 - r.v0];
+ try {
+ paramsTipo().forEach(p => {
+ const v = D(p.k, p.def), prueba = v + 0.1 <= p.max + 1e-9 ? v + 0.1 : v - 0.1;
+ S.dims = { ...guard, [`${S.tipo}.${p.k}`]: r2(prueba) };
+ const t = tipologia(o).rooms;
+ out[p.k] = base.map(r => {
+ const q = t.find(x => x.id === r.id); if (!q) return null;
+ const [a0, b0] = lado(r), [a1, b1] = lado(q);
+ const eje = Math.abs(a1 - a0) > 1e-6 ? 'h' : Math.abs(b1 - b0) > 1e-6 ? 'v' : '';
+ return eje ? { id: r.id, eje } : null;
+ }).filter(Boolean);
+ S.dims = guard;
+ });
+ } finally { S.dims = guard; }
+ return out;
+}
+function editorLocal(T, o) {
+ const r = S.local && T.rooms.find(x => x.id === S.local);
+ if (!r) return `<p class="casa-local-hint">Tocá un local del croquis para cambiar sus medidas.</p>`;
+ const porMedida = localesPorMedida(o);
  const probar = (k, v) => { const guard = S.dims; S.dims = { ...guard, [`${S.tipo}.${k}`]: r2(v) }; const pr = problemaLote(tipologia(o)); S.dims = guard; return pr; };
- const filas = paramsTipo().map(p => {
- const v = D(p.k, p.def), r = p.room && byId(p.room);
+ const nom = (id) => { const x = T.rooms.find(y => y.id === id); return x ? nombreLocal(x).replace('Dormitorio', 'Dorm.').replace('Estar-comedor', 'Estar') : id; };
+ const filas = paramsTipo()
+ .map(p => ({ p, loc: porMedida[p.k] || [] }))
+ .filter(x => x.loc.some(l => l.id === r.id))
+ .sort((a, b) => (b.p.room === r.id) - (a.p.room === r.id) || a.loc.length - b.loc.length)
+ .map(({ p, loc }) => {
+ const v = D(p.k, p.def);
+ const eje = loc.find(l => l.id === r.id).eje === 'h' ? '↔' : '↕';
+ const otros = loc.filter(l => l.id !== r.id && !(T.rooms.find(y => y.id === l.id) || {}).noLabel).map(l => nom(l.id));
+ const det = otros.length ? (otros.length > 3 ? 'cambia varios locales' : `también cambia: ${otros.join(', ')}`) : '';
  const noMas = v >= p.max - 1e-9 ? 'máximo' : probar(p.k, v + 0.1), noMenos = v <= p.min + 1e-9 ? 'mínimo' : probar(p.k, v - 0.1);
- const a = r ? r.u1 - r.u0 : 0, b = r ? r.v1 - r.v0 : 0;
- const det = r ? `${f(a, 2)} × ${f(b, 2)} m = ${f(a * b)} m²` : '';
- return fila(p.k, p.n, v, p.min, p.max, 0.1, det, v !== p.def, noMenos, noMas);
+ const etiqueta = p.room === r.id ? (eje === '↔' ? 'Largo' : 'Ancho') + ' del local' : esc(p.n);
+ return filaDim(p.k, `<span class="casa-eje" aria-hidden="true">${eje}</span> ${etiqueta}`, v, p.min, p.max, det, v !== p.def, noMenos, noMas);
  }).join('');
- const av = avisosMedidas(T);
- return `<div class="casa-medidas">
- ${filas}
- ${fila('altura', 'Altura de los locales', S.altura, MIN_ALTURA, 3.2, 0.05, '', S.altura !== DEFAULTS.altura)}
+ const a = r.u1 - r.u0, b = r.v1 - r.v0;
+ const av = avisosMedidas(T).filter(t => t.startsWith(nombreLocal(r)));
+ return `<div class="casa-local-ed" aria-live="polite">
+ <div class="casa-local-tit"><div><b>${esc(nombreLocal(r))}</b><span>${f(a, 2)} × ${f(b, 2)} m · ${f(a * b)} m²${r.semi ? ' · semicubierto' : ''}</span></div><button type="button" class="casa-local-x" data-casa="local:" aria-label="Cerrar el editor de medidas">×</button></div>
+ ${filas || '<p class="casa-muted">Este local se ajusta solo con las medidas de los locales vecinos.</p>'}
  ${av.length ? `<p class="casa-aviso">${av.map(esc).join('<br>')}</p>` : ''}
- <button type="button" class="casa-link" data-casa="dim:base|0">Volver a las medidas de la casa base</button>
- <p class="casa-muted casa-medidas-nota">Mínimos de referencia: Estándares Mínimos de Calidad para Viviendas de Interés Social (Res. 59/2019, según el pliego Pro.Cre.Ar). Si el código municipal pide otros, rige el municipal: <b>a validar</b> con el de Oberá. Estar, cocina y galería: mínimos propios, a validar.</p>
+ <p class="casa-muted casa-medidas-nota">Mínimos de referencia: Res. 59/2019 (pliego Pro.Cre.Ar). Si el código municipal pide otros, rige el municipal: <b>a validar</b> con el de Oberá.</p>
  </div>`;
 }
 
@@ -1059,11 +1094,12 @@ function render() {
  const ancho = root.clientWidth || 1100;
  const o = orientacion();
  const T = tipologia(o);
- const colDer = ancho >= 1000 ? ancho - 420 : ancho - 32;
+ // (21/11-j) el croquis va a la izquierda y las opciones en una columna de 380 px (desde 900 px)
+ const colDer = ancho >= 900 ? ancho - 398 - 36 : ancho - 28;
  // en el celular la planta no baja de 13 px/m: si no entra, se desliza de costado (casa-scroll)
- const SC = Math.max(13, Math.min(22, (colDer - 80) / 25));
+ const SC = Math.max(13, Math.min(30, (colDer - 64) / 25));
  const P = plano(o, T, SC);
- const fach = fachada(o, T, ancho >= 700 ? Math.min(colDer - 260, 420) : Math.min(colDer - 10, 420));
+ const fach = fachada(o, T, ancho >= 900 ? Math.max(260, Math.min(colDer - 260, 460)) : Math.min(colDer - 10, 420));
  const lineas = computo(o, T, P.med, fach);
  const c = costear(lineas);
  const C = CIUDADES[S.ciudad];
@@ -1121,12 +1157,22 @@ function render() {
  </ul></div>
  </div>
  </section>`;
+ // (21/11-j) Croquis siempre a la vista + opciones en solapas cortas
+ const tabsGrupo = (acc, items, act) => `<div class="casa-grupos" role="tablist" aria-label="Opciones de este paso">${items.map(([k, n], i) => `<button type="button" role="tab" class="casa-grupo${k === act ? ' on' : ''}" data-casa="${acc}:${k}" aria-selected="${k === act ? 'true' : 'false'}"><span>${i + 1}</span>${esc(n)}</button>`).join('')}</div>`;
+ const seguir = (acc, items, act) => {
+ const i = items.findIndex(x => x[0] === act);
+ if (i < items.length - 1) return `<button type="button" class="casa-seguir" data-casa="${acc}:${items[i + 1][0]}">Seguir con ${esc(items[i + 1][1])} →</button>`;
+ return paso < 3 ? `<button type="button" class="casa-seguir fin" data-casa="paso:${paso + 1}">Siguiente: ${esc(PASOS[paso][1])} →</button>` : '';
+ };
+ const consejo = `<div class="casa-consejo"><div class="casa-brujula chica" role="img" aria-label="Norte en la planta"><div class="casa-aguja" style="transform:rotate(${o.aguja}deg)"><i></i><b>N</b></div></div><div><b>${esc(o.titulo)}</b><br>${esc(o.texto)}</div></div>`;
+ const totalMovil = `<span class="casa-vis-total casa-solo-movil">${money(c.total)} · ${f(m2Eq)} m²</span>`;
  let cuerpo;
- if (paso === 1) cuerpo = `
- <div class="casa-layout">
- <div class="casa-opciones">
+ if (paso === 1) {
+ const G1 = [['terreno', 'Terreno'], ['casa', 'La casa']];
+ const g1 = G1.some(x => x[0] === S.grupo1) ? S.grupo1 : 'terreno';
+ const opciones = g1 === 'terreno' ? `
  <section class="casa-card">
- <h3><span>1</span> Terreno y orientación</h3>
+ <h3>Terreno y orientación</h3>
  <div class="casa-chips" role="group" aria-label="Ciudad">${Object.keys(CIUDADES).map(n => btn('ciudad', n, S.ciudad === n, esc(n), 'data-chip="1"')).join('')}</div>
  <p class="casa-muted casa-clima">Zona bioambiental ${esc(C.zona)} (${esc(C.zonaTxt)}) · diseño ${f(C.tdmn)} °C / ${f(C.tdmx)} °C · estación ${esc(C.est)}</p>
  <div class="casa-manzana-fila">
@@ -1144,10 +1190,11 @@ function render() {
  </div>
  </div>
  <p class="casa-frente">Frente al <b>${esc(o.nombre)}</b> · lote ${o.lote.esquina ? 'de esquina' : 'intermedio'}${o.desfavorable ? ' · <span class="no">orientación desfavorable en zona I</span>' : ''}</p>
- </section>
-
+ <div class="casa-solo-movil">${consejo}</div>
+ ${seguir('grupo1', G1, g1)}
+ </section>` : `
  <section class="casa-card">
- <h3><span>2</span> Forma, ambientes y medidas</h3>
+ <h3>Forma y ambientes</h3>
  <div class="casa-grid3">
  ${[['lineal', 'Lineal', 'Lote angosto'], ['compacta', 'Compacta', 'La más económica'], ['L', 'En L', 'Con patio']].map(([k, n, d]) => btn('tipo', k, S.tipo === k, `<b>${n}</b><small>${d}</small>`)).join('')}
  </div>
@@ -1155,110 +1202,115 @@ function render() {
  <div class="casa-grid2">
  ${[2, 3].map(n => btn('dorm', n, S.dorm === n, `${n} dormitorios`, S.tipo === 'compacta' && n === 3 ? 'aria-disabled="true" title="No entra en la planta compacta"' : '')).join('')}
  </div>
- <div class="casa-grid2">
- ${btn('toggle', 'galeria', S.galeria, '<b>Galería</b><small>Semicubierta</small>')}
- ${btn('toggle', 'cochera', S.cochera, '<b>Cochera</b><small>Semicubierta, 14,5 m²</small>')}
- </div>
  <label class="casa-label">Baños</label>
  <div class="casa-grid3">
  ${[['no', 'Un baño', ''], ['pasillo', '2.º baño', 'Al pasillo'], ['suite', 'En suite', 'En el último dormitorio']].map(([k, n, d]) => btn('bano2', k, S.bano2 === k, `<b>${n}</b>${d ? `<small>${d}</small>` : ''}`, S.tipo === 'compacta' && k !== 'no' ? 'aria-disabled="true" title="No entra en la planta compacta"' : '')).join('')}
  </div>
- <div class="casa-lista">${btn('toggle', 'verMedidas', S.verMedidas, `<b>Medidas de los locales ${S.verMedidas ? '▴' : '▾'}</b><small>${nMod ? (nMod === 1 ? '1 medida cambiada' : `${nMod} medidas cambiadas`) : 'Casa base: medidas del prototipo, con los mínimos'}</small>`, 'aria-expanded="' + (S.verMedidas ? 'true' : 'false') + '"')}</div>
- ${S.verMedidas ? medidasHtml(T) : ''}
- </section>
-
+ <label class="casa-label">Semicubiertos</label>
+ <div class="casa-grid2">
+ ${btn('toggle', 'galeria', S.galeria, '<b>Galería</b><small>Semicubierta</small>')}
+ ${btn('toggle', 'cochera', S.cochera, '<b>Cochera</b><small>Semicubierta, 14,5 m²</small>')}
  </div>
- <div class="casa-resultados">
+ <label class="casa-label">Medidas</label>
+ <p class="casa-tip"><b>Tocá un local en el croquis</b> para cambiar sus medidas.</p>
+ <div class="casa-medidas">
+ ${filaDim('altura', 'Altura de los locales', S.altura, MIN_ALTURA, 3.2, '', S.altura !== DEFAULTS.altura)}
+ <button type="button" class="casa-link" data-casa="dim:base|0"${nMod ? '' : ' hidden'}>Volver a las medidas de la casa base (${nMod === 1 ? '1 cambiada' : `${nMod} cambiadas`})</button>
+ </div>
+ ${seguir('grupo1', G1, g1)}
+ </section>`;
+ cuerpo = `
+ <div class="casa-layout v2">
+ <div class="casa-visual">
  <section class="casa-card">
- <div class="casa-card-head"><h3>Planta en el lote</h3><span class="casa-muted">${esc(resumen)}</span></div>
+ <div class="casa-card-head"><h3>Planta en el lote</h3><span class="casa-muted casa-solo-esc">${esc(resumen)}</span>${totalMovil}</div>
  <div class="casa-scroll">${P.html}</div>
- <div class="casa-consejo"><div class="casa-brujula chica" role="img" aria-label="Norte en la planta"><div class="casa-aguja" style="transform:rotate(${o.aguja}deg)"><i></i><b>N</b></div></div><div><b>${esc(o.titulo)}</b><br>${esc(o.texto)}</div></div>
- <p class="casa-muted casa-leyenda"><span class="ley muro"></span>Muros <span class="ley puerta"></span>Puertas <span class="ley ventana"></span>Ventanas <span class="ley semi"></span>Semicubierto · Esquema orientativo, no es un plano de obra.</p>
+ ${editorLocal(T, o)}
+ <div class="casa-solo-esc">${consejo}</div>
+ <p class="casa-muted casa-leyenda casa-solo-esc"><span class="casa-ley-it"><span class="ley muro"></span>Muros</span><span class="casa-ley-it"><span class="ley puerta"></span>Puertas</span><span class="casa-ley-it"><span class="ley ventana"></span>Ventanas</span><span class="casa-ley-it"><span class="ley semi"></span>Semicubierto</span><span>Esquema orientativo, no es un plano de obra.</span></p>
  </section>
-
+ </div>
+ <div class="casa-opciones">
+ ${tabsGrupo('grupo1', G1, g1)}
+ ${opciones}
  </div>
  </div>`;
- else if (paso === 2) cuerpo = `
- <div class="casa-layout">
- <div class="casa-opciones">
- <section class="casa-card">
- <h3><span>1</span> Techo y fachada</h3>
- <div class="casa-grid4">
- ${[['1', '1 agua'], ['2', '2 aguas'], ['4', '4 aguas'], ['plana', 'Plano']].map(([k, n]) => btn('techo', k, S.techo === k, n)).join('')}
- </div>
- <div class="casa-grid2">
- ${btn('techoMat', 'chapa', S.techoMat === 'chapa' && S.techo !== 'plana', '<b>Chapa</b><small>Desde 15 %</small>', S.techo === 'plana' ? 'aria-disabled="true"' : '')}
- ${btn('techoMat', 'teja', S.techoMat === 'teja' && S.techo !== 'plana', '<b>Teja cerámica</b><small>Desde 30 %</small>', S.techo === 'plana' ? 'aria-disabled="true"' : '')}
- </div>
- <div class="casa-grid3">
- ${[['revoque', 'Clásica', 'Revoque claro'], ['ladrillo', 'Ladrillo visto', 'Sin revoque'], ['contemporanea', 'Contemporánea', 'Madera y negro']].map(([k, n, d]) => btn('fachada', k, S.fachada === k, `<b>${n}</b><small>${d}</small>`)).join('')}
- </div>
- </section>
-
- <section class="casa-card">
- <h3><span>2</span> Confort térmico</h3>
- <div class="casa-grid3">
- ${[['C', 'Mínimo'], ['B', 'Recomendado'], ['A', 'Óptimo']].map(([k, n]) => btn('nivel', k, S.nivel === k, `<b>${n}</b><small>Nivel ${k}</small>`)).join('')}
- </div>
- <p class="casa-muted">El nivel elige la aislación de muros y techo que hace falta en ${esc(S.ciudad)} (IRAM 11605). La podés cambiar abajo, en "Sistema constructivo", y ver cómo queda cada capa.</p>
- <div class="casa-lista">
- ${btn('toggle', 'solar', S.solar, '<b>Termotanque solar</b><small>Agua caliente con energía renovable</small>')}
- </div>
- </section>
-
- <section class="casa-card casa-construye">
- <h3><span>3</span> Sistema constructivo</h3>
- <p class="casa-muted">Cada dibujo cambia con lo que elegís. Son esquemas orientativos, no detalles de obra.</p>
-
- <h4 class="casa-sub">Fundación y piso</h4>
- <div class="casa-grid3">${[['platea', 'Platea', 'Como IPRODHA'], ['zapataH', 'Zapata corrida', 'De hormigón'], ['zapataL', 'Cimiento', 'De ladrillo común']].map(([k, n, d]) => btn('fundacion', k, S.fundacion === k, `<b>${n}</b><small>${d}</small>`)).join('')}</div>
- <div class="casa-grid2">
- ${btn('piso', 'ceramico', S.piso === 'ceramico', '<b>Piso cerámico</b>')}
- ${btn('piso', 'porcelanato', S.piso === 'porcelanato', '<b>Porcelanato</b>')}
- </div>
- ${corteFundacion()}
-
- <h4 class="casa-sub">Muro exterior</h4>
- <div class="casa-grid3">${ORDEN_BASE.map(k => { const kb = kMuro('base', k), ok = kb <= Math.min(kmax('muro', 'C').inv, kmax('muro', 'C').ver); return btn('muroBase', k, S.muroBase === k, `<b>${esc(BASES_MURO[k].n.replace('Ladrillo ', '').replace(/^./, c => c.toUpperCase()))}</b><small>Ladrillo · K ${f(kb, 2)}${ok ? '' : ' · no llega a C'}</small>`); }).join('')}</div>
- <label class="casa-label">Aislación</label>
- <div class="casa-grid2">${ORDEN_MURO.map(id => btn('muro', id, S.muro === id, `<b>${esc(AIS_MURO[id].n)}</b><small>K ${f(kMuro(id), 2)}${BASES_MURO[S.muroBase].capa.aValidar ? ' (a validar)' : ''}</small>`)).join('')}</div>
- ${corteMuro()}
-
- <h4 class="casa-sub">Tabiques interiores</h4>
- <div class="casa-grid3">${[['ladrillo', 'Ladrillo', 'Hueco 12'], ['durlock', 'Placa de yeso', 'Tipo Durlock'], ['madera', 'Madera', 'Machimbre']].map(([k, n, d]) => btn('tabique', k, S.tabique === k, `<b>${n}</b><small>${d}</small>`)).join('')}</div>
- ${corteTabique()}
-
- <h4 class="casa-sub">Techo</h4>
- <label class="casa-label">Estructura</label>
- <div class="casa-grid2">${[['metalica', 'Metálica', 'Correas de chapa'], ['madera', 'Madera', 'Tirantes y clavaderas']].map(([k, n, d]) => btn('estructTecho', k, S.estructTecho === k && S.techo !== 'plana', `<b>${n}</b><small>${d}</small>`, S.techo === 'plana' ? 'aria-disabled="true" title="El techo plano es una losa"' : '')).join('')}</div>
- <label class="casa-label">Aislación</label>
- <div class="casa-grid2">${ORDEN_TECHO.map(id => btn('aisTecho', id, S.aisTecho === id, `<b>${esc(TECHOS_AIS[id].n)}</b><small>K ${f(TECHOS_AIS[id].k, 2)} (a validar)</small>`)).join('')}</div>
- <label class="casa-label">Cielorraso${S.techo === 'plana' ? ' · bajo losa va yeso aplicado' : ''}</label>
- <div class="casa-grid2">${[['pendiente', 'Sigue la pendiente', 'Bajo la estructura'], ['suspendido', 'Suspendido', 'Horizontal']].map(([k, n, d]) => btn('cielo', k, S.cielo === k && S.techo !== 'plana', `<b>${n}</b><small>${d}</small>`, S.techo === 'plana' ? 'aria-disabled="true"' : '')).join('')}</div>
- <div class="casa-grid3">${[['machimbre', 'Machimbre', 'Madera'], ['pvc', 'PVC', 'Lama'], ['durlock', 'Placa de yeso', 'Tipo Durlock']].map(([k, n, d]) => btn('cieloMat', k, S.cieloMat === k && S.techo !== 'plana', `<b>${n}</b><small>${d}</small>`, S.techo === 'plana' ? 'aria-disabled="true"' : '')).join('')}</div>
- ${corteTecho()}
-
- <h4 class="casa-sub">Carpinterías</h4>
- <div class="casa-grid3">${[['aluminio', 'Aluminio', 'Puerta de chapa'], ['pvc', 'PVC', ''], ['madera', 'Madera', '']].map(([k, n, d]) => btn('abert', k, S.abert === k, `<b>${n}</b>${d ? `<small>${d}</small>` : ''}`)).join('')}</div>
- <div class="casa-lista">${btn('toggle', 'dvh', S.dvh, '<b>Doble vidriado hermético</b><small>Menos pérdidas en invierno</small>')}</div>
- ${corteCarpinteria()}
- </section>
- </div>
- <div class="casa-resultados casa-fija">
- <section class="casa-card">
- <div class="casa-card-head"><h3>Fachada principal</h3><span class="casa-muted">Techo ${{ '1': 'a 1 agua', '2': 'a 2 aguas', '4': 'a 4 aguas', plana: 'plano' }[S.techo]} · pendiente ${Math.round(fach.pend * 100)} % · alero ${f(fach.AL, 2)} m</span></div>
- <div class="casa-fachada-fila">
- <div class="casa-scroll">${fach.html}</div>
- <div class="casa-verif">
+ } else if (paso === 2) {
+ const G2 = [['fund', 'Fundación'], ['muro', 'Muros'], ['tabique', 'Tabiques'], ['techo', 'Techo'], ['abert', 'Aberturas'], ['fachada', 'Fachada'], ['confort', 'Confort']];
+ const g2 = G2.some(x => x[0] === S.grupo2) ? S.grupo2 : 'fund';
+ const verifHtml = `<div class="casa-verif">
  <b>Aislación · IRAM 11605 nivel ${S.nivel}</b>
  ${chk('Muros, invierno', km, mxM.inv)}${chk('Muros, verano', km, mxM.ver)}${chk('Techo, invierno', kt, mxT.inv)}${chk('Techo, verano', kt, mxT.ver)}
  <p class="casa-muted">${rFalta > 0 ? `Al muro le falta R ${f(rFalta, 2)} m²K/W (≈ ${f(rFalta * 3.5, 1)} cm de EPS).` : 'El muro cumple con margen.'} Absorción: muro ${f(ab.muro, 2)}, techo ${f(ab.techo, 2)}.</p>
+ </div>`;
+ const sinLosa = (extra = '') => S.techo === 'plana' ? `aria-disabled="true"${extra}` : '';
+ const OPC = {
+ fund: ['Fundación y piso', `
+ <div class="casa-grid3">${[['platea', 'Platea', 'Como IPRODHA'], ['zapataH', 'Zapata corrida', 'De hormigón'], ['zapataL', 'Cimiento', 'De ladrillo común']].map(([k, n, d]) => btn('fundacion', k, S.fundacion === k, `<b>${n}</b><small>${d}</small>`)).join('')}</div>
+ <label class="casa-label">Piso</label>
+ <div class="casa-grid2">
+ ${btn('piso', 'ceramico', S.piso === 'ceramico', '<b>Cerámico</b>')}
+ ${btn('piso', 'porcelanato', S.piso === 'porcelanato', '<b>Porcelanato</b>')}
+ </div>`, corteFundacion],
+ muro: ['Muro exterior', `
+ <div class="casa-grid3">${ORDEN_BASE.map(k => { const kb = kMuro('base', k), ok = kb <= Math.min(kmax('muro', 'C').inv, kmax('muro', 'C').ver); return btn('muroBase', k, S.muroBase === k, `<b>${esc(BASES_MURO[k].n.replace('Ladrillo ', '').replace(/^./, ch => ch.toUpperCase()))}</b><small>Ladrillo · K ${f(kb, 2)}${ok ? '' : ' · no llega a C'}</small>`); }).join('')}</div>
+ <label class="casa-label">Aislación</label>
+ <div class="casa-grid2">${ORDEN_MURO.map(id => btn('muro', id, S.muro === id, `<b>${esc(AIS_MURO[id].n)}</b><small>K ${f(kMuro(id), 2)}${BASES_MURO[S.muroBase].capa.aValidar ? ' (a validar)' : ''}</small>`)).join('')}</div>
+ <p class="casa-muted">Muros, IRAM 11605 nivel ${S.nivel}: <b class="${km <= Math.min(mxM.inv, mxM.ver) ? 'ok' : 'no'}">${km <= Math.min(mxM.inv, mxM.ver) ? 'cumple' : 'no cumple'}</b> (K ${f(km, 2)}).</p>`, corteMuro],
+ tabique: ['Tabiques interiores', `
+ <div class="casa-grid3">${[['ladrillo', 'Ladrillo', 'Hueco 12'], ['durlock', 'Placa de yeso', 'Tipo Durlock'], ['madera', 'Madera', 'Machimbre']].map(([k, n, d]) => btn('tabique', k, S.tabique === k, `<b>${n}</b><small>${d}</small>`)).join('')}</div>`, corteTabique],
+ techo: ['Techo', `
+ <div class="casa-grid4">${[['1', '1 agua'], ['2', '2 aguas'], ['4', '4 aguas'], ['plana', 'Plano']].map(([k, n]) => btn('techo', k, S.techo === k, n)).join('')}</div>
+ <label class="casa-label">Cubierta</label>
+ <div class="casa-grid2">
+ ${btn('techoMat', 'chapa', S.techoMat === 'chapa' && S.techo !== 'plana', '<b>Chapa</b><small>Desde 15 %</small>', sinLosa())}
+ ${btn('techoMat', 'teja', S.techoMat === 'teja' && S.techo !== 'plana', '<b>Teja cerámica</b><small>Desde 30 %</small>', sinLosa())}
  </div>
+ <label class="casa-label">Estructura</label>
+ <div class="casa-grid2">${[['metalica', 'Metálica', 'Correas de chapa'], ['madera', 'Madera', 'Tirantes y clavaderas']].map(([k, n, d]) => btn('estructTecho', k, S.estructTecho === k && S.techo !== 'plana', `<b>${n}</b><small>${d}</small>`, sinLosa(' title="El techo plano es una losa"'))).join('')}</div>
+ <label class="casa-label">Aislación</label>
+ <div class="casa-grid2">${ORDEN_TECHO.map(id => btn('aisTecho', id, S.aisTecho === id, `<b>${esc(TECHOS_AIS[id].n)}</b><small>K ${f(TECHOS_AIS[id].k, 2)} (a validar)</small>`)).join('')}</div>
+ <label class="casa-label">Cielorraso${S.techo === 'plana' ? ' · bajo losa va yeso aplicado' : ''}</label>
+ <div class="casa-grid2">${[['pendiente', 'Sigue la pendiente', 'Bajo la estructura'], ['suspendido', 'Suspendido', 'Horizontal']].map(([k, n, d]) => btn('cielo', k, S.cielo === k && S.techo !== 'plana', `<b>${n}</b><small>${d}</small>`, sinLosa())).join('')}</div>
+ <div class="casa-grid3">${[['machimbre', 'Machimbre', 'Madera'], ['pvc', 'PVC', 'Lama'], ['durlock', 'Placa de yeso', 'Tipo Durlock']].map(([k, n, d]) => btn('cieloMat', k, S.cieloMat === k && S.techo !== 'plana', `<b>${n}</b><small>${d}</small>`, sinLosa())).join('')}</div>`, corteTecho],
+ abert: ['Carpinterías', `
+ <div class="casa-grid3">${[['aluminio', 'Aluminio', 'Puerta de chapa'], ['pvc', 'PVC', ''], ['madera', 'Madera', '']].map(([k, n, d]) => btn('abert', k, S.abert === k, `<b>${n}</b>${d ? `<small>${d}</small>` : ''}`)).join('')}</div>
+ <div class="casa-lista">${btn('toggle', 'dvh', S.dvh, '<b>Doble vidriado hermético</b><small>Menos pérdidas en invierno</small>')}</div>`, corteCarpinteria],
+ fachada: ['Fachada', `
+ <div class="casa-grid3">${[['revoque', 'Clásica', 'Revoque claro'], ['ladrillo', 'Ladrillo visto', 'Sin revoque'], ['contemporanea', 'Contemporánea', 'Madera y negro']].map(([k, n, d]) => btn('fachada', k, S.fachada === k, `<b>${n}</b><small>${d}</small>`)).join('')}</div>
+ <p class="casa-muted">El color de la fachada cambia cuánto sol absorben muros y techo (IRAM 11605).</p>`, null],
+ confort: ['Confort térmico', `
+ <div class="casa-grid3">${[['C', 'Mínimo'], ['B', 'Recomendado'], ['A', 'Óptimo']].map(([k, n]) => btn('nivel', k, S.nivel === k, `<b>${n}</b><small>Nivel ${k}</small>`)).join('')}</div>
+ <p class="casa-muted">El nivel elige la aislación de muros y techo que hace falta en ${esc(S.ciudad)} (IRAM 11605). Después la podés ajustar en Muros y Techo.</p>
+ <div class="casa-lista">${btn('toggle', 'solar', S.solar, '<b>Termotanque solar</b><small>Agua caliente con energía renovable</small>')}</div>
+ <div class="casa-solo-movil casa-verif-movil">${verifHtml}</div>`, null]
+ };
+ const [titulo, html, corteFn] = OPC[g2];
+ cuerpo = `
+ <div class="casa-layout v2">
+ <div class="casa-visual">
+ <section class="casa-card${corteFn ? ' casa-solo-esc' : ''}">
+ <div class="casa-card-head"><h3>Fachada principal</h3><span class="casa-muted casa-solo-esc">Techo ${nombreAguas} · pendiente ${Math.round(fach.pend * 100)} % · alero ${f(fach.AL, 2)} m</span>${totalMovil}</div>
+ <div class="casa-fachada-fila">
+ <div class="casa-scroll">${fach.html}</div>
+${verifHtml}
  </div>
  </section>
-
+ ${corteFn ? `<section class="casa-card casa-corte-card">
+ <div class="casa-card-head"><h3>Corte · ${esc(titulo.toLowerCase())}</h3><span class="casa-muted casa-solo-esc">Esquema orientativo, no es un detalle de obra</span>${totalMovil}</div>
+ ${corteFn()}
+ </section>` : ''}
+ </div>
+ <div class="casa-opciones">
+ ${tabsGrupo('grupo2', G2, g2)}
+ <section class="casa-card casa-construye">
+ <h3>${esc(titulo)}</h3>
+ ${html}
+ ${seguir('grupo2', G2, g2)}
+ </section>
  </div>
  </div>`;
+ }
  else cuerpo = `
  <div class="casa-paso3">
  ${resumenElecciones}
