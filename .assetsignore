@@ -9,12 +9,25 @@
 wrangler.jsonc
 worker.js
 .assetsignore
-# Archivos internos del repo: no son parte del sitio.
+
+# (16/11, auditoría 12/11) Archivos internos del repo que también se estaban
+# sirviendo como públicos: migraciones y seeds de Supabase, scripts de
+# Python, documentación y configuración de git. Ninguno tiene claves, pero
+# no son parte del sitio.
 supabase
 scripts
 *.md
 *.sql
 .gitignore
 supabase-config.example.js
+# Restos del despliegue viejo (Cloudflare Pages), ya sin uso: ver
+# advertencia #26. Si todavía están en la carpeta, igual no se publican.
 functions
 _redirects
+
+# (22/11) Excels de trabajo (APU, esquema de la base, generadores): son internos,
+# no se publican en el sitio.
+Excels
+*.xlsx
+*.csv
+*.py
