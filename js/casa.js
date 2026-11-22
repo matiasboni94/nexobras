@@ -26,7 +26,16 @@ const DEFAULTS = {
  fundacion: 'platea', muroBase: 'lch18', tabique: 'ladrillo', estructTecho: 'metalica', cielo: 'pendiente', cieloMat: 'machimbre',
  altura: 2.6, dims: {}, paso: 1,
  // (21/11-j) solapa abierta de cada paso y local que se está editando en el croquis
- grupo1: 'terreno', grupo2: 'fund', local: ''
+ grupo1: 'terreno', grupo2: 'fund', local: '',
+ // (22/11) estructura del techo, ventanas, instalaciones y equipamiento
+ sistTecho: 'tirantes', vent: {}, grupo3: 'agua',
+ agua: 'termo-elec', artef: {}, bomba: false, coccion: 'gas',
+ elec: 'minimo', luminarias: 'plafon', aa: {}, ventTecho: false,
+ // (22/11-b) terminaciones, muebles, exterior, pluviales/energía, ampliación, Factor K y cronograma
+ grupo4: 'pisos', pisoExt: 'alisado', revBano: 'h150', revMat: 'ceramico', revCocina: 'mesada', pintura: 'latex',
+ mueblesCocina: 'bajo', placard: 'no', cercoFrente: 'no', cercoLat: 'no', porton: false, parrilla: false,
+ lluvia: false, fv: 0, ampliacion: false,
+ k: { gg: 10, ben: 15, iibb: 5, iva: 21 }, cuadrilla: 2, verModelos: false, modelo: null
 };
 let S = { ...DEFAULTS };
 let ultimo = null; // último cálculo (para "Abrir en la Calculadora")
@@ -36,7 +45,11 @@ function cargarEstado() {
  try { const raw = localStorage.getItem(STORE_KEY); if (raw) S = { ...DEFAULTS, ...JSON.parse(raw) }; S.techo = String(S.techo); S.dorm = Number(S.dorm) || 2;
  if (S.bano2 === true) S.bano2 = 'pasillo'; else if (!['no', 'pasillo', 'suite'].includes(S.bano2)) S.bano2 = 'no';
  if (!S.dims || typeof S.dims !== 'object') S.dims = {};
- S.altura = Math.max(MIN_ALTURA, Number(S.altura) || 2.6); } catch (e) { /* sin storage */ }
+ S.altura = Math.max(MIN_ALTURA, Number(S.altura) || 2.6);
+ if (S.solar === true) { S.agua = 'solar'; S.solar = false; }
+ ['vent', 'artef', 'aa'].forEach(k => { if (!S[k] || typeof S[k] !== 'object') S[k] = {}; });
+ if (![1, 2, 3, 4, 5].includes(S.paso)) S.paso = 1;
+ if (!S.k || typeof S.k !== 'object') S.k = { ...DEFAULTS.k }; } catch (e) { /* sin storage */ }
 }
 function guardarEstado() {
  try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) { /* sin storage */ }
@@ -176,7 +189,8 @@ function orientacion() {
 // (sin bañera); cocina y lavadero ancho 1,60 m y 7 m²; pasillo 0,90 m;
 // altura de locales de primera 2,60 m. Si el código local fija otras, rige el
 // local: a validar con el Código de Edificación de Oberá.
-const MIN = { dorm1: 2.8, dorm: 2.5, banoLado: 1.5, banoM2: 2.7, cocLado: 1.6, cocM2: 7, pas: 0.9, altura: 2.6 };
+const MIN = { dorm1: 2.5, dorm: 2.0, banoLado: 1.2, cocLado: 1.5, pas: 0.9, altura: 2.6 }; // (22/11) CE Oberá III.3.3
+const REF = { dorm1: 2.8, dorm: 2.5, banoM2: 2.7, cocM2: 7 }; // referencia Res. 59/2019 (Pro.Cre.Ar): aviso, no bloquea
 const r2 = (n) => Math.round(n * 100) / 100;
 // Parámetros por forma: [clave, etiqueta, valor base, mínimo, máximo, local que muestra]
 function paramsTipo(tipo = S.tipo) {
@@ -290,7 +304,7 @@ function tipologia(o) {
  }
  const solid = rooms.filter(r => !r.semi);
  const L = Math.max(...solid.map(r => r.u1));
- return { rooms, doors, wins, Wf, L, texto };
+ return ajustarVentanas({ rooms, doors, wins, Wf, L, texto });
 }
 
 // ¿La casa entra en el lote de 10 × 25 m? Devuelve el motivo si no entra.
@@ -301,25 +315,300 @@ function problemaLote(T) {
  if (RET + T.L > 24) return `La casa queda de ${f(T.L, 2)} m de largo: con el retiro de ${f(RET, 1)} m no deja patio en el lote de 25 m.`;
  if (S.tipo === 'compacta' && T.Wf - D('estar', 4.9) < MIN.cocLado) return `La cocina queda de menos de ${f(MIN.cocLado, 2)} m: achicá el estar o agrandá los dormitorios.`;
  if (S.tipo === 'L' && D('ala', 4.3) > T.Wf - 1.2) return 'El ala de dormitorios queda más ancha que el frente: no queda patio.';
- return '';
+ return incumpleCodigo(T);
 }
 // Avisos de superficie (no bloquean)
 function avisosMedidas(T) {
  const av = [];
  T.rooms.forEach(r => {
  const a = (r.u1 - r.u0) * (r.v1 - r.v0), lmin = Math.min(r.u1 - r.u0, r.v1 - r.v0);
- if (r.banio && a < MIN.banoM2) av.push(`${r.n}: ${f(a)} m², el mínimo de referencia es ${f(MIN.banoM2)} m².`);
- if (r.cocina && a < MIN.cocM2) av.push(`${r.n}: ${f(a)} m², el mínimo de referencia (cocina y lavadero) es ${f(MIN.cocM2)} m².`);
- if (r.id === 'd1' && lmin < MIN.dorm1 - 0.001) av.push(`Dormitorio 1: lado de ${f(lmin, 2)} m, el mínimo es ${f(MIN.dorm1, 2)} m.`);
+ if (r.banio && a < REF.banoM2) av.push(`${r.n}: ${f(a)} m²; el pliego Pro.Cre.Ar pide ${f(REF.banoM2)} m² (referencia, no obligatoria).`);
+ if (r.cocina && a < REF.cocM2) av.push(`${r.n}: ${f(a)} m²; el pliego Pro.Cre.Ar pide ${f(REF.cocM2)} m² para cocina y lavadero (referencia).`);
+ if (r.id === 'd1' && lmin < REF.dorm1 - 0.001) av.push(`Dormitorio 1: lado de ${f(lmin, 2)} m; el pliego Pro.Cre.Ar pide ${f(REF.dorm1, 2)} m (referencia).`);
+ if (/^d[l2]$/.test(r.id) && lmin < REF.dorm - 0.001) av.push(`${r.n}: lado de ${f(lmin, 2)} m; el pliego Pro.Cre.Ar pide ${f(REF.dorm, 2)} m (referencia).`);
  });
  return av;
+}
+
+
+// ---------------------------------------------------------------------------
+// (22/11) Reglamento: Código de Edificación de Oberá (texto "Actualizado" del
+// Plan Estratégico Oberá). Posadas: a validar (el texto público disponible
+// no trae el capítulo de locales).
+//  · III.3.2.2 alturas: 1.ª clase 2,60 m; cocina 2,40 m; baño 2,10 m.
+//  · III.3.3.1 áreas y lados (vivienda con varios locales): uno de 2,50 m / 10 m²,
+//    los demás 2,00 m / 6 m².
+//  · III.3.3.2 cocina 3 m² y lado 1,50 m; baños según artefactos (tabla).
+//  · III.3.5.2 iluminación i ≥ A/X (X: 15 a frente libre, 12 bajo parte cubierta,
+//    10 a patio libre, 8 a patio bajo parte cubierta); local alargado (a > 2b) con
+//    el vano en el lado corto: i ≥ A/X·(r−1). Ventilación k ≥ i/3.
+//  · III.3.5.3 cocina i ≥ 0,50 m², k ≥ 2/3 i (interpretación, a validar);
+//    baño k ≥ 0,20 m² (o conducto de 0,03 m²).
+// ---------------------------------------------------------------------------
+const CE = { altura1: 2.6, alturaCoc: 2.4, alturaBano: 2.1, lado1: 2.5, area1: 10, ladoN: 2.0, areaN: 6, cocM2: 3, cocLado: 1.5, banoK: 0.2 };
+// Baños: área y lado mínimos según los artefactos (CE Oberá III.3.3.2 c)
+function minimoBano(id) {
+ const a = artefactosBano(id);
+ if (a.banera) return a.bidet ? { m2: 3.4, lado: 1.2 } : { m2: 2.6, lado: 1.2 };
+ return a.bidet ? { m2: 3.0, lado: 1.2 } : { m2: 2.3, lado: 1.2 };
+}
+function artefactosBano(id) {
+ const x = (S.artef && S.artef[id]) || {};
+ return { bidet: !!x.bidet, banera: !!x.banera, vanitory: x.vanitory !== false };
+}
+// Incumplimientos del código (bloquean el cambio que los provoca)
+function incumpleCodigo(T) {
+ const solid = T.rooms.filter(r => !r.semi && !r.noLabel);
+ const lados = (r) => { const a = r.u1 - r.u0, b = r.v1 - r.v0; return { a: a * b, l: Math.min(a, b) }; };
+ const prim = solid.filter(r => !r.banio && !r.cocina);
+ if (prim.length && !prim.some(r => { const x = lados(r); return x.l >= CE.lado1 - 1e-9 && x.a >= CE.area1 - 1e-9; })) return `Ningún local principal llega a ${f(CE.lado1, 2)} m de lado y ${f(CE.area1, 0)} m² (CE Oberá III.3.3.1).`;
+ for (const r of prim) { const x = lados(r); if (x.l < CE.ladoN - 1e-9 || x.a < CE.areaN - 1e-9) return `${r.n}: queda de ${f(x.l, 2)} m de lado y ${f(x.a)} m²; el código pide ${f(CE.ladoN, 2)} m y ${f(CE.areaN, 0)} m² (CE Oberá III.3.3.1).`; }
+ for (const r of solid.filter(z => z.cocina)) { const x = lados(r); if (x.l < CE.cocLado - 1e-9 || x.a < CE.cocM2 - 1e-9) return `La cocina queda de ${f(x.l, 2)} m de lado; el código pide ${f(CE.cocLado, 2)} m y ${f(CE.cocM2, 0)} m² (CE Oberá III.3.3.2).`; }
+ for (const r of solid.filter(z => z.banio)) { const x = lados(r), m = minimoBano(r.id); if (x.l < m.lado - 1e-9 || x.a < m.m2 - 1e-9) return `${r.n}: ${f(x.a)} m²; con esos artefactos el código pide ${f(m.m2, 2)} m² y ${f(m.lado, 2)} m de lado (CE Oberá III.3.3.2).`; }
+ return '';
+}
+
+// Ventanas: anchos comerciales y altura según el local
+const ANCHOS_VENT = [0.4, 0.6, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0, 2.4];
+const altoVent = (w, banio) => banio ? 0.5 : (w >= 1.5 ? 1.4 : 1.1);
+const PARTE_ABRIBLE = 0.5; // ventana corrediza: ventila la mitad (como en la planilla municipal)
+// Exposición de un vano: X del cuadro III.3.5.2 (frente o contrafrente / patio, libre o bajo parte cubierta)
+function exposicion(T, r, w) {
+ const g = { u0: [r.u0, 'u'], u1: [r.u1, 'u'], v0: [r.v0, 'v'], v1: [r.v1, 'v'] }[w.e];
+ const L = Math.max(...T.rooms.filter(z => !z.semi).map(z => z.u1));
+ const frente = g[1] === 'u' && (Math.abs(g[0]) < 1e-6 || Math.abs(g[0] - L) < 1e-6);
+ // punto justo afuera del vano: ¿cae bajo una galería?
+ const pu = g[1] === 'u' ? g[0] + (w.e === 'u0' ? -0.3 : 0.3) : r.u0 + w.c;
+ const pv = g[1] === 'v' ? g[0] + (w.e === 'v0' ? -0.3 : 0.3) : r.v0 + w.c;
+ const cubierta = T.rooms.some(z => z.semi && pu > z.u0 && pu < z.u1 && pv > z.v0 && pv < z.v1);
+ return { X: frente ? (cubierta ? 12 : 15) : (cubierta ? 8 : 10), frente, cubierta };
+}
+const largoBorde = (r, e) => (e === 'u0' || e === 'u1') ? r.v1 - r.v0 : r.u1 - r.u0;
+// Iluminación y ventilación de un local con sus ventanas
+function ilumLocal(T, r) {
+ const ws = T.wins.filter(w => w.r === r.id);
+ const a = r.u1 - r.u0, b = r.v1 - r.v0, A = a * b, largo = Math.max(a, b), corto = Math.min(a, b), rr = largo / corto;
+ const proy = ws.reduce((t, w) => t + w.w * w.h, 0);
+ const kProy = proy * PARTE_ABRIBLE;
+ if (r.banio) return { A, nec: 0, proy, kNec: CE.banoK, kProy, X: null, ok: kProy >= CE.banoK - 1e-9, clase: 'baño' };
+ const main = ws.slice().sort((p, q) => q.w * q.h - p.w * p.h)[0];
+ const ex = main ? exposicion(T, r, main) : { X: 10 };
+ let nec = A / ex.X;
+ if (main && rr > 2 && Math.abs(largoBorde(r, main.e) - corto) < 1e-6) nec *= (rr - 1);
+ if (r.cocina) nec = Math.max(nec, 0.5);
+ const kNec = r.cocina ? nec * 2 / 3 : nec / 3;
+ return { A, nec, proy, kNec, kProy, X: ex.X, ok: proy >= nec - 1e-9 && kProy >= kNec - 1e-9, clase: r.cocina ? 'cocina' : 'primera', alargado: rr > 2 };
+}
+// Planilla de iluminación y ventilación (como la del legajo municipal)
+function planillaHtml(T) {
+ const filas = planillaIlum(T);
+ const ok = filas.every(x => x.ok);
+ return `<div class="casa-planilla">
+ <label class="casa-label">Iluminación y ventilación <span class="casa-muted">· CE Oberá III.3.5</span></label>
+ <table class="casa-mini-tabla"><thead><tr><th>Local</th><th>Iluminación<br><small>nec. / proy.</small></th><th>Ventilación<br><small>nec. / proy.</small></th><th></th></tr></thead><tbody>
+ ${filas.map(x => `<tr><td>${esc(nombreLocalCorto(x.r))}${x.X ? ` <small class="casa-muted">A/${x.X}${x.alargado ? '·(r−1)' : ''}</small>` : ''}</td><td>${x.clase === 'baño' ? '—' : `${f(x.nec, 2)} / ${f(x.proy, 2)}`}</td><td>${f(x.kNec, 2)} / ${f(x.kProy, 2)}</td><td><b class="${x.ok ? 'ok' : 'no'}">${x.ok ? '✓' : '✗'}</b></td></tr>`).join('')}
+ </tbody></table>
+ <p class="casa-muted">${ok ? 'Todos los locales cumplen.' : 'Hay locales que no llegan: agrandá la ventana desde el croquis (paso 1) o el local.'} Ventanas corredizas (ventila la mitad). Frente libre A/15, bajo galería A/12, a patio A/10 (criterio a validar con la Dirección de Obras).</p>
+ </div>`;
+}
+// Ajusta los anchos: respeta el que eligió el usuario y agranda hasta cumplir
+function ajustarVentanas(T) {
+ T.wins.forEach(w => { const r = T.rooms.find(z => z.id === w.r); w.h = altoVent(w.w, r && r.banio); w.base = w.w; });
+ T.rooms.filter(r => !r.semi && !r.noLabel).forEach(r => {
+ const ws = T.wins.filter(w => w.r === r.id);
+ if (!ws.length) return;
+ const w = ws[0], lista = r.banio ? ANCHOS_VENT.filter(x => x <= 1.0) : ANCHOS_VENT;
+ const max = Math.max(0.4, largoBorde(r, w.e) - 0.3);
+ const elegido = S.vent && S.vent[`${S.tipo}.${r.id}`];
+ const pon = (x) => { w.w = r2(Math.min(x, max)); w.h = altoVent(w.w, r.banio); w.c = Math.min(Math.max(w.c, w.w / 2 + 0.15), largoBorde(r, w.e) - w.w / 2 - 0.15); };
+ if (typeof elegido === 'number') pon(elegido);
+ // si no cumple, se agranda al ancho comercial siguiente (sin pasarse del muro)
+ let i = lista.findIndex(x => x >= w.w - 1e-9);
+ while (!ilumLocal(T, r).ok && i >= 0 && i < lista.length - 1 && w.w < max - 1e-9) { i++; pon(lista[i]); }
+ w.auto = w.w !== (typeof elegido === 'number' ? elegido : w.base);
+ });
+ return T;
+}
+function planillaIlum(T) {
+ return T.rooms.filter(r => !r.semi && !r.noLabel).map(r => ({ r, ...ilumLocal(T, r), vent: T.wins.filter(w => w.r === r.id) }));
+}
+
+// ---------------------------------------------------------------------------
+// (22/11) Instalación eléctrica: AEA 90364-7-770 (2017)
+//  · 770.7.3 grado: cubierta + 50 % semicubierta → Mínimo ≤ 60 · Medio ≤ 130 · Elevado ≤ 200 · Superior.
+//  · 770.7.4 circuitos mínimos: 2 · 3 · 5 · 6.
+//  · Tabla 770.7.III puntos mínimos de utilización por ambiente.
+// ---------------------------------------------------------------------------
+function instalElec(T, med) {
+ const sup = med.m2Cub + 0.5 * med.semi;
+ const grado = sup <= 60 ? 'Mínimo' : sup <= 130 ? 'Medio' : sup <= 200 ? 'Elevado' : 'Superior';
+ const gi = ['Mínimo', 'Medio', 'Elevado', 'Superior'].indexOf(grado);
+ const extra = S.elec === 'completo';
+ const locales = [];
+ T.rooms.forEach(r => {
+ const a = r.u1 - r.u0, b = r.v1 - r.v0, A = a * b, largo = Math.max(a, b);
+ let iug = 0, tug = 0, mod = 0, tipo = '';
+ if (r.semi) { tipo = 'Galería'; iug = Math.max(1, Math.ceil(largo / 5)); }
+ else if (r.noLabel) { tipo = 'Pasillo'; iug = Math.max(1, Math.ceil(largo / 5)); tug = gi >= 1 && largo > 2 ? Math.ceil(largo / 5) : 0; }
+ else if (r.banio) { tipo = 'Baño'; iug = 1; tug = 1; }
+ else if (r.cocina) { tipo = 'Cocina'; iug = gi >= 1 ? 2 : 1; tug = gi >= 3 ? 4 : 3; mod = gi >= 2 ? 3 : 2; }
+ else if (r.id === 'estar') { tipo = 'Estar-comedor'; iug = Math.max(1, Math.ceil(A / 18)); tug = Math.max(2, Math.ceil(A / 6)); }
+ else { tipo = 'Dormitorio'; iug = A > 36 && gi >= 2 ? 2 : 1; tug = A < 10 ? 2 : 3; }
+ if (extra && !r.semi && !r.noLabel && !r.banio) tug += 1;
+ if (extra && r.id === 'estar') iug += 1;
+ locales.push({ r, nombre: r.n || 'Pasillo', tipo, iug, tug, mod, aa: !!(S.aa && S.aa[r.id]) && !r.semi && !r.noLabel && !r.banio && !r.cocina, vt: !!S.ventTecho && /^d/.test(r.id) });
+ });
+ if (S.cochera) locales.push({ r: null, nombre: 'Cochera', tipo: 'Galería', iug: 2, tug: extra ? 1 : 0, mod: 0 });
+ locales.push({ r: null, nombre: 'Lavadero (patio)', tipo: 'Lavadero', iug: 1, tug: gi >= 1 ? 2 : 1, mod: 0 });
+ const exteriores = extra ? 2 : 1; // luces de frente y fondo
+ const iug = locales.reduce((t, l) => t + l.iug + (l.vt ? 1 : 0), 0) + exteriores;
+ const tug = locales.reduce((t, l) => t + l.tug + (l.mod ? 1 : 0), 0);
+ // circuitos: mínimo por grado y no más de 15 bocas por circuito (770.6)
+ const minC = [2, 3, 5, 6][gi];
+ let cIug = Math.max(gi >= 1 ? 1 : 1, Math.ceil(iug / 15)), cTug = Math.max(1, Math.ceil(tug / 15));
+ while (cIug + cTug < minC) { if (cTug <= cIug) cTug++; else cIug++; }
+ const aa = locales.filter(l => l.aa);
+ const cocElec = S.coccion === 'electrica';
+ const tue = aa.length + (S.agua === 'termo-elec' || S.agua === 'solar' ? 1 : 0) + (cocElec ? 1 : 0) + (S.bomba ? 1 : 0);
+ return { sup, grado, locales, iug, tug, exteriores, cIug, cTug, minC, tue, aa, cocElec };
+}
+// Frigorías del split: estimación de mostrador (≈ 150 frig/m² en clima cálido, a validar) al tamaño comercial
+const FRIG = [2250, 3000, 4500, 5500, 6000];
+const LUMINARIAS = { plafon: 'plafones LED', spots: 'spots embutidos LED', colgantes: 'colgantes y apliques' };
+const nombreLocalCorto = (r) => (r.n || 'Pasillo').replace('Dormitorio', 'Dorm.');
+const frigorias = (A) => FRIG.find(x => x >= A * 150) || 6000;
+// Símbolos de instalaciones sobre la planta (esquema, no es un plano de instalación).
+// El rótulo del local va al centro: los símbolos se corren arriba/abajo de él.
+function simbolosInst(T, capa, E) {
+ const out = [];
+ if (!capa || !E) return out;
+ const C = (r) => ({ uc: (r.u0 + r.u1) / 2, vc: (r.v0 + r.v1) / 2, a: r.u1 - r.u0, b: r.v1 - r.v0 });
+ const perimetro = (r, n, ins, fn) => {
+ const { a, b } = C(r), per = 2 * (a + b);
+ for (let k = 0; k < n; k++) {
+ let s = per * (k + 0.5) / n, u, v;
+ if (s < a) { u = r.u0 + s; v = r.v0 + ins; }
+ else if ((s -= a) < b) { u = r.u1 - ins; v = r.v0 + s; }
+ else if ((s -= b) < a) { u = r.u1 - s; v = r.v1 - ins; }
+ else { s -= a; u = r.u0 + ins; v = r.v1 - s; }
+ fn(u, v, k);
+ }
+ };
+ // n puntos repartidos, siempre corridos del centro en v (donde está el rótulo)
+ const repartir = (r, n, lado, fn) => {
+ const { uc, vc, a, b } = C(r), dv = lado * Math.min(0.3 * b, Math.max(0.45, 0.22 * b));
+ for (let k = 0; k < n; k++) {
+ if (n === 1) fn(uc, vc + dv, k);
+ else if (a >= b) fn(r.u0 + a * (k + 0.5) / n, vc + dv, k);
+ else fn(uc, r.v0 + b * (k + 0.5) / n, k);
+ }
+ };
+ // fichas en filas de a 2 (o todas si el local es ancho) contra un muro, lejos del rótulo
+ const fila = (r, n, fn) => {
+ const { a, b } = C(r), cols = a >= 2.6 ? n : Math.min(2, n);
+ for (let k = 0; k < n; k++) {
+ const c = k % cols, f2 = Math.floor(k / cols);
+ fn(r.u0 + a * (c + 0.5) / cols, r.v1 - Math.min(0.4, b * 0.12) - f2 * Math.min(0.55, b * 0.16), k);
+ }
+ };
+ if (capa === 'elec') {
+ E.locales.filter(l => l.r).forEach(l => {
+ const r = l.r;
+ repartir(r, l.iug, 1, (u, v) => out.push({ u, v, c: 'iug', t: 'Boca de iluminación (IUG)' }));
+ if (l.vt) repartir(r, 1, -1, (u, v) => out.push({ u, v, c: 'chip vt', l: 'V', t: 'Ventilador de techo' }));
+ perimetro(r, l.tug + (l.mod ? 1 : 0), 0.2, (u, v, k) => out.push({ u, v, c: k >= l.tug ? 'mod' : 'tug', t: k >= l.tug ? 'Módulos para artefactos fijos' : 'Tomacorriente (TUG)' }));
+ if (l.aa) { const { uc } = C(r); out.push({ u: uc + 0.5, v: r.v1 - 0.3, c: 'chip aa', l: 'AA', t: 'Toma para aire acondicionado (uso especial)' }); }
+ });
+ }
+ if (capa === 'agua') {
+ T.rooms.filter(r => r.banio).forEach(r => {
+ const a = artefactosBano(r.id);
+ const lista = [['IN', 'Inodoro'], ['LV', a.vanitory ? 'Lavatorio con vanitory' : 'Lavatorio'], a.bidet ? ['BI', 'Bidé'] : null, a.banera ? ['BA', 'Bañera'] : ['DU', 'Ducha']].filter(Boolean);
+ fila(r, lista.length, (u, v, k) => out.push({ u, v, c: 'chip agua', l: lista[k][0], t: lista[k][1] }));
+ });
+ T.rooms.filter(r => r.cocina).forEach(r => {
+ const cal = S.agua !== 'sin' ? [{ 'termo-elec': 'TE', 'termo-gas': 'TG', calefon: 'CA', solar: 'TS' }[S.agua], { 'termo-elec': 'Termotanque eléctrico', 'termo-gas': 'Termotanque a gas', calefon: 'Calefón', solar: 'Termotanque solar (colector en el techo)' }[S.agua], 'calor'] : null;
+ const lista = [['PC', 'Pileta de cocina', 'agua'], [S.coccion === 'electrica' ? 'AE' : 'AG', S.coccion === 'electrica' ? 'Anafe y horno eléctricos' : 'Cocina a gas', 'agua'], cal].filter(Boolean);
+ fila(r, lista.length, (u, v, k) => out.push({ u, v, c: `chip ${lista[k][2]}`, l: lista[k][0], t: lista[k][1] }));
+ });
+ }
+ if (capa === 'term') {
+ if (S.placard !== 'no') T.rooms.filter(r => /^d/.test(r.id)).forEach(r => { const { uc } = C(r); out.push({ u: uc, v: r.v0 + 0.35, c: 'chip mueble', l: 'Placard', t: 'Placard' }); });
+ if (S.mueblesCocina !== 'no') T.rooms.filter(r => r.cocina).forEach(r => fila(r, S.mueblesCocina === 'completo' ? 2 : 1, (u, v, k) => out.push({ u, v, c: 'chip mueble', l: ['Mesada', 'Alacena'][k], t: ['Bajo mesada y mesada', 'Alacena'][k] })));
+ }
+ if (capa === 'equipo') {
+ E.locales.filter(l => l.r && l.aa).forEach(l => { const { uc } = C(l.r); out.push({ u: uc, v: l.r.v1 - 0.3, c: 'chip aa', l: `AA ${frigorias((l.r.u1 - l.r.u0) * (l.r.v1 - l.r.v0))}`, t: 'Aire acondicionado split (frigorías estimadas)' }); });
+ E.locales.filter(l => l.r && l.vt).forEach(l => repartir(l.r, 1, -1, (u, v) => out.push({ u, v, c: 'chip vt', l: 'V', t: 'Ventilador de techo' })));
+ }
+ return out;
+}
+// (22/11-b) Muebles, tanque, pluviales, ampliación, Factor K y cronograma
+function mlMuebleCocina(T) {
+ const c = T.rooms.find(r => r.cocina);
+ if (!c) return 2.4;
+ return Math.max(1.8, Math.min(3.6, Math.max(c.u1 - c.u0, c.v1 - c.v0) - 0.9));
+}
+// Tanque de reserva: un día de consumo (dotación a validar con OSN / prestador)
+function tanque() {
+ const personas = 1 + S.dorm, dot = 250, need = personas * dot;
+ const litros = [500, 750, 1000, 1100, 1500, 2000, 2500].find(x => x >= need) || 2750;
+ return { personas, dot, litros };
+}
+function pluviales(T, M, fach) {
+ const area = M.m2Cub + M.galeria + M.cochera + 2 * (M.L + M.Wmax) * (fach.AL || 0);
+ const m2PorBajada = 60; // ≈ 1 cm² de bajada por m² de techo con Ø 100 (criterio práctico, a validar con OSN)
+ const bajadas = Math.max(2, Math.ceil(area / m2PorBajada));
+ let canaleta = 0, txtCanaleta = '';
+ if (S.techo === '1') { canaleta = M.L + 1; txtCanaleta = 'Borde bajo, del lado libre (no sobre la medianera)'; }
+ else if (S.techo === '2') { canaleta = 2 * (M.L + 1); txtCanaleta = 'Los dos bordes largos'; }
+ else if (S.techo === '4') { canaleta = 2 * (M.L + M.Wmax) + 2; txtCanaleta = 'Todo el perímetro'; }
+ return { area, bajadas, m2PorBajada, canaleta, txtCanaleta, desague: Math.round(M.L + 6) };
+}
+// Ampliación futura: un dormitorio más al final de la casa (si entra en el lote)
+function ampliacion(T) {
+ const RET = (S.cochera && S.tipo !== 'lineal') ? 5.5 : 4;
+ const largo = 3.0, ancho = S.tipo === 'L' ? D('ala', 4.3) : S.tipo === 'compacta' ? Math.min(T.Wf, 3.4) : T.Wf;
+ const entra = RET + T.L + largo <= 24;
+ return { u0: T.L, u1: T.L + largo, v0: 0, v1: ancho, m2: largo * ancho, entra };
+}
+const kFactor = () => Apu.computeKFactor ? (Apu.computeKFactor({ gastosGenerales: S.k.gg, beneficio: S.k.ben, iibb: S.k.iibb, iva: S.k.iva }) || 1) : 1;
+// Cronograma orientativo: días = horas de mano de obra de las APU ÷ (cuadrilla × 8 h)
+const FASES = [
+ ['Preliminares', ['Tareas preliminares']], ['Fundaciones', ['Fundaciones', 'Contrapisos']], ['Muros y estructura', ['Mampostería', 'Tabiques']],
+ ['Techo', ['Cubierta']], ['Instalaciones', ['Instalación sanitaria', 'Instalación eléctrica', 'Instalación de gas', 'Instalación pluvial']],
+ ['Revoques y aislaciones', ['Revoques', 'Aislaciones']], ['Pisos', ['Pisos']], ['Revestimientos y cielorrasos', ['Revestimientos', 'Cielorrasos']],
+ ['Aberturas', ['Aberturas']], ['Pinturas', ['Pinturas']], ['Muebles y equipamiento', ['Muebles fijos', 'Equipamiento']], ['Exterior', ['Exterior']], ['Limpieza', ['Limpieza']]
+];
+function cronograma(lineas, K) {
+ const hsDia = Math.max(2, S.cuadrilla || 2) * 8;
+ let fin = 0, iniTecho = 0;
+ const fases = FASES.map(([n, rubros]) => {
+ const ls = lineas.filter(l => rubros.includes(l.rubro));
+ const horas = ls.reduce((t, l) => t + (l.horas || 0), 0);
+ const costo = ls.reduce((t, l) => t + (l.total || 0), 0) * K;
+ const sinApu = ls.filter(l => !l.item).length;
+ const dias = horas > 0 ? Math.max(1, Math.ceil(horas / hsDia)) : (costo > 0 ? 1 : 0);
+ return { n, horas, costo, dias, sinApu, lineas: ls.length };
+ }).filter(x => x.lineas);
+ fases.forEach(x => {
+ if (x.n === 'Instalaciones') { x.ini = iniTecho; } // las instalaciones arrancan junto con el techo y corren en paralelo
+ else { x.ini = Math.max(0, fin - Math.round(0.2 * (fases[fases.indexOf(x) - 1] || { dias: 0 }).dias)); }
+ x.fin = x.ini + x.dias;
+ if (x.n === 'Techo') iniTecho = x.ini;
+ if (x.n !== 'Instalaciones') fin = Math.max(fin, x.fin);
+ });
+ const total = Math.max(...fases.map(x => x.fin), 1);
+ const meses = Math.max(1, Math.ceil(total / 22)); // 22 días hábiles por mes
+ const porMes = Array.from({ length: meses }, () => 0);
+ fases.forEach(x => { if (!x.dias) return; for (let d = x.ini; d < x.fin; d++) porMes[Math.min(meses - 1, Math.floor(d / 22))] += x.costo / x.dias; });
+ return { fases, total, meses, porMes, hsDia };
 }
 
 // ---------------------------------------------------------------------------
 // Planta: muros (recorriendo los bordes), puertas, ventanas, rótulos y
 // las mediciones que usa el cómputo.
 // ---------------------------------------------------------------------------
-function plano(o, T, S_px) {
+function plano(o, T, S_px, capa = '', E = null) {
  const SC = S_px, CALLE = 26, LX = CALLE + 8, LT = 14, LOTE_L = 25, LOTE_A = 10, FS = SC >= 18 ? 10 : 8;
  const RET = (S.cochera && S.tipo !== 'lineal') ? 5.5 : 4;
  const MURO = '#2B3038', FINO = '#7A8492';
@@ -388,7 +677,7 @@ function plano(o, T, S_px) {
  const ventanas = wins.map(w => {
  const r = byId(w.r); const g = edge(r, w.e);
  const cu = g.su + g.du * w.c, cv = g.sv + g.dv * w.c;
- med.ventanas++; med.ventanasArea += w.w * (w.w >= 1.5 ? 1.4 : w.w <= 0.6 ? 0.5 : 1.1);
+ med.ventanas++; med.ventanasArea += w.w * w.h;
  if (g.du === 0) return { st: rect(cu - 0.11, cu + 0.11, cv - w.w / 2, cv + w.w / 2), cls: 'casa-ven-v' };
  return { st: rect(cu - w.w / 2, cu + w.w / 2, cv - 0.11, cv + 0.11), cls: 'casa-ven-h' };
  });
@@ -451,8 +740,11 @@ function plano(o, T, S_px) {
  ${huecos.map(h => `<div class="casa-hueco" style="${h}"></div>`).join('')}
  ${ventanas.map(v => `<div class="casa-ventana ${v.cls}" style="${v.st}"></div>`).join('')}
  ${puertas.map(p => `<div class="casa-puerta" style="${p}"></div>`).join('')}
- ${rooms.map(r => { const a = r.u1 - r.u0, b = r.v1 - r.v0, on = S.local === r.id; return `<button type="button" class="casa-local${on ? ' sel' : ''}" data-casa="local:${r.id}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${esc(r.n || 'Pasillo')}: ${f(a, 2)} por ${f(b, 2)} m. Cambiar medidas" title="${esc(r.n || 'Pasillo')}: tocá para cambiar las medidas" style="${rect(r.u0, r.u1, r.v0, r.v1)}"></button>`; }).join('')}
+ ${capa ? '' : rooms.map(r => { const a = r.u1 - r.u0, b = r.v1 - r.v0, on = S.local === r.id; return `<button type="button" class="casa-local${on ? ' sel' : ''}" data-casa="local:${r.id}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${esc(r.n || 'Pasillo')}: ${f(a, 2)} por ${f(b, 2)} m. Cambiar medidas" title="${esc(r.n || 'Pasillo')}: tocá para cambiar las medidas" style="${rect(r.u0, r.u1, r.v0, r.v1)}"></button>`; }).join('')}
+ ${capa === 'equipo' ? rooms.filter(r => !r.semi && !r.noLabel && !r.banio && !r.cocina).map(r => { const on = !!(S.aa && S.aa[r.id]); return `<button type="button" class="casa-local${on ? ' sel' : ''}" data-casa="aa:${r.id}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${esc(r.n)}: ${on ? 'sacar' : 'poner'} aire acondicionado" title="${esc(r.n)}: tocá para ${on ? 'sacar' : 'poner'} aire acondicionado" style="${rect(r.u0, r.u1, r.v0, r.v1)}"></button>`; }).join('') : ''}
+ ${simbolosInst(T, capa, E).map(z => `<span class="casa-sim ${z.c}" style="left:${X(z.u).toFixed(1)}px;top:${Y(z.v).toFixed(1)}px"${z.t ? ` title="${esc(z.t)}"` : ''}>${z.l ? esc(z.l) : ''}</span>`).join('')}
  ${rot.map(ajustarRotulo).filter(r => !r.oculto).map(r => `<div class="casa-rotulo" style="left:${r.x.toFixed(1)}px;top:${r.y.toFixed(1)}px;font-size:${r.fs}px"><b>${esc(r.n)}</b>${SC >= 18 ? `<span>${r.a}</span>` : ''}</div>`).join('')}
+ ${S.ampliacion ? (() => { const A = ampliacion(T); return A.entra ? `<div class="casa-futuro" style="${rect(A.u0, A.u1, A.v0, A.v1)}"><span>Ampliación<br>${f(A.m2)} m²</span></div>` : ''; })() : ''}
  <div class="casa-cota" style="left:${LX}px;top:${loteAbajo + 8}px;width:${LOTE_L * SC}px">25,00 m</div>
  <div class="casa-cota casa-cota-v" style="left:${LX + LOTE_L * SC + 6}px;top:${LT}px;height:${LOTE_A * SC}px">10,00 m</div>
  <div class="casa-cota casa-cota-casa ${o.medArriba ? 'arriba' : 'abajo'}" style="left:${Math.min(X(0), X(L)).toFixed(1)}px;top:${yCasa.toFixed(1)}px;width:${(L * SC).toFixed(1)}px">casa ${f(L, 2)} m</div>
@@ -519,7 +811,7 @@ function fachada(o, T, anchoDisp) {
  box(Math.min(a, b), y(2.05), Math.abs(b - a), 2.05 * k - 1, `background:${S.fachada === 'contemporanea' ? '#2B3038' : '#8A6A4B'};border:2px solid ${est.marco}`);
  });
  T.wins.filter(w => w.r === r.id && w.e === 'u0').forEach(w => {
- const hgt = w.w >= 1.5 ? 1.4 : 1.1, alf = w.w >= 1.5 ? 0.8 : 1.0;
+ const hgt = w.h || 1.1, alf = hgt >= 1.4 ? 0.8 : hgt <= 0.6 ? 1.6 : 1.0;
  const a = x(r.v0 + w.c - w.w / 2), b = x(r.v0 + w.c + w.w / 2);
  box(Math.min(a, b), y(alf + hgt), Math.abs(b - a), hgt * k, `background:linear-gradient(to right,#BFD4E6 48%,${est.marco} 48%,${est.marco} 52%,#BFD4E6 52%);border:2.5px solid ${est.marco}`);
  });
@@ -558,7 +850,11 @@ function computo(o, T, M, fach) {
  const murExt = M.ext * HM + hastial + parapeto - aberturasExt;
  const murMed = M.medianera * HM + medExtra;
  const murInt = M.int * HM - M.puertasInt * 0.8 * 2.05;
- const revest = M.baniosPerim * 1.5 + 3 * 0.6;
+ // (22/11-b) revestimientos según lo elegido en Terminaciones
+ const hBano = S.revBano === 'techo' ? HM : (S.revBano === 'h210' ? 2.1 : 1.5);
+ const mlCocina = mlMuebleCocina(T);
+ const hCocina = S.revCocina === 'h150' ? 1.5 : 0.6;
+ const revest = M.baniosPerim * hBano + Math.max(mlCocina, 1.8) * hCocina;
  const pisoNeto = M.m2Cub * 0.92;
  const aislaMuro = S.muro !== 'base';
  const vistoMacizo = S.fachada === 'ladrillo' && S.muroBase === 'lc15';
@@ -598,14 +894,25 @@ function computo(o, T, M, fach) {
  const revIntArea = Math.max(0, (tabLadrillo ? murInt * 2 : 0) + murMed + (aislaMuro ? 0 : murExt) - revest);
  add('Revoques', 32, 'Revoque completo interior', revIntArea, 'm²', `${tabLadrillo ? 'Tabiques (2 caras) + ' : ''}medianera${aislaMuro ? '' : ' + cara interior de muros exteriores'} − revestimientos`);
  if (aislaMuro) add('Aislaciones', null, `Aislación interior de muros: ${AIS_MURO[S.muro].n}`, murExt, 'm²', 'Cara interior de los muros exteriores');
- add('Revestimientos', 45, 'Revestimiento cerámico (baños h 1,50 y cocina h 0,60)', revest, 'm²', `${pl(M.banios, 'baño')} + mesada de cocina`);
+ const txtRev = `${pl(M.banios, 'baño')} h ${f(hBano, 2)} m + cocina h ${f(hCocina, 2)} m`;
+ if (S.revMat === 'porcelanato') add('Revestimientos', null, 'Revestimiento de porcelanato (baños y cocina)', revest, 'm²', txtRev);
+ else add('Revestimientos', 45, 'Revestimiento cerámico (baños y cocina)', revest, 'm²', txtRev);
 
  // Pisos
+ // en baños y cocina, si el piso elegido no es apto para agua, va cerámico
+ const humedos = T.rooms.filter(r => r.banio || r.cocina).reduce((t, r) => t + (r.u1 - r.u0) * (r.v1 - r.v0), 0) * 0.92;
+ const secoArea = S.piso === 'flotante' ? Math.max(0, pisoNeto - humedos) : pisoNeto;
  if (S.piso === 'porcelanato') add('Pisos', null, 'Piso de porcelanato', pisoNeto, 'm²', 'Superficie interior');
+ else if (S.piso === 'flotante') add('Pisos', null, 'Piso flotante sobre carpeta niveladora', secoArea, 'm²', 'Locales secos (baños y cocina en cerámico)');
+ else if (S.piso === 'alisado') add('Pisos', null, 'Piso de cemento alisado (o microcemento)', pisoNeto, 'm²', 'Superficie interior');
  else add('Pisos', 36, 'Piso cerámico', pisoNeto, 'm²', 'Superficie interior');
- add('Pisos', 77, 'Zócalos cerámicos', M.secosPerim * 0.85, 'ml', 'Perímetro de los locales secos − puertas');
+ if (S.piso === 'flotante') add('Pisos', 36, 'Piso cerámico en baños y cocina', humedos, 'm²', 'Locales húmedos');
+ if (S.piso === 'flotante') add('Pisos', null, 'Zócalos de MDF o madera', M.secosPerim * 0.85, 'ml', 'Perímetro de los locales secos − puertas');
+ else add('Pisos', 77, 'Zócalos cerámicos', M.secosPerim * 0.85, 'ml', 'Perímetro de los locales secos − puertas');
  const vereda = 0.4 * M.ext;
  add('Pisos', 28, 'Contrapiso exterior: vereda perimetral, galería y cochera', vereda + M.galeria + M.cochera + 0.8 * 10, 'm²', 'Vereda 0,40 m + semicubiertos + vereda municipal 0,80 × 10 m');
+ if (S.pisoExt === 'ceramico') add('Pisos', null, 'Piso cerámico exterior antideslizante (galería y cochera)', M.galeria + M.cochera, 'm²', 'Semicubiertos');
+ else add('Pisos', null, 'Terminación de cemento alisado (vereda, galería y cochera)', vereda + M.galeria + M.cochera + 0.8 * 10, 'm²', 'Igual que el contrapiso exterior');
 
  // Techo
  const planta = M.m2Cub + M.galeria + M.cochera;
@@ -617,10 +924,15 @@ function computo(o, T, M, fach) {
  add('Cubierta', null, 'Membrana y carpeta de techo plano', planta, 'm²', 'Igual que la losa');
  add('Cielorrasos', null, 'Cielorraso de yeso aplicado bajo losa', pisoNeto, 'm²', 'Superficie interior');
  } else {
- const estr = S.estructTecho === 'madera' ? 'estructura de madera (tirantes y clavaderas)' : 'correas metálicas';
+ const cerchas = S.sistTecho === 'cerchas';
+ const estr = S.estructTecho === 'madera' ? (cerchas ? 'cerchas de madera y clavaderas' : 'estructura de madera (tirantes y clavaderas)') : (cerchas ? 'cerchas metálicas y correas' : 'correas metálicas');
  if (S.techoMat === 'teja') add('Cubierta', null, `Cubierta de teja cerámica ${aguas} sobre ${estr}`, techoM2, 'm²', medTecho);
  else if (S.estructTecho === 'madera') add('Cubierta', null, `Cubierta de chapa ${aguas} sobre ${estr}`, techoM2, 'm²', medTecho);
  else add('Cubierta', 24, `Cubierta de chapa ${aguas} sobre correas metálicas`, techoM2, 'm²', medTecho, [S.techo === '4' ? 'Faltan limatesas en el APU.' : '', S.aisTecho === 'ais10' ? 'Se asume que incluye el aislante con aluminio del prototipo.' : ''].filter(Boolean).join(' '));
+ if (cerchas) {
+ const sep = SEP_CERCHA(), nC = Math.ceil(L / sep) + 1;
+ add('Cubierta', null, S.estructTecho === 'madera' ? 'Cerchas de madera (cabriadas)' : 'Cerchas metálicas reticuladas', nC, 'un', `${nC} cerchas c/ ${f(sep, 2)} m sobre ${f(L)} m de casa`, 'Cantidad y sección a validar con cálculo estructural.');
+ }
  add('Cubierta', 37, 'Cenefas', 2 * (L + W) - (S.techo === '1' ? L : 0), 'ml', 'Bordes del techo');
  // Cielorraso: siguiendo la pendiente (bajo la estructura) o suspendido (horizontal)
  const susp = S.cielo === 'suspendido';
@@ -645,27 +957,67 @@ function computo(o, T, M, fach) {
  if (S.fachada !== 'ladrillo') add('Pinturas', 34, 'Látex exterior', murExt, 'm²', 'Igual que el revoque exterior');
  const tabYeso = S.tabique === 'durlock' ? murInt * 2 : 0;
  const cieloLatex = plano || S.cieloMat === 'durlock' ? (plano ? pisoNeto : (S.cielo === 'suspendido' ? pisoNeto : pisoNeto * fPend)) : 0;
+ if (S.pintura === 'enduido') add('Pinturas', null, 'Enduído plástico (previo al látex)', revIntArea + (aislaMuro ? murExt : 0) + tabYeso, 'm²', 'Paredes interiores');
  add('Pinturas', 33, 'Látex interior', revIntArea + (aislaMuro ? murExt : 0) + tabYeso + cieloLatex, 'm²', ['Revoques interiores', aislaMuro ? 'placas de yeso de los muros' : '', tabYeso ? 'tabiques de yeso (2 caras)' : '', cieloLatex ? 'cielorraso' : ''].filter(Boolean).join(' + '));
  if (!plano && S.cieloMat === 'machimbre') add('Pinturas', 26, 'Barniz de cielorraso', S.cielo === 'suspendido' ? pisoNeto : pisoNeto * fPend, 'm²', 'Igual que el cielorraso');
  if (S.tabique === 'madera') add('Pinturas', 26, 'Barniz de tabiques de madera', murInt * 2, 'm²', 'Tabiques (2 caras)', 'Usa el APU de barniz de cielorraso.');
  if (S.fachada === 'contemporanea') add('Revestimientos', null, 'Revestimiento de listones de madera en la entrada', 2.2 * 2.25, 'm²', 'Paño junto a la puerta');
 
- // Instalaciones
- add('Instalación sanitaria', 69, 'Distribución de agua', 1, 'gl', `${pl(M.banios, 'baño')}, cocina y lavadero`);
- add('Instalación sanitaria', 68, 'Tanque de reserva', 1, 'un', '1 por vivienda');
+ // Instalaciones (22/11): lo que se elige en el paso "Instalaciones"
+ const E = instalElec(T, M);
+ const banos = T.rooms.filter(r => r.banio);
+ const descArt = (id) => { const x = artefactosBano(id); return ['inodoro', x.vanitory ? 'vanitory' : 'lavatorio', x.banera ? 'bañera' : 'ducha', x.bidet ? 'bidé' : ''].filter(Boolean).join(', '); };
+ add('Instalación sanitaria', 69, 'Distribución de agua fría y caliente', 1, 'gl', `${pl(M.banios, 'baño')}, cocina y lavadero`);
+ const TQ = tanque();
+ add('Instalación sanitaria', 68, `Tanque de reserva de ${TQ.litros} l`, 1, 'un', `${TQ.personas} personas × ${TQ.dot} l/día (a validar con OSN)`);
  add('Instalación sanitaria', 51, 'Desagües cloacales', 1, 'gl', 'Vivienda completa');
- add('Instalación sanitaria', 55, 'Artefactos, griferías y accesorios', M.banios, 'gl', `${pl(M.banios, 'baño')} completo${M.banios === 1 ? '' : 's'}`, 'Revisar si el APU incluye cocina y lavadero.');
+ add('Instalación sanitaria', 55, 'Artefactos, griferías y accesorios', M.banios, 'gl', banos.map(r => `${nombreLocalCorto(r)}: ${descArt(r.id)}`).join(' · '), 'Revisar si el APU incluye cocina y lavadero.');
+ const nBidet = banos.filter(r => artefactosBano(r.id).bidet).length, nBanera = banos.filter(r => artefactosBano(r.id).banera).length, nVan = banos.filter(r => artefactosBano(r.id).vanitory).length;
+ add('Instalación sanitaria', null, 'Bidé con grifería (adicional)', nBidet, 'un', pl(nBidet, 'bidé'));
+ add('Instalación sanitaria', null, 'Bañera con grifería (en lugar de la ducha)', nBanera, 'un', pl(nBanera, 'bañera'));
+ add('Instalación sanitaria', null, 'Vanitory (mueble bajo mesada del lavatorio)', nVan, 'un', pl(nVan, 'vanitory'));
+ add('Instalación sanitaria', null, 'Pileta de lavar con canilla (lavadero)', 1, 'un', '1 (CE Oberá III.6.2.1)');
  add('Instalación sanitaria', 53, 'Cámara séptica', 1, 'un', 'Si no hay red cloacal');
  add('Instalación sanitaria', 52, 'Pozo absorbente', 1, 'un', 'Si no hay red cloacal');
  add('Instalación sanitaria', 54, 'Cámara de inspección', 1, 'un', '1');
- if (S.solar) add('Instalación sanitaria', null, 'Termotanque solar con apoyo eléctrico', 1, 'un', '1');
- else add('Instalación sanitaria', 75, 'Termotanque eléctrico', 1, 'un', '1');
- add('Instalación eléctrica', 56, 'Tablero general', 1, 'gl', '1');
- add('Instalación eléctrica', 59, 'Circuitos de tomas (TUG)', 1, 'gl', 'Vivienda completa');
- add('Instalación eléctrica', 61, 'Circuitos de iluminación (IUG)', 1, 'gl', 'Vivienda completa');
- add('Instalación eléctrica', 62, 'Artefactos de iluminación', 1, 'gl', 'Vivienda completa');
- add('Instalación de gas', null, 'Instalación de gas (cocina)', 1, 'gl', '1');
- add('Equipamiento', 73, 'Mueble y mesada de cocina', 1, 'un', '1');
+ if (S.agua === 'termo-elec') add('Instalación sanitaria', 75, 'Termotanque eléctrico', 1, 'un', '1');
+ else if (S.agua === 'termo-gas') add('Instalación sanitaria', null, 'Termotanque a gas', 1, 'un', '1');
+ else if (S.agua === 'calefon') add('Instalación sanitaria', null, 'Calefón a gas', 1, 'un', '1');
+ else if (S.agua === 'solar') add('Instalación sanitaria', null, 'Termotanque solar con apoyo eléctrico', 1, 'un', '1');
+ if (S.bomba) add('Instalación sanitaria', null, 'Bomba presurizadora', 1, 'un', '1');
+ add('Instalación eléctrica', 56, 'Tablero general', 1, 'gl', `Grado ${E.grado.toLowerCase()} (${f(E.sup)} m²): ${E.cIug + E.cTug} circuitos de uso general${E.tue ? ` + ${E.tue} de uso especial` : ''}`);
+ add('Instalación eléctrica', 59, 'Circuitos de tomas (TUG)', 1, 'gl', `${E.tug} bocas en ${pl(E.cTug, 'circuito')}`, 'APU global: confirmar para cuántas bocas.');
+ add('Instalación eléctrica', 61, 'Circuitos de iluminación (IUG)', 1, 'gl', `${E.iug} bocas en ${pl(E.cIug, 'circuito')}`, 'APU global: confirmar para cuántas bocas.');
+ if (E.tue) add('Instalación eléctrica', null, 'Circuitos de uso especial (aire, termotanque, cocina, bomba)', E.tue, 'un', pl(E.tue, 'circuito'));
+ add('Instalación eléctrica', null, 'Puesta a tierra: jabalina, caja de inspección y conductor', 1, 'un', 'Obligatoria (AEA 90364)');
+ if (S.fv) add('Instalación eléctrica', null, `Sistema fotovoltaico conectado a red de ${f(S.fv, 1)} kWp (paneles, inversor y protecciones)`, 1, 'un', `≈ ${Math.round(S.fv * 1350)} kWh al año (≈ 1.350 kWh/kWp, a validar)`);
+ add('Instalación eléctrica', 62, `Artefactos de iluminación (${LUMINARIAS[S.luminarias] || 'plafones LED'})`, 1, 'gl', `${E.iug} artefactos`, 'APU global: confirmar para cuántos artefactos.');
+ const gas = [S.coccion === 'gas' ? 'cocina' : '', S.agua === 'termo-gas' ? 'termotanque' : '', S.agua === 'calefon' ? 'calefón' : ''].filter(Boolean);
+ if (gas.length) add('Instalación de gas', null, `Instalación de gas (${gas.join(', ')})`, 1, 'gl', pl(gas.length, 'artefacto'));
+ if (S.coccion === 'electrica') add('Equipamiento', null, 'Anafe y horno eléctricos', 1, 'un', '1');
+ if (S.mueblesCocina !== 'no') add('Muebles fijos', 73, 'Mueble bajo mesada y mesada de cocina', 1, 'un', `≈ ${f(mlCocina, 2)} ml`, 'Revisar qué largo de mueble incluye el APU.');
+ if (S.mueblesCocina === 'completo') add('Muebles fijos', null, 'Alacena de cocina (melamina)', mlCocina, 'ml', 'Igual que el bajo mesada');
+ const placards = T.rooms.filter(r => /^d/.test(r.id) && !r.semi).map(r => Math.max(1.0, Math.min(2.0, Math.min(r.u1 - r.u0, r.v1 - r.v0) - 0.6)));
+ const mlPlacard = placards.reduce((t, x) => t + x, 0);
+ if (S.placard !== 'no') add('Muebles fijos', null, 'Placard: frente de hojas corredizas e interior básico (melamina)', mlPlacard, 'ml', `${pl(placards.length, 'dormitorio')}: ${placards.map(x => f(x, 2)).join(' + ')} m`);
+ if (S.placard === 'completo') add('Muebles fijos', null, 'Interior de placard con cajonera y estantes', mlPlacard, 'ml', 'Igual que el frente');
+ // Pluviales (Ord. Oberá 2557: canaletas a ≥ 0,85 m del eje medianero; dimensiones según OSN)
+ const PL = pluviales(T, M, fach);
+ if (PL.canaleta) add('Instalación pluvial', null, 'Canaletas de chapa galvanizada', PL.canaleta, 'ml', PL.txtCanaleta);
+ add('Instalación pluvial', null, plano ? 'Embudos y bajadas pluviales Ø 100 (PVC)' : 'Bajadas pluviales Ø 100 (PVC)', PL.bajadas, 'un', `${f(PL.area)} m² de techo ÷ ${PL.m2PorBajada} m² por bajada (a validar con OSN)`);
+ add('Instalación pluvial', null, 'Desagüe pluvial a la calle (cañería Ø 100 enterrada)', PL.desague, 'ml', 'Del fondo de la casa al cordón, aprox.');
+ if (S.lluvia) add('Instalación pluvial', null, 'Tanque de agua de lluvia de 2000 l con filtro y canilla', 1, 'un', `Podría juntar ≈ ${Math.round(PL.area * 1.8 * 0.8)} m³ al año (1.800 mm, a validar)`);
+ // Exterior
+ const ancho = 10, fondo = 25;
+ if (S.cercoFrente !== 'no') add('Exterior', null, S.cercoFrente === 'muro' ? 'Cerco de frente: muro bajo con reja' : 'Cerco de frente con reja', ancho - (S.porton ? 3 : 1), 'ml', `${ancho} m de frente − portón${S.porton ? '' : ' peatonal'}`);
+ if (S.cercoLat !== 'no') add('Exterior', null, S.cercoLat === 'muro' ? 'Muro divisorio de bloques h 1,80 m' : 'Cerco de tejido romboidal h 1,80 m con postes', 2 * fondo - 2 * 4 + ancho, 'ml', 'Laterales y fondo (sin el retiro de frente)');
+ if (S.porton) add('Exterior', null, S.cochera ? 'Portón vehicular de caño y chapa' : 'Portón peatonal de caño', 1, 'un', '1');
+ if (S.parrilla) add('Exterior', null, 'Parrilla de ladrillo con campana', 1, 'un', '1');
+ if (S.ampliacion) add('Tareas preliminares', null, 'Previsiones para ampliar: vano con dintel, cañerías y caños en espera', 1, 'gl', 'Para el dormitorio futuro');
+ E.aa.forEach(l => { const A = (l.r.u1 - l.r.u0) * (l.r.v1 - l.r.v0); add('Equipamiento', null, `Aire acondicionado split ${frigorias(A)} frigorías (${l.nombre})`, 1, 'un', `${f(A)} m² × ≈150 frig/m² (estimación a validar)`); });
+ if (E.aa.length) add('Equipamiento', null, 'Instalación de equipos split (cañería, desagüe y ménsula)', E.aa.length, 'un', pl(E.aa.length, 'equipo'));
+ const nVt = E.locales.filter(l => l.vt).length;
+ if (nVt) add('Equipamiento', null, 'Ventilador de techo', nVt, 'un', pl(nVt, 'dormitorio'));
  add('Limpieza', 50, 'Limpieza periódica y final de obra', 1, 'gl', '1');
  return lineas;
 }
@@ -675,7 +1027,7 @@ function costear(lineas) {
  const tasks = ST.apuCatalogState.tasks || [];
  let total = 0, mat = 0, mo = 0, eq = 0;
  lineas.forEach(l => {
- l.item = null; l.total = null; l.unit = null; l.faltan = 0;
+ l.item = null; l.total = null; l.unit = null; l.faltan = 0; l.horas = 0;
  if (!l.apuId) { l.motivo = 'Sin APU todavía'; return; }
  const task = tasks.find(t => t.id === l.apuId);
  if (!task) { l.motivo = `No se encontró la tarea APU ${l.apuId}`; return; }
@@ -683,6 +1035,7 @@ function costear(lineas) {
  const item = Apu.buildBudgetItem(l.apuId, l.cantidad);
  const b = Apu.calcItemBreakdown(item);
  l.item = item; l.total = b.total; l.unit = b.total / l.cantidad;
+ l.horas = b.lineas.filter(x => x.tipo === 'mano_obra').reduce((t, x) => t + (x.cantidadNecesaria || 0), 0);
  l.faltan = b.lineas.filter(x => !x.disponible).length;
  l.vacia = !item.components.length;
  l.apuNombre = task.nombre; l.apuUnidad = task.unidad;
@@ -712,6 +1065,7 @@ export async function loadCasaView() {
  if (!root.dataset.listo) {
  root.dataset.listo = '1';
  root.addEventListener('click', onClick);
+ root.addEventListener('change', onChange);
  window.addEventListener('resize', () => { if (!root.hidden && ST.state.currentView === 'costo-m2') render(); });
  }
  render();
@@ -725,11 +1079,35 @@ function onClick(e) {
  if (accion === 'apu') { window.nexoBraApp?.editAdminApuTask?.(Number(valor)); return; }
  if (accion === 'recalcular') { recargarApus(); return; }
  if (accion === 'calculadora') { abrirEnCalculadora(); return; }
+ // (22/11-b) Mis casas
+ if (accion === 'modelos') { S.verModelos = !S.verModelos; guardarEstado(); if (S.verModelos && modelos === null) cargarModelos(); else render(); return; }
+ if (accion === 'mGuardar') { guardarModelo(valor === 'nueva'); return; }
+ if (accion === 'mAbrir') { abrirModelo(valor); return; }
+ if (accion === 'mDup') { duplicarModelo(valor); return; }
+ if (accion === 'mBorrar') { borrarModelo(valor); return; }
+ if (accion === 'mNueva') { nuevaCasa(); return; }
+ if (accion === 'kReset') { S.k = { ...DEFAULTS.k }; guardarEstado(); render(); return; }
  const antes = JSON.stringify(S);
  if (accion === 'toggle') S[valor] = !S[valor];
  else if (accion === 'girar') S.norte = norm(S.norte + Number(valor));
  else if (accion === 'paso') { S.paso = Number(valor) || 1; guardarEstado(); render(); document.getElementById('casa-root')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
  else if (accion === 'local') S.local = (valor && S.local !== valor) ? valor : '';
+ else if (accion === 'aa') S.aa = { ...(S.aa || {}), [valor]: !(S.aa && S.aa[valor]) };
+ else if (accion === 'artef') {
+ const [id, k] = valor.split('|');
+ const x = { ...((S.artef || {})[id] || {}) };
+ if (k === 'ducha' || k === 'banera') x.banera = k === 'banera'; else if (k === 'vanitory') x.vanitory = x.vanitory === false; else x[k] = !x[k];
+ S.artef = { ...(S.artef || {}), [id]: x };
+ }
+ else if (accion === 'vent') {
+ const [id, pasoV] = valor.split('|');
+ const T0 = tipologia(orientacion()), w = T0.wins.find(x => x.r === id), r = T0.rooms.find(x => x.id === id);
+ if (!w || !r) return;
+ const lista = r.banio ? ANCHOS_VENT.filter(x => x <= 1.0) : ANCHOS_VENT;
+ let i = lista.findIndex(x => x >= w.w - 1e-9); if (i < 0) i = lista.length - 1;
+ i = Math.max(0, Math.min(lista.length - 1, i + Number(pasoV)));
+ S.vent = { ...(S.vent || {}), [`${S.tipo}.${id}`]: lista[i] };
+ }
  else if (accion === 'nivel') { S.nivel = valor; Object.assign(S, recetaNivel(valor)); }
  else if (accion === 'reset') { S = { ...DEFAULTS, dims: {} }; }
  else if (accion === 'dim') {
@@ -744,14 +1122,21 @@ function onClick(e) {
  S.dims = { ...S.dims, [`${S.tipo}.${k}`]: v };
  }
  }
- else S[accion] = accion === 'dorm' ? Number(valor) : valor; // techo '1'/'2'/'4' queda como texto
+ else S[accion] = ['dorm', 'cuadrilla', 'fv'].includes(accion) ? Number(valor) : valor; // techo '1'/'2'/'4' queda como texto
  if (accion === 'tipo' && valor === 'compacta') { S.dorm = 2; S.bano2 = 'no'; }
  if (accion === 'techo' && valor === 'plana') S.techoMat = 'chapa';
  if (accion === 'techoMat' && valor === 'teja') S.estructTecho = 'madera';
+ if (accion === 'sistTecho' && valor === 'cerchas') S.cielo = 'suspendido'; // con cerchas el cielorraso va bajo el tirante inferior
+ if (accion === 'cielo' && valor === 'pendiente') S.sistTecho = 'tirantes';
  if (accion === 'muroBase') S.muro = recetaNivel(S.nivel).muro; // la aislación se recalcula para el nivel elegido
  // Si con el cambio la casa no entra en el lote, se vuelve atrás y se avisa
  const problema = problemaLote(tipologia(orientacion()));
- if (problema) { S = JSON.parse(antes); ST.showToast(problema); return; }
+ if (problema) {
+ // si el estado anterior ya no cumplía (p. ej. medidas guardadas antes de este cambio), se deja corregir
+ const nuevo = S; S = JSON.parse(antes);
+ if (problemaLote(tipologia(orientacion()))) S = nuevo;
+ else { ST.showToast(problema); return; }
+ }
  guardarEstado();
  render();
 }
@@ -771,6 +1156,8 @@ function abrirEnCalculadora() {
  const conApu = ultimo.lineas.filter(l => l.item);
  if (ST.state.apuBudgetItems.length && !confirm('Esto reemplaza el presupuesto que tenés abierto en la Calculadora. ¿Seguimos?')) return;
  Apu.newApuBudget();
+ // (22/11-b) se lleva también el Factor K de la casa
+ Object.assign(ST.apuBudgetMeta, { kGastosGenerales: S.k.gg, kBeneficio: S.k.ben, kIibb: S.k.iibb, kIva: S.k.iva, kFactor: kFactor() });
  ST.state.apuBudgetItems = conApu.map(l => Apu.buildBudgetItem(l.apuId, l.cantidad));
  const nombre = `Casa ${ultimo.resumen}`;
  ST.apuBudgetMeta.name = nombre;
@@ -956,6 +1343,79 @@ function corteTecho() {
  return ficha(svgCorte(W, H, p, body, 'Corte del techo'), items, `Pendiente ${Math.round(pend * 100)} % · K ${f(ais.k, 2)} W/m²K (a validar)`);
 }
 
+// (22/11) Estructura del techo: tirantes/correas apoyados en muros o cerchas.
+// Luz a cubrir y recomendación orientativa (a validar con cálculo estructural).
+function luzTecho(T) {
+ const ancho = S.tipo === 'L' ? Math.max(D('fr', 4.0), D('ala', 4.3)) : T.Wf;
+ const madera = S.estructTecho === 'madera';
+ const portantes = S.tabique === 'ladrillo';
+ // madera: los tirantes cruzan el ancho (a 2 aguas con cumbrera apoyada en un muro interior)
+ // metálica: las correas van a lo largo, entre muros transversales
+ const tramos = T.rooms.filter(r => !r.semi && !r.noLabel).map(r => S.tipo === 'L' && r.u0 >= D('fr', 4.0) - 1e-6 ? r.v1 - r.v0 : r.u1 - r.u0);
+ const luz = madera ? (S.techo === '1' || !portantes ? ancho : ancho / 2) : (portantes ? Math.max(...tramos) : T.L);
+ const recom = S.techo === 'plana' ? '' : (luz > 4.0 ? 'cerchas' : 'tirantes');
+ return { ancho, luz, recom, madera, portantes };
+}
+const SEP_CERCHA = () => S.estructTecho === 'madera' ? 1.0 : 1.5;
+function esquemaTecho(T) {
+ if (S.techo === 'plana') return '';
+ const W = 280, H = 150, p = 'ce';
+ const lz = luzTecho(T), ancho = lz.ancho, pend = pendienteTecho();
+ const k = (W - 50) / ancho, x0 = 25, yM = H - 30, hm = 34; // muros dibujados cortos (no a escala vertical)
+ const X = (m) => x0 + m * k;
+ const sube = S.techo === '1' ? ancho * pend : ancho / 2 * pend;
+ const yTop = yM - hm - sube * k;
+ const madera = S.estructTecho === 'madera', cerchas = S.sistTecho === 'cerchas';
+ const colE = madera ? COL.maderaOsc : '#5E6670', grosor = madera ? 3.2 : 2.2;
+ let b = '';
+ // muros (exteriores siempre; interior portante al medio si hay)
+ const hIzq = S.techo === '1' ? hm + ancho * pend * k : hm; // a 1 agua el muro alto (medianera) sube hasta el techo
+ b += rct(X(0) - 4, yM - hIzq, 8, hIzq, COL.lch, 'stroke="#8C3519" stroke-width="0.6"') + rct(X(ancho) - 4, yM - hm, 8, hm, COL.lch, 'stroke="#8C3519" stroke-width="0.6"');
+ const medio = S.techo !== '1' && lz.portantes && !cerchas;
+ if (medio) b += rct(X(ancho / 2) - 3, yM - hm, 6, hm, COL.lch, 'stroke="#8C3519" stroke-width="0.6"');
+ b += lin(0, yM, W, yM, '#8A96A6', 1.2);
+ const yA = yM - hm; // apoyo
+ const pts = S.techo === '1' ? [[X(0), yA - ancho * pend * k], [X(ancho), yA]] : [[X(0), yA], [X(ancho / 2), yA - sube * k], [X(ancho), yA]];
+ const linea = (a, c, col = colE, g = grosor) => lin(a[0], a[1], c[0], c[1], col, g, 'stroke-linecap="round"');
+ const items = [];
+ if (cerchas) {
+ // cordón superior, tirante inferior y montantes/diagonales (tipo Howe)
+ const yb = yA;
+ for (let i = 0; i < pts.length - 1; i++) b += linea(pts[i], pts[i + 1]);
+ b += linea([X(0), yb], [X(ancho), yb]);
+ const n = 4, yTopAt = (xm) => { if (S.techo === '1') return yA - (ancho - xm) * pend * k; const d = Math.abs(xm - ancho / 2); return yA - (ancho / 2 - d) * pend * k; };
+ for (let i = 1; i < n; i++) { const xm = ancho * i / n; b += linea([X(xm), yb], [X(xm), yTopAt(xm)], colE, grosor * 0.7); }
+ for (let i = 0; i < n; i++) { const xa = ancho * i / n, xb = ancho * (i + 1) / n; const haciaCentro = S.techo === '1' ? true : xa < ancho / 2; b += haciaCentro ? linea([X(xa), yb], [X(xb), yTopAt(xb)], colE, grosor * 0.6) : linea([X(xb), yb], [X(xa), yTopAt(xa)], colE, grosor * 0.6); }
+ items.push({ c: colE, n: madera ? `Cerchas de madera (cabriadas) c/ ${f(SEP_CERCHA(), 2)} m` : `Cerchas metálicas reticuladas c/ ${f(SEP_CERCHA(), 2)} m`, e: 'a validar con cálculo' });
+ items.push({ c: COL.lch, n: 'Apoyan solo en los muros exteriores', e: '' });
+ } else if (!madera) {
+ // correas metálicas: en este corte se ven de punta (corren a lo largo, de muro a muro transversal)
+ for (let i = 0; i < pts.length - 1; i++) {
+ b += linea(pts[i], pts[i + 1], '#8A939E', 1.4);
+ const [xa, ya] = pts[i], [xb, yb] = pts[i + 1], n = Math.max(2, Math.round(Math.hypot(xb - xa, yb - ya) / (0.9 * k)));
+ for (let j = 0; j <= n; j++) { const t = j / n, cx = xa + (xb - xa) * t, cy = ya + (yb - ya) * t; b += `<path d="M${fx(cx + 3)} ${fx(cy + 1)} H${fx(cx - 3)} V${fx(cy + 8)} H${fx(cx + 3)}" fill="none" stroke="${colE}" stroke-width="1.6"/>`; }
+ }
+ if (S.techo !== '1' && medio) b += lin(X(ancho / 2), yTop + 6, X(ancho / 2), yA, colE, 2);
+ if (S.techo !== '1' && !medio) b += lin(X(ancho / 2), yTop + 6, X(ancho / 2), yA, '#C2410C', 1.2, 'stroke-dasharray="4 3"');
+ items.push({ c: colE, n: 'Correas metálicas C (se ven de punta)', e: '120 mm c/ 0,90 m (a validar)' });
+ items.push({ c: COL.lch, n: S.tipo === 'L' ? 'Apoyan en los muros transversales de cada ala' : 'Apoyan en los muros transversales', e: '' });
+ } else {
+ for (let i = 0; i < pts.length - 1; i++) b += linea(pts[i], pts[i + 1], colE, grosor * 1.4);
+ if (S.techo !== '1' && medio) b += lin(X(ancho / 2), yTop + 5, X(ancho / 2), yA, colE, 2.4);
+ if (S.techo !== '1') b += rct(X(ancho / 2) - 4, yTop - 3, 8, 8, madera ? COL.madera : '#8A939E', `stroke="${colE}" stroke-width="0.8"`);
+ if (S.techo !== '1' && !medio) b += lin(X(ancho / 2), yTop + 5, X(ancho / 2), yA, '#C2410C', 1.2, 'stroke-dasharray="4 3"');
+ items.push({ c: colE, n: 'Tirantes de madera apoyados en los muros', e: '2" × 6" c/ 0,60 m (a validar)' });
+ if (S.techo !== '1') items.push({ c: medio ? COL.lch : '#C2410C', n: medio ? 'Cumbrera apoyada en un muro interior' : 'La cumbrera necesita un apoyo intermedio', e: '' });
+ }
+ // cielorraso
+ if (S.cielo === 'suspendido' || cerchas) b += lin(X(0) + 4, yA + 6, X(ancho) - 4, yA + 6, '#9AA3B0', 2.4);
+ else for (let i = 0; i < pts.length - 1; i++) b += lin(pts[i][0], pts[i][1] + 6, pts[i + 1][0], pts[i + 1][1] + 6, '#9AA3B0', 2.4);
+ // cota de la luz
+ b += lin(X(0), H - 14, X(ancho), H - 14, '#5E6977', 0.8) + txt((X(0) + X(ancho)) / 2, H - 4, `ancho ${f(ancho, 2)} m · luz entre apoyos ${f(lz.luz, 2)} m`, 'text-anchor="middle"');
+ const pie = lz.recom === 'cerchas' && !cerchas ? `<span class="no">Con ${f(lz.luz, 2)} m de luz conviene usar cerchas o sumar apoyos.</span>` : (lz.recom === 'tirantes' && cerchas ? 'Con esta luz también alcanzan tirantes o correas.' : 'Esquema orientativo: dimensionar con cálculo (CIRSOC).');
+ return ficha(svgCorte(W, H, p, b, 'Esquema de la estructura del techo'), items, pie);
+}
+
 function corteFundacion() {
  const W = 280, H = 240, p = 'cf', PX = 2.5;
  const capas = capasMuroDibujo();
@@ -1002,9 +1462,9 @@ function corteFundacion() {
  capas.forEach(c => { body += capaVertical(c.t, x, c.cm * PX, 0, yBaseMuro, p, PX); x += c.cm * PX; });
  // vereda exterior
  body += rct(xe, yg - 8 * PX, W - xe, 8 * PX, `url(#${p}-pobre)`) + rct(xe, yg - 8 * PX, W - xe, 1.4, '#9A938A');
- items.push({ c: COL.rev, n: 'Carpeta', e: '2 cm' }, { c: piso, n: S.piso === 'porcelanato' ? 'Porcelanato' : 'Piso cerámico', e: '' });
+ items.push({ c: COL.rev, n: 'Carpeta', e: '2 cm' }, { c: piso, n: { porcelanato: 'Porcelanato', flotante: 'Piso flotante', alisado: 'Cemento alisado' }[S.piso] || 'Piso cerámico', e: '' });
  // juntas del piso
- for (let xx = 0; xx < xw; xx += S.piso === 'porcelanato' ? 60 * PX / 2 : 30 * PX / 2) body += lin(xx, yf, xx, yf + 1 * PX, '#FFFFFF', 0.8);
+ if (S.piso !== 'alisado') for (let xx = 0; xx < xw; xx += S.piso === 'porcelanato' ? 60 * PX / 2 : 30 * PX / 2) body += lin(xx, yf, xx, yf + 1 * PX, '#FFFFFF', 0.8);
  body += txt(4, 14, 'Interior') + txt(W - 4, 14, 'Exterior', 'text-anchor="end"') + txt(W - 4, yg + 12, 'Terreno', 'text-anchor="end"');
  return ficha(svgCorte(W, H, p, body, 'Corte de la fundación y el piso'), items, S.fundacion === 'platea' ? 'Como el prototipo de IPRODHA.' : 'Medidas de la zapata orientativas (a validar con el suelo).');
 }
@@ -1080,12 +1540,140 @@ function editorLocal(T, o) {
  }).join('');
  const a = r.u1 - r.u0, b = r.v1 - r.v0;
  const av = avisosMedidas(T).filter(t => t.startsWith(nombreLocal(r)));
+ // ventana principal del local (ancho comercial; se agranda sola si no cumple el código)
+ const w = !r.semi && !r.noLabel ? T.wins.find(x => x.r === r.id) : null;
+ let ventHtml = '';
+ if (w) {
+ const il = ilumLocal(T, r), lista = r.banio ? ANCHOS_VENT.filter(x => x <= 1.0) : ANCHOS_VENT;
+ const i = lista.findIndex(x => x >= w.w - 1e-9), maxW = largoBorde(r, w.e) - 0.3;
+ const menor = i > 0 ? (() => { const g = S.vent; S.vent = { ...g, [`${S.tipo}.${r.id}`]: lista[i - 1] }; const T2 = tipologia(o); S.vent = g; const w2 = T2.wins.find(x => x.r === r.id); return w2 && w2.w < w.w - 1e-9; })() : false;
+ const noMenos = !menor ? (i <= 0 ? 'mínimo' : 'Más chica no cumple la iluminación o ventilación del código') : false;
+ const noMas = i < 0 || i >= lista.length - 1 || lista[i + 1] > maxW + 1e-9 ? 'No entra más ancha en ese muro' : false;
+ const det = il.clase === 'baño' ? `ventila ${f(il.kProy, 2)} m² (mín. ${f(il.kNec, 2)})` : `ilumina ${f(il.proy, 2)} m² (mín. ${f(il.nec, 2)}) · ventila ${f(il.kProy, 2)} (mín. ${f(il.kNec, 2)})`;
+ ventHtml = `<div class="casa-dim">
+ <div class="casa-dim-txt"><b><span class="casa-eje" aria-hidden="true">▭</span> Ventana ${f(w.w, 2)} × ${f(w.h, 2)} m</b><small>${det} · <b class="${il.ok ? 'ok' : 'no'}">${il.ok ? 'cumple' : 'no cumple'}</b>${w.auto ? ' · <em>agrandada para cumplir</em>' : ''}</small></div>
+ <div class="casa-dim-ctrl">
+ <button type="button" class="casa-opt" data-casa="vent:${r.id}|-1" aria-label="Ventana más chica" ${noMenos ? `aria-disabled="true" title="${esc(noMenos)}"` : ''}>−</button>
+ <output aria-live="polite">${f(w.w, 2)} m</output>
+ <button type="button" class="casa-opt" data-casa="vent:${r.id}|1" aria-label="Ventana más grande" ${noMas ? `aria-disabled="true" title="${esc(noMas)}"` : ''}>+</button>
+ </div>
+ </div>`;
+ }
  return `<div class="casa-local-ed" aria-live="polite">
  <div class="casa-local-tit"><div><b>${esc(nombreLocal(r))}</b><span>${f(a, 2)} × ${f(b, 2)} m · ${f(a * b)} m²${r.semi ? ' · semicubierto' : ''}</span></div><button type="button" class="casa-local-x" data-casa="local:" aria-label="Cerrar el editor de medidas">×</button></div>
  ${filas || '<p class="casa-muted">Este local se ajusta solo con las medidas de los locales vecinos.</p>'}
+ ${ventHtml}
  ${av.length ? `<p class="casa-aviso">${av.map(esc).join('<br>')}</p>` : ''}
- <p class="casa-muted casa-medidas-nota">Mínimos de referencia: Res. 59/2019 (pliego Pro.Cre.Ar). Si el código municipal pide otros, rige el municipal: <b>a validar</b> con el de Oberá.</p>
+ <p class="casa-muted casa-medidas-nota">Mínimos del Código de Edificación de Oberá (III.3.3 y III.3.5). Posadas: <b>a validar</b>. Los avisos del pliego Pro.Cre.Ar son referencia.</p>
  </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// (22/11-b) Mis casas: modelos guardados en la cuenta (tabla casa_modelos,
+// migración 041, RLS por usuario). Se guarda la configuración; los precios se
+// recalculan siempre con las APU del mes al abrirla.
+// ---------------------------------------------------------------------------
+let modelos = null, modelosCargando = false, modeloBorrar = null, modelosError = '';
+const CLAVES_VISTA = ['paso', 'grupo1', 'grupo2', 'grupo3', 'grupo4', 'local', 'verModelos', 'modelo'];
+function configActual() { const c = JSON.parse(JSON.stringify(S)); CLAVES_VISTA.forEach(k => delete c[k]); return c; }
+const hayCuenta = () => !!(ST.authState.user && ST.supabaseClient);
+async function cargarModelos() {
+ if (!hayCuenta()) { modelos = []; render(); return; }
+ modelosCargando = true; render();
+ try {
+ const { data, error } = await ST.supabaseClient.from('casa_modelos').select('id, nombre, resumen, updated_at').order('updated_at', { ascending: false }).limit(50);
+ if (error) throw error;
+ modelos = data || []; modelosError = '';
+ } catch (err) { modelos = []; modelosError = 'No se pudieron leer tus casas. ¿Ya corriste la migración 041?'; }
+ modelosCargando = false; render();
+}
+async function guardarModelo(comoNueva) {
+ if (!hayCuenta()) { ST.showToast('Ingresá a tu cuenta para guardar.'); return; }
+ const input = document.getElementById('casa-modelo-nombre');
+ const nombre = ((input && input.value.trim()) || (S.modelo && S.modelo.nombre) || 'Mi casa').slice(0, 120);
+ const fila = { nombre, config: configActual(), resumen: ultimo ? ultimo.guardar : null };
+ try {
+ if (S.modelo && S.modelo.id && !comoNueva) {
+ const { error } = await ST.supabaseClient.from('casa_modelos').update(fila).eq('id', S.modelo.id);
+ if (error) throw error;
+ S.modelo = { id: S.modelo.id, nombre };
+ } else {
+ const { data, error } = await ST.supabaseClient.from('casa_modelos').insert({ ...fila, user_id: ST.authState.user.id }).select('id').single();
+ if (error) throw error;
+ S.modelo = { id: data.id, nombre };
+ }
+ guardarEstado();
+ ST.showToast(`"${nombre}" quedó guardada en tu cuenta.`);
+ await cargarModelos();
+ } catch (err) { ST.showToast('No se pudo guardar la casa.'); render(); }
+}
+async function abrirModelo(id) {
+ try {
+ const { data, error } = await ST.supabaseClient.from('casa_modelos').select('id, nombre, config').eq('id', id).single();
+ if (error || !data) throw error || new Error('vacío');
+ const cfg = { ...DEFAULTS, ...(data.config || {}), paso: 1, verModelos: true, local: '', modelo: { id: data.id, nombre: data.nombre } };
+ try { localStorage.setItem(STORE_KEY, JSON.stringify(cfg)); } catch (e) { /* sin storage */ }
+ S = cfg; cargarEstado(); S.modelo = { id: data.id, nombre: data.nombre };
+ modeloBorrar = null; guardarEstado(); render();
+ ST.showToast(`Abriste "${data.nombre}".`);
+ } catch (err) { ST.showToast('No se pudo abrir esa casa.'); }
+}
+async function duplicarModelo(id) {
+ try {
+ const { data, error } = await ST.supabaseClient.from('casa_modelos').select('nombre, config, resumen').eq('id', id).single();
+ if (error || !data) throw error || new Error('vacío');
+ const { error: e2 } = await ST.supabaseClient.from('casa_modelos').insert({ user_id: ST.authState.user.id, nombre: `${data.nombre} (copia)`.slice(0, 120), config: data.config, resumen: data.resumen });
+ if (e2) throw e2;
+ await cargarModelos();
+ } catch (err) { ST.showToast('No se pudo duplicar.'); }
+}
+async function borrarModelo(id) {
+ if (modeloBorrar !== id) { modeloBorrar = id; render(); return; } // segundo toque para confirmar
+ try {
+ const { error } = await ST.supabaseClient.from('casa_modelos').delete().eq('id', id);
+ if (error) throw error;
+ if (S.modelo && S.modelo.id === id) { S.modelo = null; guardarEstado(); }
+ modeloBorrar = null;
+ await cargarModelos();
+ } catch (err) { ST.showToast('No se pudo borrar.'); }
+}
+function nuevaCasa() {
+ S = { ...DEFAULTS, dims: {}, vent: {}, artef: {}, aa: {}, k: { ...DEFAULTS.k }, verModelos: true, modelo: null };
+ guardarEstado(); render();
+}
+function onChange(e) {
+ const k = e.target && e.target.dataset ? e.target.dataset.casaK : null;
+ if (!k) return;
+ const v = Number(String(e.target.value).replace(',', '.'));
+ if (Number.isFinite(v) && v >= 0 && v <= 100) { S.k = { ...S.k, [k]: v }; guardarEstado(); }
+ render();
+}
+function modelosHtml(c, K, m2Eq, resumen) {
+ const fecha = (t) => { try { return new Date(t).toLocaleDateString('es-AR'); } catch (e) { return ''; } };
+ let cuerpo;
+ if (!hayCuenta()) cuerpo = '<p class="casa-muted">Ingresá a tu cuenta para guardar casas y volver a editarlas cuando quieras.</p>';
+ else cuerpo = `
+ <div class="casa-modelo-guardar">
+ <label for="casa-modelo-nombre">Nombre</label>
+ <input id="casa-modelo-nombre" type="text" maxlength="120" value="${esc(S.modelo ? S.modelo.nombre : resumen)}">
+ <button type="button" class="btn-computo" data-casa="mGuardar:actual">${S.modelo ? 'Guardar cambios' : 'Guardar'}</button>
+ ${S.modelo ? '<button type="button" class="btn-action-drawer btn-copy" data-casa="mGuardar:nueva">Guardar como otra</button>' : ''}
+ <button type="button" class="casa-link" data-casa="mNueva:1">Empezar una casa nueva</button>
+ </div>
+ ${modelosError ? `<p class="casa-aviso">${esc(modelosError)}</p>` : ''}
+ ${modelos === null || modelosCargando ? '<p class="casa-muted">Cargando tus casas…</p>' : modelos.length ? `<ul class="casa-modelos-lista">${modelos.map(m => `
+ <li class="${S.modelo && S.modelo.id === m.id ? 'on' : ''}">
+ <div><b>${esc(m.nombre)}</b><small>${m.resumen ? `${esc(m.resumen.desc || '')} · ${money(m.resumen.porM2 || 0)}/m² al guardar · ` : ''}${fecha(m.updated_at)}</small></div>
+ <div class="casa-modelo-acc">
+ <button type="button" class="casa-opt" data-casa="mAbrir:${esc(m.id)}">Abrir</button>
+ <button type="button" class="casa-opt" data-casa="mDup:${esc(m.id)}">Duplicar</button>
+ <button type="button" class="casa-opt${modeloBorrar === m.id ? ' peligro' : ''}" data-casa="mBorrar:${esc(m.id)}">${modeloBorrar === m.id ? '¿Borrar?' : 'Borrar'}</button>
+ </div>
+ </li>`).join('')}</ul>` : '<p class="casa-muted">Todavía no guardaste ninguna casa.</p>'}`;
+ return `<section class="casa-card casa-modelos">
+ <div class="casa-card-head"><h3>Mis casas</h3><span class="casa-muted">Se guarda cómo es la casa; los precios se recalculan con las APU del mes al abrirla.</span></div>
+ ${cuerpo}
+ </section>`;
 }
 
 function render() {
@@ -1095,10 +1683,13 @@ function render() {
  const o = orientacion();
  const T = tipologia(o);
  // (21/11-j) el croquis va a la izquierda y las opciones en una columna de 380 px (desde 900 px)
- const colDer = ancho >= 900 ? ancho - 398 - 36 : ancho - 28;
+ const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16; // (22/11) en pantallas grandes el rem crece
+ const colDer = ancho >= 900 ? ancho - 23.75 * rem - 18 - 36 : ancho - 28;
  // en el celular la planta no baja de 13 px/m: si no entra, se desliza de costado (casa-scroll)
- const SC = Math.max(13, Math.min(30, (colDer - 64) / 25));
+ const SC = Math.max(13, Math.min(36, (colDer - 64) / 25));
  const P = plano(o, T, SC);
+ const E = instalElec(T, P.med);
+ const K = kFactor();
  const fach = fachada(o, T, ancho >= 900 ? Math.max(260, Math.min(colDer - 260, 460)) : Math.min(colDer - 10, 420));
  const lineas = computo(o, T, P.med, fach);
  const c = costear(lineas);
@@ -1106,7 +1697,7 @@ function render() {
  const m2Eq = P.med.m2Cub + P.med.semi * 0.5;
  const tipoNombre = { lineal: 'Lineal', compacta: 'Compacta', L: 'En L' }[S.tipo];
  const resumen = `${tipoNombre} · ${S.dorm} dormitorios · ${f(P.med.m2Cub)} m² cubiertos${P.med.semi ? ' + ' + f(P.med.semi) + ' semicubiertos' : ''}`;
- ultimo = { lineas, resumen };
+ ultimo = { lineas, resumen, guardar: { desc: resumen, m2: Math.round(m2Eq * 10) / 10, total: Math.round(c.total), k: K, totalK: Math.round(c.total * K), porM2: Math.round(c.total * K / m2Eq) } };
 
  // Verificación IRAM 11605
  const km = kMuro(S.muro), kt = TECHOS_AIS[S.aisTecho].k;
@@ -1130,18 +1721,19 @@ function render() {
 
  const nMod = paramsTipo().filter(p => D(p.k, p.def) !== p.def).length + (S.altura !== DEFAULTS.altura ? 1 : 0);
  // (21/11-i) Pasos: 1 Terreno y casa · 2 Cómo se construye · 3 Presupuesto
- const PASOS = [[1, 'Terreno y casa'], [2, 'Cómo se construye'], [3, 'Presupuesto']];
- const paso = [1, 2, 3].includes(S.paso) ? S.paso : 1;
+ const PASOS = [[1, 'Terreno y casa'], [2, 'Cómo se construye'], [3, 'Instalaciones'], [4, 'Terminaciones'], [5, 'Presupuesto']];
+ const paso = [1, 2, 3, 4, 5].includes(S.paso) ? S.paso : 1;
  const stepper = `
  <nav class="casa-pasos" aria-label="Pasos de Armá tu casa">
- <div class="casa-pasos-tabs">${PASOS.map(([n, t]) => `<button type="button" class="casa-paso${n === paso ? ' on' : ''}${n < paso ? ' hecho' : ''}" data-casa="paso:${n}" aria-current="${n === paso ? 'step' : 'false'}"><span>${n}</span>${esc(t)}</button>`).join('')}</div>
- <div class="casa-pasos-total"><span>Costo directo estimado</span><strong>${money(c.total)}</strong><small>${money(c.total / m2Eq)} por m² · ${f(m2Eq)} m²</small></div>
+ <div class="casa-pasos-tabs">${PASOS.map(([n, t]) => `<button type="button" class="casa-paso${n === paso ? ' on' : ''}${n < paso ? ' hecho' : ''}" data-casa="paso:${n}" aria-current="${n === paso ? 'step' : 'false'}" aria-label="Paso ${n}: ${esc(t)}"><span>${n}</span><em class="casa-paso-largo">${esc(t)}</em><em class="casa-paso-corto" aria-hidden="true">${esc(['Casa', 'Obra', 'Instal.', 'Termin.', 'Costo'][n - 1])}</em></button>`).join('')}</div>
+ <div class="casa-pasos-total"><span>Precio estimado con K ${f(K, 3)}</span><strong>${money(c.total * K)}</strong><small>${money(c.total * K / m2Eq)} por m² · ${f(m2Eq)} m²</small></div>
  </nav>`;
  const navPie = `
  <div class="casa-pasos-pie">
  ${paso > 1 ? `<button type="button" class="btn-action-drawer btn-copy" data-casa="paso:${paso - 1}">← ${esc(PASOS[paso - 2][1])}</button>` : '<span></span>'}
- ${paso < 3 ? `<button type="button" class="btn-computo" data-casa="paso:${paso + 1}">Siguiente: ${esc(PASOS[paso][1])} →</button>` : '<span></span>'}
+ ${paso < PASOS.length ? `<button type="button" class="btn-computo" data-casa="paso:${paso + 1}">Siguiente: ${esc(PASOS[paso][1])} →</button>` : '<span></span>'}
  </div>`;
+ const AGUA_TXT = { 'termo-elec': 'Termotanque eléctrico', 'termo-gas': 'Termotanque a gas', calefon: 'Calefón a gas', solar: 'Termotanque solar con apoyo', sin: 'Sin agua caliente' };
  const nombreAguas = { '1': 'a 1 agua', '2': 'a 2 aguas', '4': 'a 4 aguas', plana: 'plano' }[S.techo];
  const fila = (k, v) => `<li><span>${esc(k)}</span><b>${esc(v)}</b></li>`;
  const banosTxt = { no: 'Un baño', pasillo: 'Dos baños (al pasillo)', suite: 'Dos baños (uno en suite)' }[S.bano2] || 'Un baño';
@@ -1155,6 +1747,12 @@ function render() {
  <div><h4>Cómo se construye <button type="button" class="casa-link" data-casa="paso:2">Cambiar</button></h4><ul>
  ${fila('Fundación', { platea: 'Platea', zapataH: 'Zapata corrida de hormigón', zapataL: 'Cimiento de ladrillo común' }[S.fundacion])}${fila('Muro exterior', `${BASES_MURO[S.muroBase].n} · ${AIS_MURO[S.muro].n.toLowerCase()}`)}${fila('Tabiques', { ladrillo: 'Ladrillo hueco 12', durlock: 'Placa de yeso', madera: 'Madera' }[S.tabique])}${fila('Techo', S.techo === 'plana' ? 'Losa plana' : `${S.techoMat === 'teja' ? 'Teja' : 'Chapa'} ${nombreAguas} · estructura ${S.estructTecho === 'madera' ? 'de madera' : 'metálica'}`)}${fila('Aislación del techo', TECHOS_AIS[S.aisTecho].n)}${fila('Cielorraso', S.techo === 'plana' ? 'Yeso aplicado' : `${{ machimbre: 'Machimbre', pvc: 'PVC', durlock: 'Placa de yeso' }[S.cieloMat]} · ${S.cielo === 'suspendido' ? 'suspendido' : 'sigue la pendiente'}`)}${fila('Carpinterías', `${{ aluminio: 'Aluminio', pvc: 'PVC', madera: 'Madera' }[S.abert]}${S.dvh ? ' con DVH' : ''}`)}${fila('Fachada', { revoque: 'Clásica', ladrillo: 'Ladrillo visto', contemporanea: 'Contemporánea' }[S.fachada])}${fila('Confort', `Nivel ${S.nivel} (IRAM 11605)`)}
  </ul></div>
+ <div><h4>Terminaciones <button type="button" class="casa-link" data-casa="paso:4">Cambiar</button></h4><ul>
+ ${fila('Pisos', { ceramico: 'Cerámico', porcelanato: 'Porcelanato', flotante: 'Flotante (húmedos en cerámico)', alisado: 'Cemento alisado' }[S.piso] || 'Cerámico')}${fila('Baños', `${S.revMat === 'porcelanato' ? 'Porcelanato' : 'Cerámico'} ${{ h150: 'hasta 1,50 m', h210: 'hasta 2,10 m', techo: 'hasta el techo' }[S.revBano]}`)}${fila('Pintura', S.pintura === 'enduido' ? 'Enduído y látex' : 'Látex')}${fila('Cocina', { no: 'Sin muebles', bajo: 'Bajo mesada', completo: 'Bajo mesada y alacena' }[S.mueblesCocina])}${fila('Placards', { no: 'No', frente: 'Frente e interior', completo: 'Completos' }[S.placard])}${fila('Exterior', [S.cercoFrente !== 'no' ? 'cerco de frente' : '', S.cercoLat !== 'no' ? 'cerco perimetral' : '', S.porton ? 'portón' : '', S.parrilla ? 'parrilla' : ''].filter(Boolean).join(', ') || 'sin cercos')}
+ </ul></div>
+ <div><h4>Instalaciones <button type="button" class="casa-link" data-casa="paso:3">Cambiar</button></h4><ul>
+ ${fila('Agua caliente', AGUA_TXT[S.agua] || 'Termotanque eléctrico')}${fila('Cocción', S.coccion === 'electrica' ? 'Eléctrica' : 'A gas')}${fila('Electricidad', `Grado ${E.grado.toLowerCase()} · ${E.iug} luces · ${E.tug} tomas`)}${fila('Circuitos', `${E.cIug + E.cTug} de uso general${E.tue ? ` + ${E.tue} especiales` : ''}`)}${fila('Iluminación', LUMINARIAS[S.luminarias] || 'plafones LED')}${fila('Aire acondicionado', E.aa.length ? E.aa.map(l => nombreLocalCorto(l.r)).join(', ') : 'no')}${S.ventTecho ? fila('Ventiladores', 'en dormitorios') : ''}${S.bomba ? fila('Bomba', 'presurizadora') : ''}${S.fv ? fila('Paneles solares', `${f(S.fv, 1)} kWp`) : ''}${S.lluvia ? fila('Agua de lluvia', 'tanque de 2000 l') : ''}
+ </ul></div>
  </div>
  </section>`;
  // (21/11-j) Croquis siempre a la vista + opciones en solapas cortas
@@ -1162,10 +1760,10 @@ function render() {
  const seguir = (acc, items, act) => {
  const i = items.findIndex(x => x[0] === act);
  if (i < items.length - 1) return `<button type="button" class="casa-seguir" data-casa="${acc}:${items[i + 1][0]}">Seguir con ${esc(items[i + 1][1])} →</button>`;
- return paso < 3 ? `<button type="button" class="casa-seguir fin" data-casa="paso:${paso + 1}">Siguiente: ${esc(PASOS[paso][1])} →</button>` : '';
+ return paso < PASOS.length ? `<button type="button" class="casa-seguir fin" data-casa="paso:${paso + 1}">Siguiente: ${esc(PASOS[paso][1])} →</button>` : '';
  };
  const consejo = `<div class="casa-consejo"><div class="casa-brujula chica" role="img" aria-label="Norte en la planta"><div class="casa-aguja" style="transform:rotate(${o.aguja}deg)"><i></i><b>N</b></div></div><div><b>${esc(o.titulo)}</b><br>${esc(o.texto)}</div></div>`;
- const totalMovil = `<span class="casa-vis-total casa-solo-movil">${money(c.total)} · ${f(m2Eq)} m²</span>`;
+ const totalMovil = `<span class="casa-vis-total casa-solo-movil">${money(c.total * K / m2Eq)}/m² · ${f(m2Eq)} m²</span>`;
  let cuerpo;
  if (paso === 1) {
  const G1 = [['terreno', 'Terreno'], ['casa', 'La casa']];
@@ -1211,6 +1809,7 @@ function render() {
  ${btn('toggle', 'galeria', S.galeria, '<b>Galería</b><small>Semicubierta</small>')}
  ${btn('toggle', 'cochera', S.cochera, '<b>Cochera</b><small>Semicubierta, 14,5 m²</small>')}
  </div>
+ <div class="casa-lista">${(() => { const A = ampliacion(T); return btn('toggle', 'ampliacion', S.ampliacion && A.entra, `<b>Casa que crece</b><small>${A.entra ? `Dejar previsto un dormitorio más (≈ ${f(A.m2)} m²)` : 'No entra otro dormitorio en el lote'}</small>`, A.entra ? '' : 'aria-disabled="true" title="No entra otro dormitorio en el lote de 25 m"'); })()}</div>
  <label class="casa-label">Medidas</label>
  <p class="casa-tip"><b>Tocá un local en el croquis</b> para cambiar sus medidas.</p>
  <div class="casa-medidas">
@@ -1243,15 +1842,12 @@ function render() {
  ${chk('Muros, invierno', km, mxM.inv)}${chk('Muros, verano', km, mxM.ver)}${chk('Techo, invierno', kt, mxT.inv)}${chk('Techo, verano', kt, mxT.ver)}
  <p class="casa-muted">${rFalta > 0 ? `Al muro le falta R ${f(rFalta, 2)} m²K/W (≈ ${f(rFalta * 3.5, 1)} cm de EPS).` : 'El muro cumple con margen.'} Absorción: muro ${f(ab.muro, 2)}, techo ${f(ab.techo, 2)}.</p>
  </div>`;
+ const lzT = luzTecho(T);
  const sinLosa = (extra = '') => S.techo === 'plana' ? `aria-disabled="true"${extra}` : '';
  const OPC = {
- fund: ['Fundación y piso', `
+ fund: ['Fundación', `
  <div class="casa-grid3">${[['platea', 'Platea', 'Como IPRODHA'], ['zapataH', 'Zapata corrida', 'De hormigón'], ['zapataL', 'Cimiento', 'De ladrillo común']].map(([k, n, d]) => btn('fundacion', k, S.fundacion === k, `<b>${n}</b><small>${d}</small>`)).join('')}</div>
- <label class="casa-label">Piso</label>
- <div class="casa-grid2">
- ${btn('piso', 'ceramico', S.piso === 'ceramico', '<b>Cerámico</b>')}
- ${btn('piso', 'porcelanato', S.piso === 'porcelanato', '<b>Porcelanato</b>')}
- </div>`, corteFundacion],
+ <p class="casa-muted">El piso se elige en el paso Terminaciones.</p>`, corteFundacion],
  muro: ['Muro exterior', `
  <div class="casa-grid3">${ORDEN_BASE.map(k => { const kb = kMuro('base', k), ok = kb <= Math.min(kmax('muro', 'C').inv, kmax('muro', 'C').ver); return btn('muroBase', k, S.muroBase === k, `<b>${esc(BASES_MURO[k].n.replace('Ladrillo ', '').replace(/^./, ch => ch.toUpperCase()))}</b><small>Ladrillo · K ${f(kb, 2)}${ok ? '' : ' · no llega a C'}</small>`); }).join('')}</div>
  <label class="casa-label">Aislación</label>
@@ -1267,22 +1863,23 @@ function render() {
  ${btn('techoMat', 'teja', S.techoMat === 'teja' && S.techo !== 'plana', '<b>Teja cerámica</b><small>Desde 30 %</small>', sinLosa())}
  </div>
  <label class="casa-label">Estructura</label>
- <div class="casa-grid2">${[['metalica', 'Metálica', 'Correas de chapa'], ['madera', 'Madera', 'Tirantes y clavaderas']].map(([k, n, d]) => btn('estructTecho', k, S.estructTecho === k && S.techo !== 'plana', `<b>${n}</b><small>${d}</small>`, sinLosa(' title="El techo plano es una losa"'))).join('')}</div>
+ <div class="casa-grid2">${[['metalica', 'Metálica', 'Perfiles de chapa'], ['madera', 'Madera', 'Pino o eucalipto']].map(([k, n, d]) => btn('estructTecho', k, S.estructTecho === k && S.techo !== 'plana', `<b>${n}</b><small>${d}</small>`, sinLosa(' title="El techo plano es una losa"'))).join('')}</div>
+ <div class="casa-grid2">${[['tirantes', S.estructTecho === 'madera' ? 'Tirantes' : 'Correas', 'Apoyan en los muros'], ['cerchas', 'Cerchas', S.estructTecho === 'madera' ? 'Cabriadas, luces grandes' : 'Reticuladas, luces grandes']].map(([k, n, d]) => btn('sistTecho', k, S.sistTecho === k && S.techo !== 'plana', `<b>${n}${lzT.recom === k ? ' <i class="casa-recom">recomendado</i>' : ''}</b><small>${d}</small>`, sinLosa())).join('')}</div>
+ ${S.techo !== 'plana' ? `<p class="casa-muted">Luz entre apoyos: <b>${f(lzT.luz, 2)} m</b>${!lzT.portantes && S.estructTecho === 'madera' ? ' (los tabiques livianos no son portantes)' : ''}. Hasta unos 4 m alcanzan ${S.estructTecho === 'madera' ? 'tirantes' : 'correas'}; más que eso conviene cerchas o sumar apoyos (a validar con cálculo).</p>` : ''}
  <label class="casa-label">Aislación</label>
  <div class="casa-grid2">${ORDEN_TECHO.map(id => btn('aisTecho', id, S.aisTecho === id, `<b>${esc(TECHOS_AIS[id].n)}</b><small>K ${f(TECHOS_AIS[id].k, 2)} (a validar)</small>`)).join('')}</div>
- <label class="casa-label">Cielorraso${S.techo === 'plana' ? ' · bajo losa va yeso aplicado' : ''}</label>
- <div class="casa-grid2">${[['pendiente', 'Sigue la pendiente', 'Bajo la estructura'], ['suspendido', 'Suspendido', 'Horizontal']].map(([k, n, d]) => btn('cielo', k, S.cielo === k && S.techo !== 'plana', `<b>${n}</b><small>${d}</small>`, sinLosa())).join('')}</div>
- <div class="casa-grid3">${[['machimbre', 'Machimbre', 'Madera'], ['pvc', 'PVC', 'Lama'], ['durlock', 'Placa de yeso', 'Tipo Durlock']].map(([k, n, d]) => btn('cieloMat', k, S.cieloMat === k && S.techo !== 'plana', `<b>${n}</b><small>${d}</small>`, sinLosa())).join('')}</div>`, corteTecho],
+ <p class="casa-muted">El cielorraso se elige en el paso Terminaciones.</p>`, () => corteTecho() + esquemaTecho(T)],
  abert: ['Carpinterías', `
  <div class="casa-grid3">${[['aluminio', 'Aluminio', 'Puerta de chapa'], ['pvc', 'PVC', ''], ['madera', 'Madera', '']].map(([k, n, d]) => btn('abert', k, S.abert === k, `<b>${n}</b>${d ? `<small>${d}</small>` : ''}`)).join('')}</div>
- <div class="casa-lista">${btn('toggle', 'dvh', S.dvh, '<b>Doble vidriado hermético</b><small>Menos pérdidas en invierno</small>')}</div>`, corteCarpinteria],
+ <div class="casa-lista">${btn('toggle', 'dvh', S.dvh, '<b>Doble vidriado hermético</b><small>Menos pérdidas en invierno</small>')}</div>
+ ${planillaHtml(T)}`, corteCarpinteria],
  fachada: ['Fachada', `
  <div class="casa-grid3">${[['revoque', 'Clásica', 'Revoque claro'], ['ladrillo', 'Ladrillo visto', 'Sin revoque'], ['contemporanea', 'Contemporánea', 'Madera y negro']].map(([k, n, d]) => btn('fachada', k, S.fachada === k, `<b>${n}</b><small>${d}</small>`)).join('')}</div>
  <p class="casa-muted">El color de la fachada cambia cuánto sol absorben muros y techo (IRAM 11605).</p>`, null],
  confort: ['Confort térmico', `
  <div class="casa-grid3">${[['C', 'Mínimo'], ['B', 'Recomendado'], ['A', 'Óptimo']].map(([k, n]) => btn('nivel', k, S.nivel === k, `<b>${n}</b><small>Nivel ${k}</small>`)).join('')}</div>
  <p class="casa-muted">El nivel elige la aislación de muros y techo que hace falta en ${esc(S.ciudad)} (IRAM 11605). Después la podés ajustar en Muros y Techo.</p>
- <div class="casa-lista">${btn('toggle', 'solar', S.solar, '<b>Termotanque solar</b><small>Agua caliente con energía renovable</small>')}</div>
+ <p class="casa-muted">El agua caliente (también solar) se elige en el paso Instalaciones.</p>
  <div class="casa-solo-movil casa-verif-movil">${verifHtml}</div>`, null]
  };
  const [titulo, html, corteFn] = OPC[g2];
@@ -1311,9 +1908,156 @@ ${verifHtml}
  </div>
  </div>`;
  }
+ else if (paso === 3) {
+ const G3 = [['agua', 'Agua y baños'], ['elec', 'Electricidad'], ['equipo', 'Equipamiento']];
+ const g3 = G3.some(x => x[0] === S.grupo3) ? S.grupo3 : 'agua';
+ const Pi = plano(o, T, SC, g3, E);
+ const banosR = T.rooms.filter(r => r.banio);
+ const OPC3 = {
+ agua: ['Agua y baños', `
+ <label class="casa-label">Agua caliente</label>
+ <div class="casa-grid2">${[['termo-elec', 'Termotanque eléctrico', ''], ['termo-gas', 'Termotanque a gas', ''], ['calefon', 'Calefón a gas', 'Instantáneo'], ['solar', 'Termotanque solar', 'Con apoyo eléctrico']].map(([k, n, d]) => btn('agua', k, S.agua === k, `<b>${n}</b>${d ? `<small>${d}</small>` : ''}`)).join('')}</div>
+ ${banosR.map(r => { const a = artefactosBano(r.id), m = minimoBano(r.id), A = (r.u1 - r.u0) * (r.v1 - r.v0); return `
+ <label class="casa-label">${esc(r.n)} <span class="casa-muted">· ${f(A)} m² (el código pide ${f(m.m2, 2)} m²)</span></label>
+ <div class="casa-grid2">${btn('artef', `${r.id}|ducha`, !a.banera, '<b>Ducha</b>')}${btn('artef', `${r.id}|banera`, a.banera, '<b>Bañera</b>')}</div>
+ <div class="casa-grid2">${btn('artef', `${r.id}|bidet`, a.bidet, '<b>Bidé</b><small>Inodoro y lavatorio van siempre</small>')}${btn('artef', `${r.id}|vanitory`, a.vanitory, '<b>Vanitory</b><small>Mueble bajo el lavatorio</small>')}</div>`; }).join('')}
+ <label class="casa-label">Cocina</label>
+ <div class="casa-grid2">${btn('coccion', 'gas', S.coccion !== 'electrica', '<b>A gas</b><small>Envasado o red</small>')}${btn('coccion', 'electrica', S.coccion === 'electrica', '<b>Eléctrica</b><small>Anafe y horno</small>')}</div>
+ <div class="casa-lista">${btn('toggle', 'bomba', S.bomba, '<b>Bomba presurizadora</b><small>Más presión en duchas y canillas</small>')}</div>
+ ${(() => { const TQ = tanque(), PL = pluviales(T, P.med, fach); return `
+ <label class="casa-label">Tanque y lluvia</label>
+ <p class="casa-muted">Tanque de reserva de <b>${TQ.litros} l</b> (${TQ.personas} personas × ${TQ.dot} l por día, a validar con el prestador). Techo de ${f(PL.area)} m²: ${PL.canaleta ? `${f(PL.canaleta)} ml de canaleta y ` : ''}${PL.bajadas} bajadas de Ø 100. Las canaletas van a 0,85 m o más del eje medianero (Ord. Oberá 2557).</p>
+ <div class="casa-lista">${btn('toggle', 'lluvia', S.lluvia, `<b>Juntar agua de lluvia</b><small>Tanque de 2000 l para riego y lavado (≈ ${Math.round(PL.area * 1.8 * 0.8)} m³ al año)</small>`)}</div>`; })()}
+ <p class="casa-muted">Mínimo por vivienda: inodoro, pileta de lavar y ducha (CE Oberá III.6.2.1). El área del baño se verifica con la tabla III.3.3.2 según los artefactos.</p>`],
+ elec: ['Electricidad', `
+ <p class="casa-muted">Superficie ${f(E.sup)} m² (cubierta + 50 % semicubierta): grado de electrificación <b>${esc(E.grado.toLowerCase())}</b> (AEA 90364-7-770).</p>
+ <div class="casa-grid2">${btn('elec', 'minimo', S.elec !== 'completo', '<b>Reglamentaria</b><small>Bocas mínimas AEA</small>')}${btn('elec', 'completo', S.elec === 'completo', '<b>Más completa</b><small>+1 toma por ambiente</small>')}</div>
+ <table class="casa-mini-tabla"><thead><tr><th>Local</th><th>Luz</th><th>Tomas</th></tr></thead><tbody>
+ ${E.locales.map(l => `<tr><td>${esc(l.nombre)}</td><td>${l.iug + (l.vt ? 1 : 0)}</td><td>${l.tug}${l.mod ? ' + módulos' : ''}${l.aa ? ' + AA' : ''}</td></tr>`).join('')}
+ <tr><td>Exterior</td><td>${E.exteriores}</td><td>—</td></tr>
+ </tbody><tfoot><tr><td>Total</td><td>${E.iug}</td><td>${E.tug}</td></tr></tfoot></table>
+ <p class="casa-muted">Circuitos de uso general: <b>${E.cIug} de luz y ${E.cTug} de tomas</b> (mínimo ${E.minC} para el grado ${esc(E.grado.toLowerCase())}, hasta 15 bocas cada uno)${E.tue ? `, más <b>${E.tue} de uso especial</b> (aire, termotanque, cocina o bomba)` : ''}.</p>
+ <label class="casa-label">Paneles solares conectados a la red</label>
+ <div class="casa-grid4">${[[0, 'No'], [1.5, '1,5 kWp'], [3, '3 kWp'], [5, '5 kWp']].map(([k, n]) => btn('fv', k, Number(S.fv) === k, n)).join('')}</div>
+ <p class="casa-muted">${S.fv ? `Generarían ≈ ${Math.round(S.fv * 1350).toLocaleString('es-AR')} kWh al año (a validar). La conexión a la red la habilita la distribuidora.` : 'La puesta a tierra (jabalina y conductor) va siempre: es obligatoria.'}</p>
+ <label class="casa-label">Artefactos de iluminación</label>
+ <div class="casa-grid3">${[['plafon', 'Plafones', 'LED'], ['spots', 'Spots', 'Embutidos'], ['colgantes', 'Colgantes', 'Y apliques']].map(([k, n, d]) => btn('luminarias', k, S.luminarias === k, `<b>${n}</b><small>${d}</small>`)).join('')}</div>`],
+ equipo: ['Equipamiento', `
+ <p class="casa-tip"><b>Tocá un ambiente en el croquis</b> para ponerle o sacarle aire acondicionado.</p>
+ <div class="casa-lista">${E.locales.filter(l => l.r && !l.r.semi && !l.r.noLabel && !l.r.banio && !l.r.cocina).map(l => { const A = (l.r.u1 - l.r.u0) * (l.r.v1 - l.r.v0); return btn('aa', l.r.id, l.aa, `<b>Aire en ${esc(l.nombre)}</b><small>Split de ${frigorias(A)} frigorías (≈ ${f(A)} m², estimación a validar)</small>`); }).join('')}</div>
+ <div class="casa-lista">${btn('toggle', 'ventTecho', S.ventTecho, '<b>Ventiladores de techo</b><small>En los dormitorios, con su boca de luz</small>')}</div>
+ <p class="casa-muted">Cada aire lleva su propio circuito de uso especial y su desagüe.</p>`]
+ };
+ const [tit3, html3] = OPC3[g3];
+ const ley3 = { agua: '<span class="casa-ley-it"><span class="casa-sim chip agua">IN</span>Inodoro</span><span class="casa-ley-it"><span class="casa-sim chip agua">LV</span>Lavatorio</span><span class="casa-ley-it"><span class="casa-sim chip agua">DU</span>Ducha / BA bañera</span><span class="casa-ley-it"><span class="casa-sim chip agua">BI</span>Bidé</span><span class="casa-ley-it"><span class="casa-sim chip calor">TE</span>Agua caliente</span>', elec: '<span class="casa-ley-it"><span class="casa-sim iug"></span>Luz (IUG)</span><span class="casa-ley-it"><span class="casa-sim tug"></span>Toma (TUG)</span><span class="casa-ley-it"><span class="casa-sim mod"></span>Módulos cocina</span><span class="casa-ley-it"><span class="casa-sim chip aa">AA</span>Aire (uso especial)</span>', equipo: '<span class="casa-ley-it"><span class="casa-sim chip aa">AA</span>Aire acondicionado</span><span class="casa-ley-it"><span class="casa-sim chip vt">V</span>Ventilador de techo</span>' }[g3];
+ cuerpo = `
+ <div class="casa-layout v2">
+ <div class="casa-visual">
+ <section class="casa-card">
+ <div class="casa-card-head"><h3>Instalaciones en planta</h3><span class="casa-muted casa-solo-esc">Grado ${esc(E.grado.toLowerCase())} · ${E.iug} luces · ${E.tug} tomas · ${E.cIug + E.cTug + E.tue} circuitos</span>${totalMovil}</div>
+ <div class="casa-scroll">${Pi.html}</div>
+ <p class="casa-muted casa-leyenda">${ley3}<span>Esquema orientativo, no es un plano de instalación.</span></p>
+ </section>
+ </div>
+ <div class="casa-opciones">
+ ${tabsGrupo('grupo3', G3, g3)}
+ <section class="casa-card">
+ <h3>${esc(tit3)}</h3>
+ ${html3}
+ ${seguir('grupo3', G3, g3)}
+ </section>
+ </div>
+ </div>`;
+ }
+ else if (paso === 4) {
+ const G4 = [['pisos', 'Pisos'], ['paredes', 'Paredes'], ['cielos', 'Cielorrasos'], ['muebles', 'Muebles fijos'], ['exterior', 'Exterior']];
+ const g4 = G4.some(x => x[0] === S.grupo4) ? S.grupo4 : 'pisos';
+ const Pt = plano(o, T, SC, 'term', E);
+ const losa = S.techo === 'plana';
+ const OPC4 = {
+ pisos: ['Pisos', `
+ <div class="casa-grid2">${[['ceramico', 'Cerámico', 'El más usado'], ['porcelanato', 'Porcelanato', 'Más duro, pieza grande'], ['flotante', 'Flotante', 'Locales secos; baños y cocina en cerámico'], ['alisado', 'Cemento alisado', 'O microcemento']].map(([k, n, d]) => btn('piso', k, S.piso === k, `<b>${n}</b><small>${d}</small>`)).join('')}</div>
+ <label class="casa-label">Galería, cochera y vereda</label>
+ <div class="casa-grid2">${btn('pisoExt', 'alisado', S.pisoExt !== 'ceramico', '<b>Cemento alisado</b>')}${btn('pisoExt', 'ceramico', S.pisoExt === 'ceramico', '<b>Cerámico exterior</b><small>Antideslizante</small>')}</div>`, corteFundacion],
+ paredes: ['Paredes', `
+ <label class="casa-label">Baños</label>
+ <div class="casa-grid3">${[['h150', 'Hasta 1,50 m'], ['h210', 'Hasta 2,10 m'], ['techo', 'Hasta el techo']].map(([k, n]) => btn('revBano', k, S.revBano === k, `<b>${n}</b>`)).join('')}</div>
+ <label class="casa-label">Cocina</label>
+ <div class="casa-grid2">${btn('revCocina', 'mesada', S.revCocina !== 'h150', '<b>Sobre la mesada</b><small>Franja de 0,60 m</small>')}${btn('revCocina', 'h150', S.revCocina === 'h150', '<b>Hasta 1,50 m</b>')}</div>
+ <label class="casa-label">Material del revestimiento</label>
+ <div class="casa-grid2">${btn('revMat', 'ceramico', S.revMat !== 'porcelanato', '<b>Cerámico</b>')}${btn('revMat', 'porcelanato', S.revMat === 'porcelanato', '<b>Porcelanato</b>')}</div>
+ <label class="casa-label">Pintura interior</label>
+ <div class="casa-grid2">${btn('pintura', 'latex', S.pintura !== 'enduido', '<b>Látex</b><small>Sobre revoque fino</small>')}${btn('pintura', 'enduido', S.pintura === 'enduido', '<b>Enduído y látex</b><small>Terminación más lisa</small>')}</div>
+ <p class="casa-muted">La fachada se elige en Cómo se construye.</p>`, null],
+ cielos: ['Cielorrasos', losa ? '<p class="casa-muted">Con techo plano, bajo la losa va yeso aplicado.</p>' : `
+ <div class="casa-grid2">${[['pendiente', 'Sigue la pendiente', 'Bajo la estructura'], ['suspendido', 'Suspendido', 'Horizontal']].map(([k, n, d]) => btn('cielo', k, S.cielo === k, `<b>${n}</b><small>${d}</small>`)).join('')}</div>
+ <div class="casa-grid3">${[['machimbre', 'Machimbre', 'Madera'], ['pvc', 'PVC', 'Lama'], ['durlock', 'Placa de yeso', 'Tipo Durlock']].map(([k, n, d]) => btn('cieloMat', k, S.cieloMat === k, `<b>${n}</b><small>${d}</small>`)).join('')}</div>
+ ${S.sistTecho === 'cerchas' ? '<p class="casa-muted">Con cerchas el cielorraso va horizontal, bajo el tirante inferior.</p>' : ''}`, corteTecho],
+ muebles: ['Muebles fijos', `
+ <label class="casa-label">Cocina <span class="casa-muted">· ≈ ${f(mlMuebleCocina(T), 2)} ml</span></label>
+ <div class="casa-grid3">${[['no', 'Sin muebles', ''], ['bajo', 'Bajo mesada', 'Con mesada'], ['completo', 'Bajo y alacena', '']].map(([k, n, d]) => btn('mueblesCocina', k, S.mueblesCocina === k, `<b>${n}</b>${d ? `<small>${d}</small>` : ''}`)).join('')}</div>
+ <label class="casa-label">Placards en los dormitorios</label>
+ <div class="casa-grid3">${[['no', 'Sin placard', ''], ['frente', 'Frente e interior', 'Básico'], ['completo', 'Completo', 'Con cajonera']].map(([k, n, d]) => btn('placard', k, S.placard === k, `<b>${n}</b>${d ? `<small>${d}</small>` : ''}`)).join('')}</div>
+ <p class="casa-muted">El vanitory del baño se elige en Instalaciones.</p>`, null],
+ exterior: ['Exterior', `
+ <label class="casa-label">Cerco de frente</label>
+ <div class="casa-grid3">${[['no', 'Sin cerco'], ['reja', 'Reja'], ['muro', 'Muro bajo y reja']].map(([k, n]) => btn('cercoFrente', k, S.cercoFrente === k, `<b>${n}</b>`)).join('')}</div>
+ <label class="casa-label">Laterales y fondo</label>
+ <div class="casa-grid3">${[['no', 'Sin cerco'], ['tejido', 'Tejido'], ['muro', 'Muro de bloques']].map(([k, n]) => btn('cercoLat', k, S.cercoLat === k, `<b>${n}</b>`)).join('')}</div>
+ <div class="casa-grid2">${btn('toggle', 'porton', S.porton, `<b>Portón</b><small>${S.cochera ? 'Vehicular' : 'Peatonal'}</small>`)}${btn('toggle', 'parrilla', S.parrilla, '<b>Parrilla</b><small>De ladrillo con campana</small>')}</div>`, null]
+ };
+ const [tit4, html4, fig4] = OPC4[g4];
+ cuerpo = `
+ <div class="casa-layout v2">
+ <div class="casa-visual">
+ <section class="casa-card${fig4 ? ' casa-solo-esc' : ''}">
+ <div class="casa-card-head"><h3>Planta en el lote</h3><span class="casa-muted casa-solo-esc">${esc(resumen)}</span>${totalMovil}</div>
+ <div class="casa-scroll">${Pt.html}</div>
+ </section>
+ ${fig4 ? `<section class="casa-card casa-corte-card"><div class="casa-card-head"><h3>Corte · ${esc(tit4.toLowerCase())}</h3><span class="casa-muted casa-solo-esc">Esquema orientativo</span>${totalMovil}</div>${fig4()}</section>` : ''}
+ </div>
+ <div class="casa-opciones">
+ ${tabsGrupo('grupo4', G4, g4)}
+ <section class="casa-card">
+ <h3>${esc(tit4)}</h3>
+ ${html4}
+ ${seguir('grupo4', G4, g4)}
+ </section>
+ </div>
+ </div>`;
+ }
  else cuerpo = `
  <div class="casa-paso3">
  ${resumenElecciones}
+ ${(() => {
+ const CR = cronograma(lineas, K), maxMes = Math.max(...CR.porMes, 1);
+ let acum = 0;
+ return `
+ <section class="casa-card casa-k">
+ <div class="casa-card-head"><h3>Precio por m² con Factor K</h3><span class="casa-muted">Valores usuales, editables</span></div>
+ <div class="casa-k-fila">
+ <div class="casa-k-inputs">
+ ${[['gg', 'Gastos generales'], ['ben', 'Beneficio'], ['iibb', 'Ingresos brutos'], ['iva', 'IVA']].map(([k2, n]) => `<label><span>${n}</span><span class="casa-k-in"><input type="number" inputmode="decimal" min="0" max="100" step="0.5" data-casa-k="${k2}" value="${esc(S.k[k2])}" aria-label="${n} (%)">%</span></label>`).join('')}
+ <button type="button" class="casa-link" data-casa="kReset:1">Volver a los usuales</button>
+ </div>
+ <div class="casa-k-res">
+ <div><span>Factor K</span><b>${f(K, 3)}</b></div>
+ <div><span>Precio estimado</span><b>${money(c.total * K)}</b></div>
+ <div class="casa-k-m2"><span>Por m²</span><b>${money(c.total * K / m2Eq)}</b><small>${f(m2Eq)} m² (semicubiertos al 50 %)</small></div>
+ </div>
+ </div>
+ <p class="casa-muted">K = (1 + gastos generales) × (1 + beneficio) × (1 + IVA) + IIBB, igual que en la Calculadora. Los precios de NEXOBRA no tienen impuestos y la mano de obra no tiene cargas sociales: si corresponde, sumalas en gastos generales.</p>
+ <p class="casa-aviso casa-alcance">Es una aproximación para tener un orden de magnitud del precio por m². No reemplaza el proyecto, el cálculo ni la dirección de obra de un profesional matriculado. Sin terreno, honorarios, conexiones ni trámites.</p>
+ </section>
+ <section class="casa-card casa-crono">
+ <div class="casa-card-head"><h3>Cronograma y curva de inversión</h3><span class="casa-muted">≈ ${CR.total} días hábiles · ${CR.meses === 1 ? '1 mes' : CR.meses + ' meses'}</span></div>
+ <div class="casa-grid3 casa-cuadrilla">${[[2, '2 personas'], [4, '4 personas'], [6, '6 personas']].map(([k2, n]) => btn('cuadrilla', k2, Number(S.cuadrilla) === k2, `<b>${n}</b><small>${k2 / 2} oficial${k2 > 2 ? 'es' : ''} y ${k2 / 2} ayudante${k2 > 2 ? 's' : ''}</small>`)).join('')}</div>
+ <div class="casa-gantt" role="img" aria-label="Cronograma orientativo por etapas">
+ ${CR.fases.map(x => `<div class="casa-gantt-fila"><span>${esc(x.n)}</span><i><em style="left:${(x.ini / CR.total * 100).toFixed(2)}%;width:${Math.max(0.8, x.dias / CR.total * 100).toFixed(2)}%"${x.horas ? '' : ' class="sin"'}></em></i><b>${x.horas ? `${x.dias} d` : 'sin APU'}</b></div>`).join('')}
+ </div>
+ <div class="casa-curva">${CR.porMes.map((v, i) => { acum += v; return `<div class="casa-curva-mes"><i><em style="height:${(v / maxMes * 100).toFixed(1)}%"></em></i><b>${money(v)}</b><span>Mes ${i + 1} · ${f(acum / (c.total * K || 1) * 100, 0)} %</span></div>`; }).join('')}</div>
+ <p class="casa-muted">Días = horas de mano de obra de las APU ÷ (cuadrilla × 8 h). Las instalaciones corren en paralelo desde el techo y cada etapa se solapa un 20 % con la anterior. Las tareas sin APU no suman días. Es orientativo: el plan de trabajos real lo arma quien dirige la obra.</p>
+ </section>`; })()}
  <section class="casa-card casa-costo">
  <h3>Costo directo con las APU del mes</h3>
  <div class="casa-costo-fila">
@@ -1351,13 +2095,15 @@ ${verifHtml}
  <div>
  <span class="soon-badge">Vista previa · solo administradores</span>
  <h2>Armá tu casa</h2>
- <p class="casa-muted">Costo directo con las APU y precios del mes (sin Factor K, terreno ni honorarios). Usalo para revisar las APU con una casa completa.</p>
+ <p class="casa-muted">Aproximación del precio por m² con las APU y precios del mes. No reemplaza el trabajo de un profesional. Sin terreno ni honorarios.</p>
  </div>
  <div class="casa-head-acciones">
+ <button type="button" class="btn-action-drawer btn-copy${S.verModelos ? ' on' : ''}" data-casa="modelos:1" aria-expanded="${S.verModelos ? 'true' : 'false'}">Mis casas${S.modelo ? ` · ${esc(S.modelo.nombre)}` : ''}</button>
  <button type="button" class="btn-action-drawer btn-copy" data-casa="recalcular:1">Recalcular con las APU actuales</button>
  <button type="button" class="btn-action-drawer btn-copy" data-casa="reset:1">Volver a la casa base</button>
  </div>
  </div>
+ ${S.verModelos ? modelosHtml(c, K, m2Eq, resumen) : ''}
  ${stepper}
  ${cuerpo}
  ${navPie}`;
