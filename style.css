@@ -1014,7 +1014,7 @@ html[data-theme=dark] .casa-leyenda .ley.muro{background:#C9CED6}
 }
 
 /* (21/11-j) Armá tu casa: croquis siempre a la vista, opciones en solapas y medidas desde el croquis */
-.casa-layout.v2{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:18px;align-items:start}
+.casa-layout.v2{display:grid;grid-template-columns:minmax(0,1fr) 23.75rem;gap:18px;align-items:start}
 .casa-layout.v2 .casa-opciones{max-width:none;gap:12px}
 .casa-visual{position:sticky;top:152px;z-index:5;display:flex;flex-direction:column;gap:14px;min-width:0}
 .casa-visual .casa-corte{margin-top:0}
@@ -1074,3 +1074,97 @@ html[data-theme=dark] .casa-leyenda .ley.muro{background:#C9CED6}
  .casa-grupos::-webkit-scrollbar{display:none}
  .casa-grupo{flex:none}
 }
+
+/* (22/11) Pantallas grandes (2K / 4K con la escala de Windows al 100 %): el texto en rem crece
+   y el contenido usa más ancho. En FHD (1920 px) no cambia nada. */
+@media (min-width:2100px){
+ html{font-size:18px}
+ .container{max-width:1920px}
+ .hero-home-content{max-width:1800px}
+ .casa-visual{top:160px}
+}
+@media (min-width:2500px){
+ html{font-size:19px}
+ .container{max-width:2100px}
+ .hero-home-content{max-width:1950px}
+ .casa-visual{top:164px}
+}
+
+/* (22/11) Armá tu casa: instalaciones, planilla de iluminación y estructura del techo */
+.casa-plano>.casa-sim,.casa-sim{position:absolute;transform:translate(-50%,-50%);box-sizing:border-box;pointer-events:none;z-index:3}
+.casa-sim.iug{width:13px;height:13px;border-radius:50%;border:1.6px solid #B45309;background:#FFF8E7}
+.casa-sim.iug::before,.casa-sim.iug::after{content:'';position:absolute;left:50%;top:50%;width:9px;height:1.4px;background:#B45309;transform:translate(-50%,-50%) rotate(45deg)}
+.casa-sim.iug::after{transform:translate(-50%,-50%) rotate(-45deg)}
+.casa-sim.tug{width:9px;height:9px;border-radius:50%;background:#2563EB;border:1.5px solid #fff;box-shadow:0 0 0 1px #2563EB}
+.casa-sim.mod{width:10px;height:10px;border-radius:2px;background:#7C3AED;border:1.5px solid #fff;box-shadow:0 0 0 1px #7C3AED}
+.casa-sim.chip{min-width:18px;height:16px;padding:0 4px;border-radius:5px;font:700 9px/16px Inter,sans-serif;text-align:center;white-space:nowrap;color:#fff}
+.casa-sim.chip.agua{background:#0E7490}
+.casa-sim.chip.calor{background:#C2410C}
+.casa-sim.chip.aa{background:#2563EB}
+.casa-sim.chip.vt{background:#475569}
+.casa-leyenda .casa-sim{position:relative;transform:none;left:auto;top:auto;display:inline-block;vertical-align:middle}
+.casa-mini-tabla{width:100%;border-collapse:collapse;font-size:.8rem;margin:8px 0 4px}
+.casa-mini-tabla th,.casa-mini-tabla td{padding:5px 6px;border-bottom:1px solid var(--border-subtle);text-align:left;vertical-align:top}
+.casa-mini-tabla th{font-size:.72rem;color:var(--text-muted);font-weight:700;line-height:1.2}
+.casa-mini-tabla td:not(:first-child),.casa-mini-tabla th:not(:first-child){text-align:center;white-space:nowrap}
+.casa-mini-tabla tfoot td{font-weight:800;border-bottom:none}
+.casa-mini-tabla .ok,.casa-local-ed .ok{color:var(--color-success)}
+.casa-mini-tabla .no,.casa-local-ed .no{color:#C2410C}
+.casa-planilla{margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle)}
+.casa-recom{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:999px;background:var(--color-success-light);color:var(--color-success);font-style:normal;font-size:.66rem;font-weight:700;vertical-align:middle}
+.casa-label .casa-muted{font-weight:400;font-size:.76rem}
+@media (max-width:760px){.casa-pasos-tabs{grid-template-columns:repeat(4,minmax(0,1fr))}.casa-paso{font-size:.7rem;padding:8px 2px}.casa-sim.chip{min-width:14px;height:13px;padding:0 2px;font-size:7.5px;line-height:13px}}
+
+/* (22/11-b) Armá tu casa: terminaciones, Factor K, cronograma, ampliación y Mis casas */
+.casa-plano>.casa-futuro{position:absolute;box-sizing:border-box;border:2px dashed #0E9F6E;background:repeating-linear-gradient(45deg,rgba(16,185,129,.08) 0 6px,transparent 6px 12px);display:flex;align-items:center;justify-content:center;text-align:center;font:600 10px/1.25 Inter,sans-serif;color:#047857;pointer-events:none}
+.casa-sim.chip.mueble{background:#92400E}
+.casa-k-fila{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.casa-k-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.casa-k-inputs label{display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--text-muted);font-weight:600}
+.casa-k-in{display:flex;align-items:center;gap:4px;color:var(--text-main)}
+.casa-k-in input{width:100%;min-width:0;padding:8px 10px;border:1px solid var(--border-light);border-radius:10px;background:var(--bg-card);color:var(--text-main);font:inherit;font-size:.92rem;font-variant-numeric:tabular-nums}
+.casa-k-in input:focus{outline:2px solid var(--brand-yellow);outline-offset:1px}
+.casa-k-inputs .casa-link{grid-column:1/-1;justify-self:start;font-size:.8rem}
+.casa-k-res{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:12px;background:var(--bg-subtle)}
+.casa-k-res div{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.casa-k-res span{font-size:.8rem;color:var(--text-muted)}
+.casa-k-res b{font-size:1.05rem;font-variant-numeric:tabular-nums}
+.casa-k-m2 b{font-size:1.5rem!important;color:var(--brand-yellow-hover)}
+.casa-k-m2 small{width:100%;text-align:right;color:var(--text-muted);font-size:.72rem}
+.casa-alcance{margin-top:10px}
+.casa-cuadrilla{margin-bottom:12px}
+.casa-gantt{display:flex;flex-direction:column;gap:5px}
+.casa-gantt-fila{display:grid;grid-template-columns:170px minmax(0,1fr) 56px;gap:10px;align-items:center;font-size:.8rem}
+.casa-gantt-fila i{position:relative;height:14px;border-radius:7px;background:var(--bg-subtle)}
+.casa-gantt-fila em{position:absolute;top:0;bottom:0;border-radius:7px;background:var(--brand-yellow)}
+.casa-gantt-fila em.sin{background:repeating-linear-gradient(45deg,#CBD2DC 0 4px,transparent 4px 8px)}
+.casa-gantt-fila b{text-align:right;font-weight:600;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.casa-curva{display:flex;gap:8px;margin-top:14px;overflow-x:auto;padding-bottom:4px}
+.casa-curva-mes{flex:1 0 92px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:.74rem;text-align:center}
+.casa-curva-mes i{position:relative;width:100%;height:80px;border-radius:8px;background:var(--bg-subtle);display:flex;align-items:flex-end;overflow:hidden}
+.casa-curva-mes em{display:block;width:100%;background:var(--brand-dark);border-radius:8px 8px 0 0}
+.casa-curva-mes b{font-variant-numeric:tabular-nums}
+.casa-curva-mes span{color:var(--text-muted)}
+.casa-modelos{margin-bottom:16px}
+.casa-modelo-guardar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+.casa-modelo-guardar label{font-size:.8rem;font-weight:700}
+.casa-modelo-guardar input{flex:1 1 220px;min-width:0;padding:9px 12px;border:1px solid var(--border-light);border-radius:10px;background:var(--bg-card);color:var(--text-main);font:inherit}
+.casa-modelos-lista{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.casa-modelos-lista li{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--border-light);border-radius:12px}
+.casa-modelos-lista li.on{border-color:var(--brand-yellow);background:var(--brand-yellow-light)}
+.casa-modelos-lista b{display:block;font-size:.9rem}
+.casa-modelos-lista small{display:block;color:var(--text-muted);font-size:.74rem}
+.casa-modelo-acc{display:flex;gap:6px}
+.casa-modelo-acc .casa-opt{min-height:34px;padding:4px 10px;font-size:.78rem}
+.casa-modelo-acc .casa-opt.peligro{border-color:#C2410C;color:#C2410C}
+.casa-head-acciones .btn-action-drawer.on{border-color:var(--brand-yellow);background:var(--brand-yellow-light)}
+@media (max-width:760px){
+ .casa-pasos-tabs{grid-template-columns:repeat(5,minmax(0,1fr))}
+ .casa-paso{font-size:.64rem}
+ .casa-k-fila{grid-template-columns:1fr}
+ .casa-gantt-fila{grid-template-columns:110px minmax(0,1fr) 46px;font-size:.72rem}
+}
+.casa-k .casa-alcance{color:var(--text-main);background:var(--brand-yellow-light);border:1px solid var(--brand-yellow-border);border-radius:10px;padding:10px 12px;font-size:.82rem}
+.casa-paso em{font-style:normal}
+.casa-paso-corto{display:none}
+@media (max-width:760px){.casa-paso-largo{display:none}.casa-paso-corto{display:inline}.casa-paso{font-size:.72rem}}
