@@ -1168,3 +1168,81 @@ html[data-theme=dark] .casa-leyenda .ley.muro{background:#C9CED6}
 .casa-paso em{font-style:normal}
 .casa-paso-corto{display:none}
 @media (max-width:760px){.casa-paso-largo{display:none}.casa-paso-corto{display:inline}.casa-paso{font-size:.72rem}}
+
+/* (22/11-d) Desperdicio editable por ítem en la Calculadora */
+.apu-desperdicio-ctrl{display:inline-flex;align-items:center;gap:6px;margin-left:12px;font-size:.78rem;font-weight:600;color:var(--text-muted);text-transform:none;letter-spacing:0}
+.apu-desperdicio-ctrl input{width:64px;padding:3px 6px;border:1px solid var(--border-light);border-radius:8px;background:var(--bg-card);color:var(--text-main);font:inherit;font-size:.8rem}
+
+/* (22/11-d) Fichas en borrador: caja de publicación en Admin → Proveedores */
+.prov-publish-box{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:0 0 16px;padding:10px 12px;border-radius:var(--radius-md,10px);border:1px solid #f59e0b;background:#fef3c7;color:#92400e;font-size:.82rem}
+.prov-publish-box b{font-weight:800}
+.prov-publish-box span{flex:1 1 260px;line-height:1.4}
+.prov-publish-box.on{border-color:#22c55e;background:#dcfce7;color:#166534}
+.prov-publish-box button{padding:6px 12px;font-size:.78rem}
+[data-theme=dark] .prov-publish-box{background:rgba(245,158,11,.12);color:#fcd34d}
+[data-theme=dark] .prov-publish-box.on{background:rgba(34,197,94,.12);color:#86efac}
+.prov-pub-tag{font-weight:700;color:#b45309}
+.prov-pub-tag.on{color:#15803d}
+
+/* (23/11) Guía de uso en solapas, con ejemplos esquemáticos */
+.guia-indice{position:sticky;top:64px;z-index:5;background:var(--bg-app);padding:10px 0;margin:0 0 1.5rem}
+.guia-chip{min-height:42px}
+.guia-chip[aria-selected=true]{background:var(--brand-dark);border-color:var(--brand-dark);color:#fff}
+[data-theme=dark] .guia-chip[aria-selected=true]{background:var(--brand-yellow);border-color:var(--brand-yellow);color:#1E2229}
+.guia-seccion+.guia-seccion{margin-top:0;padding-top:0;border-top:none}
+.guia-seccion[hidden]{display:none}
+.guia-head{text-align:left;max-width:860px}
+.guia-head .section-desc{margin-left:0}
+.guia-ejemplo{margin:0 0 1.5rem;padding:1.25rem;border:1px dashed var(--border-light);border-radius:var(--radius-lg);background:var(--bg-card)}
+.guia-ejemplo figcaption{font-size:.85rem;color:var(--text-muted);margin-bottom:.9rem}
+.guia-ejemplo figcaption b{color:var(--text-main)}
+.guia-nota{margin:.8rem 0 0;font-size:.78rem;color:var(--text-subtle)}
+.gesq-flujo{display:flex;flex-wrap:wrap;align-items:stretch;gap:10px}
+.gesq-caja,.gesq-burbuja{flex:1 1 180px;display:flex;flex-direction:column;gap:3px;padding:12px 14px;border:1px solid var(--border-light);border-radius:var(--radius-md);background:var(--bg-subtle);font-size:.86rem;color:var(--text-muted)}
+.gesq-caja b{color:var(--text-main);font-size:.95rem}
+.gesq-chico{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-subtle)}
+.gesq-precio{margin-top:4px;font-weight:800;color:var(--text-main)}
+.gesq-flecha{align-self:center;font-size:1.3rem;font-weight:800;color:var(--brand-yellow-hover)}
+.gesq-burbuja{background:#DCF8C6;border-color:#B7E4A0;color:#1E2229;border-radius:14px 14px 14px 4px}
+.gesq-burbuja .gesq-chico{color:#2E7D32}
+[data-theme=dark] .gesq-burbuja{background:#1F3A2A;border-color:#2E5A3F;color:#E6F2EA}
+.gesq-mapa{position:relative;flex:1 1 200px;min-height:150px;border-radius:var(--radius-md);border:1px solid var(--border-light);background:var(--bg-subtle);background-image:linear-gradient(var(--border-light) 1px,transparent 1px),linear-gradient(90deg,var(--border-light) 1px,transparent 1px);background-size:24px 24px;overflow:hidden}
+.gesq-radio{position:absolute;left:50%;top:50%;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px dashed var(--brand-yellow-hover);background:rgba(245,176,0,.12)}
+.gesq-vos{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:.7rem;font-weight:800;background:var(--brand-dark);color:#fff;padding:2px 6px;border-radius:6px}
+.gesq-pin{position:absolute;width:12px;height:12px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#C2410C;border:2px solid #fff}
+.gesq-pin.fuera{background:#9AA1AA}
+.gesq-km{position:absolute;right:6px;bottom:4px;font-size:.68rem;font-weight:700;color:var(--text-muted)}
+.gesq-apu{display:flex;flex-direction:column;gap:10px}
+.gesq-apu-tarea{display:flex;gap:8px;align-items:baseline}
+.gesq-apu-tarea span{font-size:.85rem;color:var(--text-muted)}
+.gesq-apu-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:.88rem;color:var(--text-muted)}
+.gesq-apu-lista b{color:var(--text-main);margin-right:6px}
+.gesq-punto{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;vertical-align:middle}
+.gesq-punto.mat,.gesq-barra .mat{background:#F5B000}
+.gesq-punto.mo,.gesq-barra .mo{background:#7DB3FF}
+.gesq-punto.eq,.gesq-barra .eq{background:#9AA1AA}
+.gesq-barra{display:flex;height:22px;border-radius:999px;overflow:hidden;background:var(--bg-subtle)}
+.gesq-barra span{display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:#1E2229}
+.gesq-cuenta{margin:0;font-size:.88rem;color:var(--text-muted)}
+.gesq-cuenta b{color:var(--text-main)}
+.gesq-rubros{display:flex;flex-direction:column;gap:6px}
+.gesq-rubros div{display:grid;grid-template-columns:minmax(130px,190px) 1fr 44px;align-items:center;gap:10px;font-size:.85rem;color:var(--text-muted)}
+.gesq-rubros i{display:block;height:14px;border-radius:999px;background:var(--brand-yellow)}
+.gesq-rubros b{color:var(--text-main);text-align:right}
+.gesq-k{display:flex;flex-direction:column;gap:6px}
+.gesq-k-fila{display:grid;grid-template-columns:minmax(150px,210px) 1fr 70px;align-items:center;gap:10px;font-size:.85rem;color:var(--text-muted)}
+.gesq-k-fila b{color:var(--text-main);text-align:right}
+.gesq-k-barra{display:flex;height:16px;border-radius:999px;overflow:hidden;background:var(--bg-subtle)}
+.gesq-k-barra i{display:block;height:100%}
+.gesq-k-barra .k0{background:#9AA1AA}.gesq-k-barra .k1{background:#7DB3FF}.gesq-k-barra .k2{background:#22C55E}.gesq-k-barra .k3{background:#F5B000}.gesq-k-barra .k4{background:#C2410C}
+.guia-mas{margin-top:1.5rem;border:1px solid var(--border-light);border-radius:var(--radius-lg);background:var(--bg-card);padding:0 1.25rem}
+.guia-mas summary{cursor:pointer;padding:1rem 0;font-weight:700;color:var(--text-main);min-height:44px}
+.guia-lista{margin:0 0 1.25rem;padding-left:1.1rem;display:flex;flex-direction:column;gap:8px;font-size:.9rem;color:var(--text-muted);line-height:1.5}
+.guia-lista b{color:var(--text-main)}
+@media (min-width:900px){.guia-pasos-flujo .pilar-card{position:relative}.guia-pasos-flujo .pilar-card:not(:last-child)::after{content:"→";position:absolute;right:-18px;top:50%;transform:translateY(-50%);font-weight:800;color:var(--brand-yellow-hover);font-size:1.2rem}}
+@media (max-width:640px){.gesq-flecha{transform:rotate(90deg);flex-basis:100%;text-align:center}.gesq-rubros div,.gesq-k-fila{grid-template-columns:1fr 70px}.gesq-rubros i,.gesq-k-barra{grid-column:1/-1;grid-row:2}}
+.guia-seccion .pilares-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.guia-seccion .pilares-grid+.guia-ejemplo,.guia-seccion .pilares-grid+.guide-compare-grid{margin-top:1.5rem}
+#guide-view .container{padding-bottom:3.5rem}
+.gesq-k+.gesq-cuenta,.gesq-barra+.gesq-cuenta{margin-top:10px}
+@media (max-width:640px){.guia-indice{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding-left:16px;padding-right:16px}.guia-indice::-webkit-scrollbar{display:none}.guia-chip{flex:none}}
