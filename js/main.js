@@ -11,6 +11,8 @@ function loadCasaView() {
  return import('./casa.js').then(m => m.loadCasaView()).catch(err => console.error('No se pudo cargar Armá tu casa', err));
 }
 import * as CostoM2 from './costo-m2.js';
+import * as Trabajos from './trabajos.js';
+import * as Cuenta from './cuenta.js';
 import * as Excel from './excel.js';
 import * as MapModule from './map.js';
 import * as Pricing from './pricing.js';
@@ -81,6 +83,8 @@ import * as ST from './state.js';
  contact: '/contacto',
  'providers-directory': '/proveedores',
  'costo-m2': '/costo-m2',
+ trabajos: '/pedi-presupuesto',
+ cuenta: '/mi-cuenta',
  };
  const PATH_TO_VIEW = Object.fromEntries(Object.entries(VIEW_ROUTES).map(([view, path]) => [path, view]));
 
@@ -102,6 +106,8 @@ import * as ST from './state.js';
  contact: 'Contacto | NEXOBRA',
  'providers-directory': 'Proveedores de materiales de construcción | NEXOBRA',
  'costo-m2': 'Costo por m² de construcción (próximamente) | NEXOBRA',
+ trabajos: 'Pedí presupuesto (prueba cerrada) | NEXOBRA',
+ cuenta: 'Mi cuenta y avisos | NEXOBRA',
  };
 
  // (17/11) Menú de 4 entradas: qué botón del menú queda marcado en cada vista
@@ -113,7 +119,7 @@ import * as ST from './state.js';
  labor: ['precios', 'precios-mano-obra'],
  apu: ['apu'], 'my-apu-budgets': ['apu'], 'my-computations': ['apu'],
  'providers-directory': ['proveedores'], 'provider-public': ['proveedores'],
- 'costo-m2': ['costo-m2'],
+ 'costo-m2': ['costo-m2'], trabajos: ['proveedores'],
  about: ['about'], guide: ['guide'], contact: ['contact'],
  };
  const MATERIAL_PATH_RE = /^\/material\/([A-Za-z]+-\d+)(?:-[a-z0-9-]*)?\/?$/;
@@ -182,6 +188,14 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  if (materialViewEl) materialViewEl.style.display = viewName === 'material' ? 'block' : 'none';
  const costoM2ViewEl = document.getElementById('costo-m2-view');
  if (costoM2ViewEl) costoM2ViewEl.style.display = viewName === 'costo-m2' ? 'block' : 'none';
+ // (24/11) Pedí presupuesto (prueba cerrada)
+ const trabajosViewEl = document.getElementById('trabajos-view');
+ if (trabajosViewEl) trabajosViewEl.style.display = viewName === 'trabajos' ? 'block' : 'none';
+ if (viewName === 'trabajos') Trabajos.loadTrabajosView();
+ // (24/11) Mi cuenta: configuración inicial y avisos por mail
+ const cuentaViewEl = document.getElementById('cuenta-view');
+ if (cuentaViewEl) cuentaViewEl.style.display = viewName === 'cuenta' ? 'block' : 'none';
+ if (viewName === 'cuenta') Cuenta.loadCuentaView();
  if (viewName === 'providers-directory') {
  MapModule.loadDirectoryCategories();
  MapModule.loadProvidersDirectory();
@@ -879,6 +893,11 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  openMaterialPage,
  openApuStep,
  loadCostoM2View: loadCasaView,
+ loadTrabajosView: Trabajos.loadTrabajosView,
+ onTrabajosAuthChange: Trabajos.onAuthChange,
+ cuentaPendiente: Cuenta.cuentaPendiente,
+ abrirConfiguracionInicial: Cuenta.abrirConfiguracionInicial,
+ loadCuentaView: Cuenta.loadCuentaView,
  openCostoM2InCalculator: CostoM2.openCostoM2InCalculator,
  changeMaterialPageQty: Catalog.changeMaterialPageQty,
  addMaterialPageToBudget: Catalog.addMaterialPageToBudget,

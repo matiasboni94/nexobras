@@ -105,6 +105,8 @@ import * as ST from './state.js';
       setTimeout(() => MapModule.resumePendingProviderClaim(), 300);
       // (18/11) Borrador de Costo por m² (solo admin): si entró directo a /costo-m2, se dibuja cuando llega el perfil.
       if (ST.state.currentView === 'costo-m2') window.nexoBraApp?.loadCostoM2View?.();
+      // (24/11) Pedí presupuesto: recarga pedidos y ficha con la sesión nueva.
+      window.nexoBraApp?.onTrabajosAuthChange?.();
 
       // (16/11, auditoría 12/11 falla 8) "¿Cómo nos conociste?" para TODAS
       // las cuentas, no solo las que se registran con email:
@@ -123,7 +125,13 @@ import * as ST from './state.js';
         }
         const needsRole = profile.role_confirmed === false;
         const needsReferral = !profile.referral_source && !isReferralSkipped(ST.authState.user.id);
-        if (needsRole || needsReferral) openRoleModal({ needsRole, needsReferral });
+        // (24/11) Con la migración 046, la primera vez se abre "Mi cuenta"
+        // (perfil, datos y avisos) en vez del cartel de rol. Sin la 046, sigue
+        // el cartel de siempre.
+        const pendiente = await window.nexoBraApp?.cuentaPendiente?.();
+        if (pendiente === true) window.nexoBraApp?.abrirConfiguracionInicial?.();
+        else if (pendiente !== false && (needsRole || needsReferral)) openRoleModal({ needsRole, needsReferral });
+        if (ST.state.currentView === 'cuenta') window.nexoBraApp?.loadCuentaView?.();
       }
     } else {
       ST.authHeaderLabel.textContent = 'Ingresar';
@@ -316,10 +324,12 @@ import * as ST from './state.js';
     const btn = document.getElementById('btn-become-provider');
     if (btn) { btn.disabled = true; btn.textContent = 'Un momento...'; }
 
-    const { error } = await ST.supabaseClient
-      .from('profiles')
-      .update({ role: 'provider' })
-      .eq('id', ST.authState.user.id);
+    // (24/11) Desde la 042 el rol no se cambia con un UPDATE directo: se usa
+    // perfil_elegir_rol (046). Sin la 046 se intenta como antes.
+    let { error } = await ST.supabaseClient.rpc('perfil_elegir_rol', { p_rol: 'provider' });
+    if (error && (error.code === 'PGRST202' || error.code === '42883')) {
+      ({ error } = await ST.supabaseClient.from('profiles').update({ role: 'provider' }).eq('id', ST.authState.user.id));
+    }
 
     if (error) {
       ST.showToast('No se pudo hacer el cambio: ' + error.message);
@@ -435,10 +445,14 @@ import * as ST from './state.js';
     btn.disabled = true;
     btn.textContent = 'Guardando...';
 
-    const { error } = await ST.supabaseClient
-      .from('profiles')
-      .update(update)
-      .eq('id', ST.authState.user.id);
+    // (24/11) El rol va por perfil_elegir_rol (046); el resto, por UPDATE.
+    let error = null;
+    if (update.role) {
+      ({ error } = await ST.supabaseClient.rpc('perfil_elegir_rol', { p_rol: update.role }));
+      if (!error) delete update.role;
+      else if (error.code === 'PGRST202' || error.code === '42883') error = null; // sin la 046: va todo junto como antes
+    }
+    if (!error) ({ error } = await ST.supabaseClient.from('profiles').update(update).eq('id', ST.authState.user.id));
 
     btn.disabled = false;
     btn.textContent = 'Continuar';
