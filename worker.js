@@ -79,6 +79,9 @@ const ROUTES = {
     description: 'Cuánto cuesta construir una vivienda tipo en Misiones, actualizado todos los meses con precios de referencia NEXOBRA y mano de obra UOCRA. Próximamente.',
     index: false, soon: true
   },
+  // (24/11) Prueba cerrada: no se indexa.
+  '/pedi-presupuesto': { title: 'Pedí presupuesto (prueba cerrada) | NEXOBRA', index: false },
+  '/mi-cuenta': { title: 'Mi cuenta y avisos | NEXOBRA', index: false },
   '/mis-presupuestos': { title: 'Listas anteriores (Mi Cómputo) | NEXOBRA', index: false },
   '/mis-presupuestos-de-obra': { title: 'Mis presupuestos | NEXOBRA', index: false },
   '/mi-proveedor': { title: 'Panel de proveedor | NEXOBRA', index: false },

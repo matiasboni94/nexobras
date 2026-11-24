@@ -25,7 +25,7 @@
 // este archivo TAMBIÉN y cambiá el número de acá abajo (SW_VERSION) --
 // alcanza con sumarle 1. Eso hace que el Service Worker se reinstale solo y
 // tire a la basura la caché anterior.
-const SW_VERSION = 'v53';
+const SW_VERSION = 'v56';
 
 const SHELL_CACHE = `nexobra-shell-${SW_VERSION}`;
 const DATA_CACHE = `nexobra-data-${SW_VERSION}`;
@@ -49,6 +49,8 @@ const SHELL_ASSETS = [
   '/js/apu.js',
   '/js/costo-m2.js',
   '/js/casa.js',
+  '/js/trabajos.js',
+  '/js/cuenta.js',
   '/js/main.js',
   '/assets/nexobra-icon.png',
   '/assets/icon-192.png',

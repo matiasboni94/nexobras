@@ -133,7 +133,9 @@
  <button type="button" id="btn-open-favorites">Mis Favoritos</button>
  <button type="button" id="btn-open-alerts">Mis Alertas de Precio</button>
  <button type="button" id="btn-open-my-provider" style="display: none;">Mi Proveedor</button>
+ <button type="button" id="btn-open-trabajos" data-goto-view="trabajos" style="display: none;">Pedí presupuesto (prueba)</button>
  <button type="button" id="btn-open-admin" style="display: none;">Panel de Admin <span id="admin-pending-badge" class="admin-pending-badge" style="display:none;"></span></button>
+ <button type="button" id="btn-open-cuenta" data-goto-view="cuenta">Mi cuenta y avisos</button>
  <button type="button" id="btn-open-profile">Mi Perfil</button>
  <button type="button" id="btn-logout" class="danger">Cerrar sesión</button>
  </div>
@@ -1066,6 +1068,20 @@
  VISTA: COSTO POR m² (17/11 -- "próximamente", a pedido del usuario: ya
  aparece en el menú; la vivienda modelo se publica después de revisar las APUs)
  ========================================================================= -->
+ <!-- (24/11) MI CUENTA: configuración inicial y avisos (lo dibuja js/cuenta.js) -->
+ <div id="cuenta-view" class="view-section" style="display: none;">
+ <div class="container" style="padding-top: 1.5rem; padding-bottom: 3rem; max-width: 860px;">
+ <div id="cuenta-root" class="cta-root"></div>
+ </div>
+ </div>
+
+ <!-- (24/11) PEDÍ PRESUPUESTO (prueba cerrada): lo dibuja js/trabajos.js -->
+ <div id="trabajos-view" class="view-section" style="display: none;">
+ <div class="container" style="padding-top: 1.5rem; padding-bottom: 3rem;">
+ <div id="trabajos-root" class="trb-root"></div>
+ </div>
+ </div>
+
  <div id="costo-m2-view" class="view-section" style="display: none;">
  <div class="container" style="padding-top: 1.5rem;">
  <div class="catalog-header-banner">
