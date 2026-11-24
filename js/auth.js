@@ -136,6 +136,8 @@ import * as ST from './state.js';
     } else {
       ST.authHeaderLabel.textContent = 'Ingresar';
     }
+    // (24/11-f) Color, menú e inicio según el perfil (sin sesión: vista común)
+    await window.nexoBraApp?.aplicarModo?.();
   }
 
   export async function handleLogin(e) {

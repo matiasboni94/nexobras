@@ -32,6 +32,7 @@ export async function cuentaPendiente() {
  if (error || !data) { S.disponible = false; return null; }
  S.disponible = true;
  S.perfil = data.perfil || '';
+ if (ST.authState.profile) ST.authState.profile.perfil = data.perfil || null; // (24/11) lo usa la guía
  S.pendiente = !data.onboarding_at;
  return S.pendiente;
 }

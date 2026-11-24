@@ -136,6 +136,61 @@ const TECHOS_AIS = {
 };
 const ORDEN_MURO = ['base', 'eps2', 'eps5', 'eps8'];
 const ORDEN_TECHO = ['sin', 'ais10', 'lana5', 'lana10', 'lana20'];
+// (24/11) Confort como análisis: qué nivel alcanza cada elemento con lo elegido,
+// qué cambiar para llegar al objetivo y una etiqueta orientativa (no es la oficial).
+const limK = (el, nivel) => { const m = kmax(el, nivel); return Math.min(m.inv, m.ver); };
+const nivelDe = (el, k) => ['A', 'B', 'C'].find(nv => k <= limK(el, nv) + 1e-9) || null;
+const RANGO = { A: 3, B: 2, C: 1 };
+function propuestaNivel(nivel) {
+ const out = {};
+ if (kMuro(S.muro) > limK('muro', nivel) + 1e-9) { const m = ORDEN_MURO.find(id => kMuro(id) <= limK('muro', nivel) + 1e-9); if (m) out.muro = m; }
+ if (TECHOS_AIS[S.aisTecho].k > limK('techo', nivel) + 1e-9) { const t = ORDEN_TECHO.find(id => TECHOS_AIS[id].k <= limK('techo', nivel) + 1e-9); if (t) out.aisTecho = t; }
+ return out;
+}
+const K_VIDRIO = { simple: 5.8, dvh: 2.9 }; // W/m²K orientativos (a validar con IRAM 11507-4 y el fabricante)
+const ETI_COL = { A: '#15803D', B: '#4D9A2A', C: '#93B51F', D: '#E0B400', E: '#E89A1C', F: '#E0661F', G: '#C2261F' };
+function etiquetaEstimada() {
+ const nm = nivelDe('muro', kMuro()), nt = nivelDe('techo', TECHOS_AIS[S.aisTecho].k);
+ const pts = (RANGO[nm] || 0) + (RANGO[nt] || 0) + (S.dvh ? 1 : 0) + (S.agua === 'solar' ? 1 : 0);
+ const letra = pts >= 8 ? 'A' : pts >= 7 ? 'B' : pts >= 5 ? 'C' : pts >= 4 ? 'D' : pts >= 3 ? 'E' : pts >= 2 ? 'F' : 'G';
+ return { letra, pts, nm, nt };
+}
+function confortHtml() {
+ const km = kMuro(), kt = TECHOS_AIS[S.aisTecho].k, E = etiquetaEstimada();
+ const peor = [E.nm, E.nt].includes(null) ? null : (RANGO[E.nm] < RANGO[E.nt] ? E.nm : E.nt);
+ const chipNv = (nv) => nv ? `<b class="casa-nv casa-nv-${nv}">nivel ${nv}</b>` : '<b class="casa-nv casa-nv-no">no llega a C</b>';
+ const filaEl = (n, det, nv, ir) => `<li><span><b>${n}</b><small>${det}</small></span><span>${nv}${ir ? ` <button type="button" class="casa-link" data-casa="grupo2:${ir}">Cambiar</button>` : ''}</span></li>`;
+ const prop = propuestaNivel(S.nivel), faltaM = km > limK('muro', S.nivel) + 1e-9, faltaT = kt > limK('techo', S.nivel) + 1e-9;
+ const props = [];
+ if (faltaM) props.push(prop.muro ? `<li><span>Muros: <b>${esc(AIS_MURO[prop.muro].n)}</b> en vez de ${esc(AIS_MURO[S.muro].n.toLowerCase())} (K ${f(km, 2)} → ${f(kMuro(prop.muro), 2)}, máx. ${f(limK('muro', S.nivel), 2)})</span>${btn('muro', prop.muro, false, 'Aplicar')}</li>`
+ : `<li><span>Muros: ni con EPS 8 cm llega al nivel ${S.nivel} con ${esc(BASES_MURO[S.muroBase].n.toLowerCase())}. Probá con otro ladrillo.</span><button type="button" class="casa-link" data-casa="grupo2:muro">Ver muros</button></li>`);
+ if (faltaT) props.push(prop.aisTecho ? `<li><span>Techo: <b>${esc(TECHOS_AIS[prop.aisTecho].n)}</b> en vez de ${esc(TECHOS_AIS[S.aisTecho].n.toLowerCase())} (K ${f(kt, 2)} → ${f(TECHOS_AIS[prop.aisTecho].k, 2)}, máx. ${f(limK('techo', S.nivel), 2)})</span>${btn('aisTecho', prop.aisTecho, false, 'Aplicar')}</li>`
+ : `<li><span>Techo: ninguna aislación de la lista llega al nivel ${S.nivel}.</span></li>`);
+ const mejoras = [];
+ if (!S.dvh) mejoras.push(`<li><span>Doble vidriado hermético: suma en la etiqueta y baja las pérdidas de invierno.</span>${btn('toggle', 'dvh', false, 'Aplicar')}</li>`);
+ if (S.agua !== 'solar') mejoras.push(`<li><span>Termotanque solar con apoyo: agua caliente con energía renovable.</span>${btn('agua', 'solar', false, 'Aplicar')}</li>`);
+ const escala = 'ABCDEFG'.split('').map((l, i) => `<li class="${l === E.letra ? 'on' : ''}"><span class="casa-eti-barra" style="width:${46 + i * 8}%;background:${ETI_COL[l]}">${l}</span>${l === E.letra ? '<em>◀ tu casa</em>' : ''}</li>`).join('');
+ return `
+ <label class="casa-label">Tu envolvente hoy</label>
+ <ul class="casa-env">
+ ${filaEl('Muros', `${esc(BASES_MURO[S.muroBase].n)} · ${esc(AIS_MURO[S.muro].n.toLowerCase())} · K ${f(km, 2)}`, chipNv(E.nm), 'muro')}
+ ${filaEl('Techo', `${esc(TECHOS_AIS[S.aisTecho].n)} · K ${f(kt, 2)} (a validar)`, chipNv(E.nt), 'techo')}
+ ${filaEl('Aberturas', `${S.dvh ? 'Doble vidriado' : 'Vidrio simple'} · K ≈ ${f(S.dvh ? K_VIDRIO.dvh : K_VIDRIO.simple, 1)} (a validar)`, `<b class="casa-nv">${S.dvh ? 'mejora' : 'estándar'}</b>`, 'abert')}
+ ${filaEl('Agua caliente', S.agua === 'solar' ? 'Termotanque solar con apoyo' : 'Sin energía solar', `<b class="casa-nv">${S.agua === 'solar' ? 'renovable' : '—'}</b>`, '')}
+ </ul>
+ <p class="casa-muted">IRAM 11605 verifica muros y techo en ${esc(S.ciudad)}${peor ? `: tu casa llega al <b>nivel ${peor}</b>` : ': hoy no llega al nivel C'}. Las aberturas no tienen máximo en esa norma, pero pesan en la etiqueta.</p>
+ <label class="casa-label">¿A qué nivel querés llegar?</label>
+ <div class="casa-grid3">${[['C', 'Mínimo'], ['B', 'Recomendado'], ['A', 'Óptimo']].map(([k, n]) => btn('nivel', k, S.nivel === k, `<b>${n}</b><small>Nivel ${k}</small>`)).join('')}</div>
+ <p class="casa-muted">Elegir el nivel no cambia lo que definiste: te dice si cumple y qué cambiar.</p>
+ ${props.length ? `<div class="casa-propuestas"><b>Para llegar al nivel ${S.nivel}</b><ul>${props.join('')}</ul>${(prop.muro || prop.aisTecho) && props.length > 1 ? `<button type="button" class="btn-computo casa-aplicar-todo" data-casa="aplicarNivel:${S.nivel}">Aplicar los cambios</button>` : ''}<p class="casa-muted">Las aislaciones todavía no tienen APU: no suman al costo (a cargar).</p></div>`
+ : `<p class="casa-ok-nivel">✓ Tu envolvente cumple el nivel ${S.nivel} (IRAM 11605).</p>`}
+ <label class="casa-label">Etiqueta de eficiencia estimada</label>
+ <div class="casa-eti">
+ <ol class="casa-eti-escala" aria-label="Etiqueta estimada: ${E.letra}">${escala}</ol>
+ ${mejoras.length ? `<div class="casa-propuestas suave"><b>Para subir la etiqueta</b><ul>${mejoras.join('')}</ul></div>` : ''}
+ <p class="casa-muted casa-medidas-nota">Estimación orientativa con puntaje propio (muros, techo, vidrios y agua caliente solar). No es la etiqueta oficial: el índice de prestaciones energéticas (IRAM 11900) lo calcula un certificador con el aplicativo nacional de etiquetado de viviendas.</p>
+ </div>`;
+}
 function recetaNivel(nivel) {
  const mxM = kmax('muro', nivel), mxT = kmax('techo', nivel);
  const lim = (m) => Math.min(m.inv, m.ver);
@@ -779,6 +834,33 @@ function plano(o, T, S_px, capa = '', E = null) {
  <button type="button" class="casa-tirador v" data-lote-drag="loteFondo" aria-label="Fondo del lote: ${f(LOTE_L, 2)} m. Arrastrá o usá las flechas para cambiarlo" title="Arrastrá para cambiar el fondo" style="left:${(xF - 6).toFixed(1)}px;top:${(yMitadLib - 16).toFixed(1)}px"></button>
  <button type="button" class="casa-tirador h" data-lote-drag="loteAncho" aria-label="Frente del lote: ${f(LOTE_A, 2)} m. Arrastrá o usá las flechas para cambiarlo" title="Arrastrá para cambiar el frente" style="left:${((LX + X0) / 2 - 16).toFixed(1)}px;top:${(yLib - 6).toFixed(1)}px"></button>`;
 
+ // (24/11) Exterior en la planta: cercos (frente, laterales y fondo), portón y parrilla
+ const exter = [], chipsExt = [];
+ const tira = (x1, y1, x2, y2, cls) => {
+ const hor = Math.abs(y2 - y1) < 0.5, g = 5;
+ return `<div class="casa-cerco ${cls} ${hor ? 'h' : 'v'}" style="left:${(hor ? Math.min(x1, x2) : x1 - g / 2).toFixed(1)}px;top:${(hor ? y1 - g / 2 : Math.min(y1, y2)).toFixed(1)}px;width:${(hor ? Math.abs(x2 - x1) : g).toFixed(1)}px;height:${(hor ? g : Math.abs(y2 - y1)).toFixed(1)}px"></div>`;
+ };
+ if (S.cercoLat !== 'no') {
+ const xr = LX + Math.min(4, LOTE_L / 2) * SC; // sin el retiro de frente, como en el cómputo
+ exter.push(tira(xr, yMed, xF, yMed, S.cercoLat), tira(xr, yLib, xF, yLib, S.cercoLat), tira(xF, LT, xF, loteAbajo, S.cercoLat));
+ }
+ if (S.cercoFrente !== 'no' || S.porton) {
+ const ap = S.porton ? 3 : 1, cl = (v) => Math.max(ap / 2 + 0.2, Math.min(LOTE_A - ap / 2 - 0.2, v));
+ const vc = cl(S.cochera ? (S.tipo === 'lineal' ? T.Wf + 2.35 : T.Wf - 1.65) : T.Wf + 0.3 + ap / 2);
+ const ga = Math.min(Y(vc - ap / 2), Y(vc + ap / 2)), gb = Math.max(Y(vc - ap / 2), Y(vc + ap / 2));
+ const cf = S.cercoFrente === 'muro' ? 'murobajo' : 'reja';
+ if (S.cercoFrente !== 'no') exter.push(tira(LX, LT, LX, ga, cf), tira(LX, gb, LX, loteAbajo, cf));
+ if (S.porton) { exter.push(`<div class="casa-porton" style="left:${(LX - 2).toFixed(1)}px;top:${ga.toFixed(1)}px;height:${(gb - ga).toFixed(1)}px"></div>`); chipsExt.push({ x: LX + 22, y: (ga + gb) / 2, l: 'Portón', t: S.cochera ? 'Portón vehicular' : 'Portón peatonal' }); }
+ }
+ if (S.parrilla) {
+ const amp = S.ampliacion && !o.invertir && ampliacion(T).entra ? 3 : 0;
+ const px = casaFin + (amp + 1) * SC, pw = 1.4 * SC, ph = 0.6 * SC;
+ if (px + pw <= xF - 0.3 * SC) {
+ const py = o.medArriba ? yMed + 0.2 * SC : yMed - 0.2 * SC - ph;
+ exter.push(`<div class="casa-parrilla" style="left:${px.toFixed(1)}px;top:${py.toFixed(1)}px;width:${pw.toFixed(1)}px;height:${ph.toFixed(1)}px"></div>`);
+ chipsExt.push({ x: px + pw / 2, y: o.medArriba ? py + ph + 9 : py - 9, l: 'Parrilla', t: 'Parrilla de ladrillo con campana' });
+ }
+ }
  const html = `
  <div class="casa-plano" role="img" aria-label="Planta esquemática ${esc(S.tipo === 'L' ? 'en L' : S.tipo)} de ${S.dorm} dormitorios en un lote de ${f(LOTE_A, 2)} por ${f(LOTE_L, 2)} metros, frente al ${esc(o.nombre)}, apoyada en la medianera ${SIG8[idx8(o.medBien)]}, con puertas y ventanas" data-sc="${SC}" data-lx="${LX}" data-lt="${LT}" data-med-arriba="${o.medArriba ? 1 : 0}" style="width:${anchoPl.toFixed(0)}px;height:${altoPl.toFixed(0)}px">
  <div class="casa-calle" style="top:${LT}px;width:${CALLE}px;height:${LOTE_A * SC}px">CALLE</div>
@@ -786,6 +868,7 @@ function plano(o, T, S_px, capa = '', E = null) {
  ${loteHtml}
  ${linderos}
  ${rotLind.join('')}
+ ${exter.join('')}
  ${pisos.map(p => `<div class="casa-piso${p.semi ? ' semi' : ''}" style="${p.st}"></div>`).join('')}
  ${muros.map(m => `<div class="casa-muro${m.med ? ' med' : ''}" style="${m.st}"></div>`).join('')}
  ${huecos.map(h => `<div class="casa-hueco" style="${h}"></div>`).join('')}
@@ -793,6 +876,7 @@ function plano(o, T, S_px, capa = '', E = null) {
  ${puertas.map(p => `<div class="casa-puerta" style="${p}"></div>`).join('')}
  ${capa ? '' : rooms.map(r => { const a = r.u1 - r.u0, b = r.v1 - r.v0, on = S.local === r.id; return `<button type="button" class="casa-local${on ? ' sel' : ''}" data-casa="local:${r.id}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${esc(r.n || 'Pasillo')}: ${f(a, 2)} por ${f(b, 2)} m. Cambiar medidas" title="${esc(r.n || 'Pasillo')}: tocá para cambiar las medidas" style="${rect(r.u0, r.u1, r.v0, r.v1)}"></button>`; }).join('')}
  ${capa === 'equipo' ? rooms.filter(r => !r.semi && !r.noLabel && !r.banio && !r.cocina).map(r => { const on = !!(S.aa && S.aa[r.id]); return `<button type="button" class="casa-local${on ? ' sel' : ''}" data-casa="aa:${r.id}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${esc(r.n)}: ${on ? 'sacar' : 'poner'} aire acondicionado" title="${esc(r.n)}: tocá para ${on ? 'sacar' : 'poner'} aire acondicionado" style="${rect(r.u0, r.u1, r.v0, r.v1)}"></button>`; }).join('') : ''}
+ ${chipsExt.map(z => `<span class="casa-sim chip mueble" style="left:${z.x.toFixed(1)}px;top:${z.y.toFixed(1)}px" title="${esc(z.t)}">${esc(z.l)}</span>`).join('')}
  ${simbolosInst(T, capa, E).map(z => `<span class="casa-sim ${z.c}" style="left:${X(z.u).toFixed(1)}px;top:${Y(z.v).toFixed(1)}px"${z.t ? ` title="${esc(z.t)}"` : ''}>${z.l ? esc(z.l) : ''}</span>`).join('')}
  ${rot.map(ajustarRotulo).filter(r => !r.oculto).map(r => `<div class="casa-rotulo" style="left:${r.x.toFixed(1)}px;top:${r.y.toFixed(1)}px;font-size:${r.fs}px"><b>${esc(r.n)}</b>${SC >= 18 ? `<span>${r.a}</span>` : ''}</div>`).join('')}
  ${S.ampliacion ? (() => { const A = ampliacion(T); return A.entra ? `<div class="casa-futuro" style="${rect(A.u0, A.u1, A.v0, A.v1)}"><span>Ampliación<br>${f(A.m2)} m²</span></div>` : ''; })() : ''}
@@ -1243,7 +1327,8 @@ function onClick(e) {
  i = Math.max(0, Math.min(lista.length - 1, i + Number(pasoV)));
  S.vent = { ...(S.vent || {}), [`${S.tipo}.${id}`]: lista[i] };
  }
- else if (accion === 'nivel') { S.nivel = valor; Object.assign(S, recetaNivel(valor)); }
+ else if (accion === 'nivel') S.nivel = valor; // (24/11) objetivo: no toca lo que eligió el usuario
+ else if (accion === 'aplicarNivel') Object.assign(S, propuestaNivel(S.nivel));
  else if (accion === 'reset') { S = { ...DEFAULTS, dims: {} }; }
  else if (accion === 'dim') {
  // dim:clave|±1 (pasos de 10 cm) · dim:base|0 vuelve a las medidas de la casa base
@@ -1264,7 +1349,6 @@ function onClick(e) {
  if (accion === 'techoMat' && valor === 'teja') S.estructTecho = 'madera';
  if (accion === 'sistTecho' && valor === 'cerchas') S.cielo = 'suspendido'; // con cerchas el cielorraso va bajo el tirante inferior
  if (accion === 'cielo' && valor === 'pendiente') S.sistTecho = 'tirantes';
- if (accion === 'muroBase') S.muro = recetaNivel(S.nivel).muro; // la aislación se recalcula para el nivel elegido
  // Si con el cambio la casa no entra en el lote, se vuelve atrás y se avisa
  const problema = problemaLote(tipologia(orientacion()));
  if (problema) {
@@ -1960,7 +2044,8 @@ function render() {
  const T = tipologia(o);
  // (21/11-j) el croquis va a la izquierda y las opciones en una columna de 380 px (desde 900 px)
  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16; // (22/11) en pantallas grandes el rem crece
- const colDer = ancho >= 900 ? ancho - 23.75 * rem - 18 - 36 : ancho - 28;
+ const colOpc = ancho >= 1500 ? 28 : 23.75; // (24/11) en pantallas grandes las opciones tienen más aire
+ const colDer = ancho >= 900 ? ancho - colOpc * rem - 18 - 36 : ancho - 28;
  // en el celular la planta no baja de 13 px/m: si no entra, se desliza de costado (casa-scroll)
  const SC = Math.max(13, Math.min(36, (colDer - 64) / S.loteFondo, 520 / S.loteAncho));
  const P = plano(o, T, SC);
@@ -2021,7 +2106,7 @@ function render() {
  ${fila('Ciudad', `${S.ciudad} · zona ${C.zona}`)}${fila('Lote', `${f(S.loteAncho, 2)} × ${f(S.loteFondo, 2)} m · frente al ${o.nombre} · ${o.lote.esquina ? 'esquina' : 'intermedio'}`)}${fila('Medianera', `Casa apoyada en la ${SIG8[idx8(o.medBien)]}`)}${fila('Forma', `${tipoNombre} · ${S.dorm} dormitorios`)}${fila('Baños', banosTxt)}${fila('Semicubiertos', [S.galeria ? 'galería' : '', S.cochera ? 'cochera' : ''].filter(Boolean).join(' y ') || 'ninguno')}${fila('Superficie', `${f(P.med.m2Cub)} m² cubiertos${P.med.semi ? ` + ${f(P.med.semi)} semicubiertos` : ''}`)}
  </ul></div>
  <div><h4>Cómo se construye <button type="button" class="casa-link" data-casa="paso:2">Cambiar</button></h4><ul>
- ${fila('Fundación', { platea: 'Platea', zapataH: 'Zapata corrida de hormigón', zapataL: 'Cimiento de ladrillo común' }[S.fundacion])}${fila('Muro exterior', `${BASES_MURO[S.muroBase].n} · ${AIS_MURO[S.muro].n.toLowerCase()}`)}${fila('Tabiques', { ladrillo: 'Ladrillo hueco 12', durlock: 'Placa de yeso', madera: 'Madera' }[S.tabique])}${fila('Techo', S.techo === 'plana' ? 'Losa plana' : `${S.techoMat === 'teja' ? 'Teja' : 'Chapa'} ${nombreAguas} · estructura ${S.estructTecho === 'madera' ? 'de madera' : 'metálica'}`)}${fila('Aislación del techo', TECHOS_AIS[S.aisTecho].n)}${fila('Cielorraso', S.techo === 'plana' ? 'Yeso aplicado' : `${{ machimbre: 'Machimbre', pvc: 'PVC', durlock: 'Placa de yeso' }[S.cieloMat]} · ${S.cielo === 'suspendido' ? 'suspendido' : 'sigue la pendiente'}`)}${fila('Carpinterías', `${{ aluminio: 'Aluminio', pvc: 'PVC', madera: 'Madera' }[S.abert]}${S.dvh ? ' con DVH' : ''}`)}${fila('Fachada', { revoque: 'Clásica', ladrillo: 'Ladrillo visto', contemporanea: 'Contemporánea' }[S.fachada])}${fila('Confort', `Nivel ${S.nivel} (IRAM 11605)`)}
+ ${fila('Fundación', { platea: 'Platea', zapataH: 'Zapata corrida de hormigón', zapataL: 'Cimiento de ladrillo común' }[S.fundacion])}${fila('Muro exterior', `${BASES_MURO[S.muroBase].n} · ${AIS_MURO[S.muro].n.toLowerCase()}`)}${fila('Tabiques', { ladrillo: 'Ladrillo hueco 12', durlock: 'Placa de yeso', madera: 'Madera' }[S.tabique])}${fila('Techo', S.techo === 'plana' ? 'Losa plana' : `${S.techoMat === 'teja' ? 'Teja' : 'Chapa'} ${nombreAguas} · estructura ${S.estructTecho === 'madera' ? 'de madera' : 'metálica'}`)}${fila('Aislación del techo', TECHOS_AIS[S.aisTecho].n)}${fila('Cielorraso', S.techo === 'plana' ? 'Yeso aplicado' : `${{ machimbre: 'Machimbre', pvc: 'PVC', durlock: 'Placa de yeso' }[S.cieloMat]} · ${S.cielo === 'suspendido' ? 'suspendido' : 'sigue la pendiente'}`)}${fila('Carpinterías', `${{ aluminio: 'Aluminio', pvc: 'PVC', madera: 'Madera' }[S.abert]}${S.dvh ? ' con DVH' : ''}`)}${fila('Fachada', { revoque: 'Clásica', ladrillo: 'Ladrillo visto', contemporanea: 'Contemporánea' }[S.fachada])}${fila('Confort', (() => { const E = etiquetaEstimada(), peor = [E.nm, E.nt].includes(null) ? null : (RANGO[E.nm] < RANGO[E.nt] ? E.nm : E.nt); return `${peor ? `Llega al nivel ${peor}` : 'No llega al nivel C'} (objetivo ${S.nivel}) · etiqueta estimada ${E.letra}`; })())}
  </ul></div>
  <div><h4>Terminaciones <button type="button" class="casa-link" data-casa="paso:4">Cambiar</button></h4><ul>
  ${fila('Pisos', { ceramico: 'Cerámico', porcelanato: 'Porcelanato', flotante: 'Flotante (húmedos en cerámico)', alisado: 'Cemento alisado' }[S.piso] || 'Cerámico')}${fila('Baños', `${S.revMat === 'porcelanato' ? 'Porcelanato' : 'Cerámico'} ${{ h150: 'hasta 1,50 m', h210: 'hasta 2,10 m', techo: 'hasta el techo' }[S.revBano]}`)}${fila('Pintura', S.pintura === 'enduido' ? 'Enduído y látex' : 'Látex')}${fila('Cocina', { no: 'Sin muebles', bajo: 'Bajo mesada', completo: 'Bajo mesada y alacena' }[S.mueblesCocina])}${fila('Placards', { no: 'No', frente: 'Frente e interior', completo: 'Completos' }[S.placard])}${fila('Exterior', [S.cercoFrente !== 'no' ? 'cerco de frente' : '', S.cercoLat !== 'no' ? 'cerco perimetral' : '', S.porton ? 'portón' : '', S.parrilla ? 'parrilla' : ''].filter(Boolean).join(', ') || 'sin cercos')}
@@ -2101,7 +2186,7 @@ function render() {
  ${seguir('grupo1', G1, g1)}
  </section>`;
  cuerpo = `
- <div class="casa-layout v2">
+ <div class="casa-layout v2${ancho >= 1500 ? ' ancha' : ''}">
  <div class="casa-visual">
  <section class="casa-card">
  <div class="casa-card-head"><h3>Planta en el lote</h3><span class="casa-muted casa-solo-esc">${esc(resumen)}</span>${totalMovil}</div>
@@ -2133,7 +2218,7 @@ function render() {
  muro: ['Muro exterior', `
  <div class="casa-grid3">${ORDEN_BASE.map(k => { const kb = kMuro('base', k), ok = kb <= Math.min(kmax('muro', 'C').inv, kmax('muro', 'C').ver); return btn('muroBase', k, S.muroBase === k, `<b>${esc(BASES_MURO[k].n.replace('Ladrillo ', '').replace(/^./, ch => ch.toUpperCase()))}</b><small>Ladrillo · K ${f(kb, 2)}${ok ? '' : ' · no llega a C'}</small>`); }).join('')}</div>
  <label class="casa-label">Aislación</label>
- <div class="casa-grid2">${ORDEN_MURO.map(id => btn('muro', id, S.muro === id, `<b>${esc(AIS_MURO[id].n)}</b><small>K ${f(kMuro(id), 2)}${BASES_MURO[S.muroBase].capa.aValidar ? ' (a validar)' : ''}</small>`)).join('')}</div>
+ <div class="casa-grid2">${ORDEN_MURO.map(id => btn('muro', id, S.muro === id, `<b>${esc(AIS_MURO[id].n)}</b><small>K ${f(kMuro(id), 2)} · ${nivelDe('muro', kMuro(id)) ? 'nivel ' + nivelDe('muro', kMuro(id)) : 'no llega a C'}${BASES_MURO[S.muroBase].capa.aValidar ? ' (a validar)' : ''}</small>`)).join('')}</div>
  <p class="casa-muted">Muros, IRAM 11605 nivel ${S.nivel}: <b class="${km <= Math.min(mxM.inv, mxM.ver) ? 'ok' : 'no'}">${km <= Math.min(mxM.inv, mxM.ver) ? 'cumple' : 'no cumple'}</b> (K ${f(km, 2)}).</p>`, corteMuro],
  tabique: ['Tabiques interiores', `
  <div class="casa-grid3">${[['ladrillo', 'Ladrillo', 'Hueco 12'], ['durlock', 'Placa de yeso', 'Tipo Durlock'], ['madera', 'Madera', 'Machimbre']].map(([k, n, d]) => btn('tabique', k, S.tabique === k, `<b>${n}</b><small>${d}</small>`)).join('')}</div>`, corteTabique],
@@ -2149,7 +2234,7 @@ function render() {
  <div class="casa-grid2">${[['tirantes', S.estructTecho === 'madera' ? 'Tirantes' : 'Correas', 'Apoyan en los muros'], ['cerchas', 'Cerchas', S.estructTecho === 'madera' ? 'Cabriadas, luces grandes' : 'Reticuladas, luces grandes']].map(([k, n, d]) => btn('sistTecho', k, S.sistTecho === k && S.techo !== 'plana', `<b>${n}${lzT.recom === k ? ' <i class="casa-recom">recomendado</i>' : ''}</b><small>${d}</small>`, sinLosa())).join('')}</div>
  ${S.techo !== 'plana' ? `<p class="casa-muted">Luz entre apoyos: <b>${f(lzT.luz, 2)} m</b>${!lzT.portantes && S.estructTecho === 'madera' ? ' (los tabiques livianos no son portantes)' : ''}. Hasta unos 4 m alcanzan ${S.estructTecho === 'madera' ? 'tirantes' : 'correas'}; más que eso conviene cerchas o sumar apoyos (a validar con cálculo).</p>` : ''}
  <label class="casa-label">Aislación</label>
- <div class="casa-grid2">${ORDEN_TECHO.map(id => btn('aisTecho', id, S.aisTecho === id, `<b>${esc(TECHOS_AIS[id].n)}</b><small>K ${f(TECHOS_AIS[id].k, 2)} (a validar)</small>`)).join('')}</div>
+ <div class="casa-grid2">${ORDEN_TECHO.map(id => btn('aisTecho', id, S.aisTecho === id, `<b>${esc(TECHOS_AIS[id].n)}</b><small>K ${f(TECHOS_AIS[id].k, 2)} · ${nivelDe('techo', TECHOS_AIS[id].k) ? 'nivel ' + nivelDe('techo', TECHOS_AIS[id].k) : 'no llega a C'} (a validar)</small>`)).join('')}</div>
  <p class="casa-muted">El cielorraso se elige en el paso Terminaciones.</p>`, () => corteTecho() + esquemaTecho(T) + corteMedianera(o, T)],
  abert: ['Carpinterías', `
  <div class="casa-grid3">${[['aluminio', 'Aluminio', 'Puerta de chapa'], ['pvc', 'PVC', ''], ['madera', 'Madera', '']].map(([k, n, d]) => btn('abert', k, S.abert === k, `<b>${n}</b>${d ? `<small>${d}</small>` : ''}`)).join('')}</div>
@@ -2159,26 +2244,24 @@ function render() {
  <div class="casa-grid3">${[['revoque', 'Clásica', 'Revoque claro'], ['ladrillo', 'Ladrillo visto', 'Sin revoque'], ['contemporanea', 'Contemporánea', 'Madera y negro']].map(([k, n, d]) => btn('fachada', k, S.fachada === k, `<b>${n}</b><small>${d}</small>`)).join('')}</div>
  <p class="casa-muted">El color de la fachada cambia cuánto sol absorben muros y techo (IRAM 11605).</p>`, null],
  confort: ['Confort térmico', `
- <div class="casa-grid3">${[['C', 'Mínimo'], ['B', 'Recomendado'], ['A', 'Óptimo']].map(([k, n]) => btn('nivel', k, S.nivel === k, `<b>${n}</b><small>Nivel ${k}</small>`)).join('')}</div>
- <p class="casa-muted">El nivel elige la aislación de muros y techo que hace falta en ${esc(S.ciudad)} (IRAM 11605). Después la podés ajustar en Muros y Techo.</p>
- <p class="casa-muted">El agua caliente (también solar) se elige en el paso Instalaciones.</p>
+ ${confortHtml()}
  <div class="casa-solo-movil casa-verif-movil">${verifHtml}</div>`, null]
  };
  const [titulo, html, corteFn] = OPC[g2];
  cuerpo = `
- <div class="casa-layout v2">
+ <div class="casa-layout v2${ancho >= 1500 ? ' ancha' : ''}">
  <div class="casa-visual">
- <section class="casa-card${corteFn ? ' casa-solo-esc' : ''}">
+ ${corteFn ? `<section class="casa-card casa-corte-card">
+ <div class="casa-card-head"><h3>${esc(titulo)} · esquema</h3><span class="casa-muted casa-solo-esc">Cambia con lo que elegís a la derecha · orientativo, no es un detalle de obra</span>${totalMovil}</div>
+ ${corteFn()}
+ </section>` : ''}
+ <section class="casa-card${corteFn ? ' casa-solo-esc casa-vista-chica' : ''}">
  <div class="casa-card-head"><h3>Fachada principal</h3><span class="casa-muted casa-solo-esc">Techo ${nombreAguas} · pendiente ${Math.round(fach.pend * 100)} % · alero ${f(fach.AL, 2)} m</span>${totalMovil}</div>
  <div class="casa-fachada-fila">
  <div class="casa-scroll">${fach.html}</div>
 ${verifHtml}
  </div>
  </section>
- ${corteFn ? `<section class="casa-card casa-corte-card">
- <div class="casa-card-head"><h3>Corte · ${esc(titulo.toLowerCase())}</h3><span class="casa-muted casa-solo-esc">Esquema orientativo, no es un detalle de obra</span>${totalMovil}</div>
- ${corteFn()}
- </section>` : ''}
  </div>
  <div class="casa-opciones">
  ${tabsGrupo('grupo2', G2, g2)}
@@ -2233,7 +2316,7 @@ ${verifHtml}
  const [tit3, html3] = OPC3[g3];
  const ley3 = { agua: '<span class="casa-ley-it"><span class="casa-sim chip agua">IN</span>Inodoro</span><span class="casa-ley-it"><span class="casa-sim chip agua">LV</span>Lavatorio</span><span class="casa-ley-it"><span class="casa-sim chip agua">DU</span>Ducha / BA bañera</span><span class="casa-ley-it"><span class="casa-sim chip agua">BI</span>Bidé</span><span class="casa-ley-it"><span class="casa-sim chip calor">TE</span>Agua caliente</span>', elec: '<span class="casa-ley-it"><span class="casa-sim iug"></span>Luz (IUG)</span><span class="casa-ley-it"><span class="casa-sim tug"></span>Toma (TUG)</span><span class="casa-ley-it"><span class="casa-sim mod"></span>Módulos cocina</span><span class="casa-ley-it"><span class="casa-sim chip aa">AA</span>Aire (uso especial)</span>', equipo: '<span class="casa-ley-it"><span class="casa-sim chip aa">AA</span>Aire acondicionado</span><span class="casa-ley-it"><span class="casa-sim chip vt">V</span>Ventilador de techo</span>' }[g3];
  cuerpo = `
- <div class="casa-layout v2">
+ <div class="casa-layout v2${ancho >= 1500 ? ' ancha' : ''}">
  <div class="casa-visual">
  <section class="casa-card">
  <div class="casa-card-head"><h3>Instalaciones en planta</h3><span class="casa-muted casa-solo-esc">Grado ${esc(E.grado.toLowerCase())} · ${E.iug} luces · ${E.tug} tomas · ${E.cIug + E.cTug + E.tue} circuitos</span>${totalMovil}</div>
@@ -2286,17 +2369,19 @@ ${verifHtml}
  <div class="casa-grid3">${[['no', 'Sin cerco'], ['reja', 'Reja'], ['muro', 'Muro bajo y reja']].map(([k, n]) => btn('cercoFrente', k, S.cercoFrente === k, `<b>${n}</b>`)).join('')}</div>
  <label class="casa-label">Laterales y fondo</label>
  <div class="casa-grid3">${[['no', 'Sin cerco'], ['tejido', 'Tejido'], ['muro', 'Muro de bloques']].map(([k, n]) => btn('cercoLat', k, S.cercoLat === k, `${iconoCerco(k)}<b>${n}</b>`)).join('')}</div>
- <div class="casa-grid2">${btn('toggle', 'porton', S.porton, `<b>Portón</b><small>${S.cochera ? 'Vehicular' : 'Peatonal'}</small>`)}${btn('toggle', 'parrilla', S.parrilla, '<b>Parrilla</b><small>De ladrillo con campana</small>')}</div>`, () => corteMedianera(o, T)]
+ <div class="casa-grid2">${btn('toggle', 'porton', S.porton, `<b>Portón</b><small>${S.cochera ? 'Vehicular' : 'Peatonal'}</small>`)}${btn('toggle', 'parrilla', S.parrilla, '<b>Parrilla</b><small>De ladrillo con campana</small>')}</div>
+ <p class="casa-muted">Los cercos, el portón y la parrilla se dibujan en la planta.</p>
+ ${corteMedianera(o, T)}`, null]
  };
  const [tit4, html4, fig4] = OPC4[g4];
  cuerpo = `
- <div class="casa-layout v2">
+ <div class="casa-layout v2${ancho >= 1500 ? ' ancha' : ''}">
  <div class="casa-visual">
- <section class="casa-card${fig4 ? ' casa-solo-esc' : ''}">
+ ${fig4 ? `<section class="casa-card casa-corte-card"><div class="casa-card-head"><h3>${esc(tit4)} · esquema</h3><span class="casa-muted casa-solo-esc">Cambia con lo que elegís a la derecha · orientativo</span>${totalMovil}</div>${fig4()}</section>` : ''}
+ <section class="casa-card${fig4 ? ' casa-solo-esc casa-vista-chica' : ''}">
  <div class="casa-card-head"><h3>Planta en el lote</h3><span class="casa-muted casa-solo-esc">${esc(resumen)}</span>${totalMovil}</div>
  <div class="casa-scroll">${Pt.html}</div>
  </section>
- ${fig4 ? `<section class="casa-card casa-corte-card"><div class="casa-card-head"><h3>Corte · ${esc(tit4.toLowerCase())}</h3><span class="casa-muted casa-solo-esc">Esquema orientativo</span>${totalMovil}</div>${fig4()}</section>` : ''}
  </div>
  <div class="casa-opciones">
  ${tabsGrupo('grupo4', G4, g4)}

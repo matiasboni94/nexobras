@@ -13,6 +13,7 @@ function loadCasaView() {
 import * as CostoM2 from './costo-m2.js';
 import * as Trabajos from './trabajos.js';
 import * as Cuenta from './cuenta.js';
+import * as Modo from './modo.js';
 import * as Excel from './excel.js';
 import * as MapModule from './map.js';
 import * as Pricing from './pricing.js';
@@ -119,19 +120,51 @@ import * as ST from './state.js';
  labor: ['precios', 'precios-mano-obra'],
  apu: ['apu'], 'my-apu-budgets': ['apu'], 'my-computations': ['apu'],
  'providers-directory': ['proveedores'], 'provider-public': ['proveedores'],
- 'costo-m2': ['costo-m2'], trabajos: ['proveedores'],
+ 'costo-m2': ['costo-m2'], trabajos: ['proveedores'], provider: ['mi-negocio'],
  about: ['about'], guide: ['guide'], contact: ['contact'],
  };
  const MATERIAL_PATH_RE = /^\/material\/([A-Za-z]+-\d+)(?:-[a-z0-9-]*)?\/?$/;
  const PROVIDER_PATH_RE = /^\/proveedor\/([a-z0-9-]+)\/?$/i;
  let openingMaterialPage = false; // true solo mientras openMaterialPage() llama a switchView()
 
- /** (21/11) Abre la Guía de uso en una sección (precios, calculadora, proveedores, costo-m2, cuenta, factor-k). */
+ // (24/11) La guía cambia según quién la lee: vecino, técnico u oficio, o
+ // comercio / prestador. Los bloques con data-para="…" se ven solo para esos
+ // perfiles (CSS). El perfil sale de lo que eligió en la guía, si no de su
+ // cuenta, y si no arranca como vecino.
+ const GUIA_PERFILES = ['vecino', 'tecnico', 'proveedor'];
+ const paraPerfil = (el, perfil) => !el.dataset.para || el.dataset.para.split(' ').includes(perfil);
+ function perfilGuiaInicial() {
+ try { const g = localStorage.getItem('nexobra_guia_perfil'); if (GUIA_PERFILES.includes(g)) return g; } catch (e) { /* sin storage */ }
+ // (24/11-f) si no eligió en la guía, la guía sigue al modo del sitio (js/modo.js)
+ return Modo.guiaDelModo();
+ }
+ function aplicarPerfilGuia(perfil, guardar) {
+ const view = document.getElementById('guide-view');
+ if (!view || !GUIA_PERFILES.includes(perfil)) return;
+ view.dataset.perfil = perfil;
+ if (guardar) { try { localStorage.setItem('nexobra_guia_perfil', perfil); } catch (e) { /* sin storage */ } }
+ document.querySelectorAll('#guide-view .guia-perfil-btn').forEach(b => b.setAttribute('aria-checked', b.dataset.guiaPerfil === perfil ? 'true' : 'false'));
+ }
+ export function setGuidePerfil(perfil, guardar = true) {
+ aplicarPerfilGuia(perfil, guardar);
+ // si la solapa abierta no es para este perfil, se abre la primera que sí
+ const abierta = document.querySelector('#guide-view .guia-seccion:not([hidden])');
+ if (!abierta || !paraPerfil(abierta, perfil)) {
+ const t = [...document.querySelectorAll('#guide-view .guia-chip[role="tab"]')].find(x => paraPerfil(x, perfil));
+ if (t) openGuideSection(t.dataset.guideSection);
+ }
+ }
+
+ /** (21/11) Abre la Guía de uso en una sección (precios, calculadora, proveedores, costo-m2, cuenta, factor-k, negocio). */
 // (23/11) La guía va en solapas: se muestra una sección por vez.
 export function openGuideSection(seccion) {
  if (ST.state.currentView !== 'guide') switchView('guide');
  const el = seccion ? document.getElementById('guia-' + seccion) : null;
  if (!el || !el.classList.contains('guia-seccion')) { window.scrollTo({ top: 0 }); return; }
+ // (24/11) perfil de la guía: si la sección pedida no es para el perfil actual, se cambia al suyo
+ const gv = document.getElementById('guide-view');
+ if (gv && !gv.dataset.perfil) aplicarPerfilGuia(perfilGuiaInicial(), false);
+ if (gv && !paraPerfil(el, gv.dataset.perfil)) aplicarPerfilGuia(el.dataset.para.split(' ')[0], false);
  document.querySelectorAll('#guide-view .guia-seccion').forEach(p => { p.hidden = p !== el; });
  document.querySelectorAll('#guide-view .guia-chip[role="tab"]').forEach(t => {
  const on = t.dataset.guideSection === seccion;
@@ -178,6 +211,7 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  if (aboutViewEl) aboutViewEl.style.display = viewName === 'about' ? 'block' : 'none';
  const guideViewEl = document.getElementById('guide-view');
  if (guideViewEl) guideViewEl.style.display = viewName === 'guide' ? 'block' : 'none';
+ if (viewName === 'guide' && guideViewEl && !guideViewEl.dataset.perfil) setGuidePerfil(perfilGuiaInicial(), false);
  const contactViewEl = document.getElementById('contact-view');
  if (contactViewEl) contactViewEl.style.display = viewName === 'contact' ? 'block' : 'none';
  const directoryViewEl = document.getElementById('providers-directory-view');
@@ -396,6 +430,7 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  Computo.renderSharedComputation(shareToken);
  return;
  }
+ Modo.initModo(); // (24/11-f) color, menú e inicio según el perfil
  const apuShareToken = new URLSearchParams(window.location.search).get('apu_share');
  if (apuShareToken) {
  Apu.renderSharedApuBudget(apuShareToken);
@@ -517,15 +552,29 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  if (btn.closest('#mobile-menu-panel')) closeMobileMenuPanel();
  openGuideSection(btn.dataset.guideSection);
  });
+ // (24/11) Para quién es la guía
+ document.querySelector('#guide-view .guia-perfil')?.addEventListener('click', (e) => {
+ const b = e.target.closest('[data-guia-perfil]');
+ if (b) setGuidePerfil(b.dataset.guiaPerfil);
+ });
  // Solapas de la guía: flechas izquierda/derecha para moverse entre secciones.
  document.querySelector('#guide-view .guia-indice')?.addEventListener('keydown', (e) => {
  if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
- const tabs = [...document.querySelectorAll('#guide-view .guia-chip[role="tab"]')];
+ const perfilG = document.getElementById('guide-view')?.dataset.perfil || 'vecino';
+ const tabs = [...document.querySelectorAll('#guide-view .guia-chip[role="tab"]')].filter(t => paraPerfil(t, perfilG));
  const i = tabs.indexOf(document.activeElement);
  if (i < 0) return;
  const sig = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
  sig.focus(); openGuideSection(sig.dataset.guideSection);
  });
+ // (24/11-f) "Mi negocio" (corralones y prestadores): su panel si ya tiene
+ // ficha; si todavía no, el alta de negocio.
+ document.querySelectorAll('[data-accion-modo="negocio"]').forEach(el => el.addEventListener('click', () => {
+ closeMobileMenuPanel();
+ if (ST.authState.user && Provider.isProvider()) switchView('provider');
+ else Auth.startProviderSignup();
+ window.scrollTo({ top: 0 });
+ }));
  ['btn-sumate-negocio', 'mobile-nav-btn-sumate', 'footer-btn-sumate', 'home-btn-sumate', 'directory-btn-sumate'].forEach(id => {
  const el = document.getElementById(id);
  if (el) el.addEventListener('click', () => { closeMobileMenuPanel(); Auth.startProviderSignup(); });
@@ -898,6 +947,9 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  cuentaPendiente: Cuenta.cuentaPendiente,
  abrirConfiguracionInicial: Cuenta.abrirConfiguracionInicial,
  loadCuentaView: Cuenta.loadCuentaView,
+ aplicarModo: Modo.aplicarModo,
+ setGuidePerfil,
+ toggleApuSettings: Apu.toggleApuSettings,
  openCostoM2InCalculator: CostoM2.openCostoM2InCalculator,
  changeMaterialPageQty: Catalog.changeMaterialPageQty,
  addMaterialPageToBudget: Catalog.addMaterialPageToBudget,

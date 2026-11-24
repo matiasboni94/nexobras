@@ -34,6 +34,9 @@ export function isAdmin() {
 export function updateAdminNavVisibility() {
  const btn = document.getElementById('btn-open-admin');
  if (btn) btn.style.display = isAdmin() ? 'block' : 'none';
+ // (24/11) Pedí presupuesto: en prueba cerrada, el acceso del menú lo ve solo el admin
+ const btnTrb = document.getElementById('btn-open-trabajos');
+ if (btnTrb) btnTrb.style.display = isAdmin() ? 'block' : 'none';
  if (isAdmin()) loadPendingCount();
 }
 
