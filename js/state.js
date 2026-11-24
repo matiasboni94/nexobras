@@ -141,7 +141,12 @@
  * vea esa ficha (XSS). NO hace falta usarla con los datos de NUESTRO
  * catálogo curado (NEXOBRA_DATA), esos son confiables.
  */
- export function escapeHtml(value) {
+ // (22/11-d) clase CSS segura para el estado de stock (el valor viene de la base)
+export function stockClass(value) {
+ return ['en_stock', 'a_pedido', 'agotado'].includes(value) ? value : 'agotado';
+}
+
+export function escapeHtml(value) {
  if (value === null || value === undefined) return '';
  return String(value)
  .replace(/&/g, '&amp;')
@@ -181,7 +186,11 @@
  if (xlsxLoadPromise) return xlsxLoadPromise;
  xlsxLoadPromise = new Promise((resolve, reject) => {
  const script = document.createElement('script');
- script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+ // (22/11, seguridad) 0.18.5 tenía vulnerabilidades al leer archivos armados a propósito
+ // (CVE-2023-30533 y CVE-2024-22363). Las versiones corregidas solo se publican en el
+ // CDN oficial de SheetJS. Ese CDN no manda el header CORS, así que acá no se puede
+ // usar integrity: queda fijada la versión exacta.
+ script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
  script.onload = () => resolve();
  script.onerror = () => reject(new Error('No se pudo cargar la librería de Excel. Revisá tu conexión e intentá de nuevo.'));
  document.head.appendChild(script);
@@ -200,7 +209,10 @@
  if (chartJsLoadPromise) return chartJsLoadPromise;
  chartJsLoadPromise = new Promise((resolve, reject) => {
  const script = document.createElement('script');
- script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.6.1';
+ script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js';
+ // (22/11, seguridad) Subresource Integrity: si el CDN entrega otro archivo, el navegador no lo ejecuta.
+ script.integrity = 'sha384-Emf5ZVIUiarAdhkgtqK+5/Z5qIvM6QoVrS+qAVtfyZVuD5lIHrac0me485+Antp0';
+ script.crossOrigin = 'anonymous';
  script.onload = () => resolve();
  script.onerror = () => reject(new Error('No se pudo cargar el gráfico. Revisá tu conexión e intentá de nuevo.'));
  document.head.appendChild(script);
@@ -221,6 +233,8 @@
  pdfLibsLoadPromise = new Promise((resolve, reject) => {
  const script = document.createElement('script');
  script.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+ script.integrity = 'sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/';
+ script.crossOrigin = 'anonymous';
  script.onload = () => resolve();
  script.onerror = () => reject(new Error('No se pudo cargar el generador de PDF. Revisá tu conexión e intentá de nuevo.'));
  document.head.appendChild(script);
@@ -592,8 +606,16 @@
  let suffix = 2;
  // eslint-disable-next-line no-constant-condition
  while (true) {
+ // (22/11-d) sec_slug_libre (migración 044) ve también los slugs de las fichas
+ // en borrador, que por RLS ya no se leen desde la tabla. Si la función todavía
+ // no existe, se usa la lectura directa de antes.
+ const { data: libre, error: errLibre } = await supabaseClient.rpc('sec_slug_libre', { p_slug: candidate });
+ if (!errLibre && typeof libre === 'boolean') {
+ if (libre) return candidate;
+ } else {
  const { data } = await supabaseClient.from('provider_branches').select('id').eq('slug', candidate).maybeSingle();
  if (!data) return candidate;
+ }
  candidate = `${base}-${suffix}`;
  suffix += 1;
  }

@@ -27,7 +27,15 @@ import * as ST from './state.js';
 
  const statusBanner = document.getElementById('provider-verification-banner');
  if (statusBanner) {
- if (!provider || provider.verification_status === 'approved') {
+ if (!provider) {
+ statusBanner.style.display = 'none';
+ } else if (provider.publicado === false && provider.verification_status !== 'rejected') {
+ // (22/11-d) Ficha en borrador (migración 044): se publica cuando lo
+ // hablamos con el proveedor.
+ statusBanner.style.display = 'block';
+ statusBanner.className = 'provider-status-banner pending';
+ statusBanner.innerHTML = 'Tu ficha está en borrador: todavía no aparece en el mapa ni en el directorio. Cargá tus datos y precios tranquilo; te contactamos para revisarla juntos y publicarla.';
+ } else if (provider.verification_status === 'approved') {
  statusBanner.style.display = 'none';
  } else if (provider.verification_status === 'pending') {
  statusBanner.style.display = 'block';
@@ -516,14 +524,14 @@ import * as ST from './state.js';
  <div class="provider-search-row">
  <div class="provider-search-row-info">
  <strong>${ST.escapeHtml(item.denominacion)}</strong><br>
- <span style="color:var(--text-muted); font-size:0.75rem;">${item.id} · ${item.rubro}</span>
+ <span style="color:var(--text-muted); font-size:0.75rem;">${ST.escapeHtml(item.id)} · ${ST.escapeHtml(item.rubro)}</span>
  </div>
  <div class="provider-search-row-controls">
  <input type="text" id="prov-sku-${item.id}" placeholder="Tu SKU (opcional)">
  <input type="text" id="prov-brand-${item.id}" placeholder="Marca (opcional)" maxlength="40">
  <select id="prov-unit-${item.id}">
- <option value="venta">Por ${item.unidadVenta} (compra)</option>
- <option value="computo">Por ${item.unidadComputo} (cómputo)</option>
+ <option value="venta">Por ${ST.escapeHtml(item.unidadVenta)} (compra)</option>
+ <option value="computo">Por ${ST.escapeHtml(item.unidadComputo)} (cómputo)</option>
  </select>
  <input type="number" id="prov-price-${item.id}" placeholder="Precio" min="0" step="0.01">
  <select id="prov-stock-${item.id}">
@@ -707,7 +715,7 @@ import * as ST from './state.js';
  </div>
  <div class="provider-catalog-row-controls">
  <button class="btn-remove-item" title="Sugerir marca, descripción o rendimiento para este material" onclick="window.nexoBraApp.suggestTechnicalData('${offer.materials?.id}')" style="font-size:0.85rem;"></button>
- <span class="stock-badge ${offer.stock_status}">${offer.stock_status === 'en_stock' ? 'En stock' : offer.stock_status === 'a_pedido' ? 'A pedido' : 'Agotado'}</span>
+ <span class="stock-badge ${ST.stockClass(offer.stock_status)}">${offer.stock_status === 'en_stock' ? 'En stock' : offer.stock_status === 'a_pedido' ? 'A pedido' : 'Agotado'}</span>
  <select onchange="window.nexoBraApp.updateOfferStock('${offer.id}', this.value)">
  <option value="en_stock" ${offer.stock_status === 'en_stock' ? 'selected' : ''}>En stock</option>
  <option value="a_pedido" ${offer.stock_status === 'a_pedido' ? 'selected' : ''}>A pedido</option>
@@ -853,7 +861,7 @@ import * as ST from './state.js';
  ? ` <span title="Escribiste &quot;${ST.escapeHtml(row.requestedUnit)}&quot; pero no coincide con ninguna unidad válida de este material. Se cargó por unidad de compra (venta) por defecto." style="color:#b45309; font-weight:700; cursor:help;"></span>`
  : '';
  return `
- <div class="excel-preview-row status-${row.status}">
+ <div class="excel-preview-row status-${ST.escapeHtml(String(row.status || '').replace(/[^a-z_-]/gi, ''))}">
  <div>
  <strong>${ST.escapeHtml(row.name || row.sku)}</strong>
  ${row.matchedItem ? `→ ${ST.escapeHtml(row.matchedItem.denominacion)} (${row.matchedItem.id})` : ' → sin coincidencia, no se va a cargar'}

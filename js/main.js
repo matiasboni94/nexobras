@@ -5,7 +5,11 @@ import * as Apu from './apu.js';
 import * as Auth from './auth.js';
 import * as Catalog from './catalog.js';
 import * as Computo from './computo.js';
-import * as Casa from './casa.js';
+// (21/11, auditoría de pulido) casa.js ("Armá tu casa", solo admin) se carga a pedido.
+function loadCasaView() {
+ if (!Admin.isAdmin()) { const r = document.getElementById('casa-root'); if (r) { r.hidden = true; r.innerHTML = ''; } return; }
+ return import('./casa.js').then(m => m.loadCasaView()).catch(err => console.error('No se pudo cargar Armá tu casa', err));
+}
 import * as CostoM2 from './costo-m2.js';
 import * as Excel from './excel.js';
 import * as MapModule from './map.js';
@@ -117,13 +121,20 @@ import * as ST from './state.js';
  let openingMaterialPage = false; // true solo mientras openMaterialPage() llama a switchView()
 
  /** (21/11) Abre la Guía de uso en una sección (precios, calculadora, proveedores, costo-m2, cuenta, factor-k). */
+// (23/11) La guía va en solapas: se muestra una sección por vez.
 export function openGuideSection(seccion) {
  if (ST.state.currentView !== 'guide') switchView('guide');
  const el = seccion ? document.getElementById('guia-' + seccion) : null;
- if (el) {
+ if (!el || !el.classList.contains('guia-seccion')) { window.scrollTo({ top: 0 }); return; }
+ document.querySelectorAll('#guide-view .guia-seccion').forEach(p => { p.hidden = p !== el; });
+ document.querySelectorAll('#guide-view .guia-chip[role="tab"]').forEach(t => {
+ const on = t.dataset.guideSection === seccion;
+ t.setAttribute('aria-selected', on ? 'true' : 'false');
+ t.tabIndex = on ? 0 : -1;
+ });
  history.replaceState(history.state, '', VIEW_ROUTES.guide + '#' + seccion);
- requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
- } else window.scrollTo({ top: 0 });
+ const indice = document.querySelector('#guide-view .guia-indice');
+ if (indice && indice.getBoundingClientRect().top < 0) requestAnimationFrame(() => indice.scrollIntoView({ behavior: 'smooth', block: 'start' }));
 }
 
 export function switchView(viewName, rubroFilter = null, searchString = null) {
@@ -199,7 +210,7 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  Catalog.renderRubroPills();
  Catalog.renderProducts();
  }
- if (viewName === 'costo-m2') Casa.loadCasaView();
+ if (viewName === 'costo-m2') loadCasaView();
  if (viewName === 'labor' && !ST.laborState.loaded) {
  Pricing.loadLaborSeries().then(Pricing.reconcilePriceMonth);
  }
@@ -491,6 +502,15 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  e.preventDefault();
  if (btn.closest('#mobile-menu-panel')) closeMobileMenuPanel();
  openGuideSection(btn.dataset.guideSection);
+ });
+ // Solapas de la guía: flechas izquierda/derecha para moverse entre secciones.
+ document.querySelector('#guide-view .guia-indice')?.addEventListener('keydown', (e) => {
+ if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+ const tabs = [...document.querySelectorAll('#guide-view .guia-chip[role="tab"]')];
+ const i = tabs.indexOf(document.activeElement);
+ if (i < 0) return;
+ const sig = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+ sig.focus(); openGuideSection(sig.dataset.guideSection);
  });
  ['btn-sumate-negocio', 'mobile-nav-btn-sumate', 'footer-btn-sumate', 'home-btn-sumate', 'directory-btn-sumate'].forEach(id => {
  const el = document.getElementById(id);
@@ -858,7 +878,7 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  goToProviderPublicPage,
  openMaterialPage,
  openApuStep,
- loadCostoM2View: Casa.loadCasaView,
+ loadCostoM2View: loadCasaView,
  openCostoM2InCalculator: CostoM2.openCostoM2InCalculator,
  changeMaterialPageQty: Catalog.changeMaterialPageQty,
  addMaterialPageToBudget: Catalog.addMaterialPageToBudget,
@@ -923,6 +943,7 @@ logEvent: ST.logEvent,
  deleteIndexValue: Admin.deleteIndexValue,
  unassignProvider: Computo.unassignProvider,
  openAdminProviderEditor: Admin.openAdminProviderEditor,
+ toggleAdminProviderPublicado: Admin.toggleAdminProviderPublicado,
  addAdminOfferFromSearch: Admin.addAdminOfferFromSearch,
  updateAdminOfferPrice: Admin.updateAdminOfferPrice,
  updateAdminOfferStock: Admin.updateAdminOfferStock,
@@ -946,6 +967,7 @@ updateAdminApuDraftRend: Admin.updateAdminApuDraftRend,
  applyApuDimensions: Apu.applyApuDimensions,
  updateApuItemQuantity: Apu.updateApuItemQuantity,
  updateApuComponentRendimiento: Apu.updateApuComponentRendimiento,
+ updateApuItemDesperdicio: Apu.updateApuItemDesperdicio,
  resetApuComponentRendimiento: Apu.resetApuComponentRendimiento,
  changeApuComponentMaterial: Apu.changeApuComponentMaterial,
  renderApuItemMaterialResults: Apu.renderApuItemMaterialResults,

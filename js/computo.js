@@ -165,7 +165,7 @@ import * as ST from './state.js';
  <div class="computation-row">
  <div class="computation-row-info">
  <h4>${ST.escapeHtml(comp.name)}</h4>
- <span>${count} ítem${count === 1 ? '' : 's'} · actualizado el ${fecha}${comp.locality ? ' · ' + comp.locality : ''}</span>
+ <span>${count} ítem${count === 1 ? '' : 's'} · actualizado el ${fecha}${comp.locality ? ' · ' + ST.escapeHtml(comp.locality) : ''}</span>
  </div>
  <div class="computation-row-actions">
  <button onclick="window.nexoBraApp.openComputation('${comp.id}')">Pasar a la Calculadora</button>
@@ -566,7 +566,7 @@ import * as ST from './state.js';
  ${(items || []).map(it => `
  <tr>
  <td>${ST.escapeHtml(it.denomination_snapshot)}</td>
- <td>${it.quantity} ${it.unit}</td>
+ <td>${it.quantity} ${ST.escapeHtml(it.unit)}</td>
  <td>${ST.formatMoney(it.price_snapshot)}</td>
  <td style="text-align:right;">${ST.formatMoney(it.price_snapshot * it.quantity)}</td>
  </tr>
@@ -616,7 +616,7 @@ import * as ST from './state.js';
  <h4 class="computo-item-title">${ST.escapeHtml(item.denominacion)}</h4>
  ${pricing.isProviderSourced ? '<span class="cart-badge-provider">Precio fijo del proveedor</span>' : ''}
  ${pricing.projectedFromEarlierMonth ? `<span class="cart-badge-provider" style="background:#fef3c7; color:#92400e;">Con dato de ${ST.monthLabel(pricing.projectedFromEarlierMonth)}</span>` : ''}
- ${item.roundedFrom ? `<span class="cart-badge-provider" style="background:#dbeafe; color:#1e40af;">Redondeado desde ${item.roundedFrom.qty} ${item.roundedFrom.unit}</span>` : ''}
+ ${item.roundedFrom ? `<span class="cart-badge-provider" style="background:#dbeafe; color:#1e40af;">Redondeado desde ${item.roundedFrom.qty} ${ST.escapeHtml(item.roundedFrom.unit)}</span>` : ''}
  </div>
  <button class="btn-remove-item" onclick="window.nexoBraApp.removeCartItem(${idx})" title="Eliminar ítem">&times;</button>
  </div>
@@ -632,11 +632,11 @@ import * as ST from './state.js';
  step="${esManoDeObra ? 0.5 : 1}"
  onchange="window.nexoBraApp.updateItemQtyInCart(${idx}, parseFloat(this.value) || 1)"
  >
- <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">${item.unit}</span>
+ <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">${ST.escapeHtml(item.unit)}</span>
  </div>
  <div style="text-align: right;">
  ${pricing.disponible
- ? `<div style="font-size: 0.74rem; color: var(--text-subtle);">${ST.formatMoney(pricing.unitPrice)}/${item.unit}</div>
+ ? `<div style="font-size: 0.74rem; color: var(--text-subtle);">${ST.formatMoney(pricing.unitPrice)}/${ST.escapeHtml(item.unit)}</div>
  ${pricing.basePrice ? `<div class="cart-price-trace">Base ${ST.formatMoney(pricing.basePrice)} · × ${ST.formatFactor(pricing.factor || 1)}</div>` : ''}
  <div class="computo-item-subtotal">${ST.formatMoney(subtotal)}</div>`
  : `<div style="font-size: 0.74rem; color: #b91c1c;">Sin dato para este mes</div>`
@@ -883,9 +883,9 @@ import * as ST from './state.js';
  <tr>
  <td><strong>${item.id}</strong></td>
  <td>${ST.escapeHtml(item.denominacion)}</td>
- <td>${item.rubro}</td>
+ <td>${ST.escapeHtml(item.rubro)}</td>
  <td>${item.qty}</td>
- <td>${item.unit}</td>
+ <td>${ST.escapeHtml(item.unit)}</td>
  <td>${ST.formatMoney(pricing.unitPrice)}${pricing.basePrice ? `<br><small>Base ${ST.formatMoney(pricing.basePrice)} · × ${ST.formatFactor(pricing.factor || 1)}</small>` : ''}</td>
  <td style="text-align: right;"><strong>${ST.formatMoney(item.qty * pricing.unitPrice)}</strong></td>
  </tr>
@@ -919,7 +919,7 @@ import * as ST from './state.js';
  <tr>
  <td><strong>${ST.escapeHtml(item.denominacion)}</strong></td>
  <td>${item.qty}</td>
- <td>${item.unit}</td>
+ <td>${ST.escapeHtml(item.unit)}</td>
  <td>${ST.formatMoney(pricing.unitPrice)}</td>
  <td style="text-align: right;"><strong>${ST.formatMoney(item.qty * pricing.unitPrice)}</strong></td>
  </tr>

@@ -62,7 +62,7 @@ import * as ST from './state.js';
  <div class="provider-search-row">
  <div class="provider-search-row-info">
  <strong>${ST.escapeHtml(item.denominacion)}</strong><br>
- <span style="color:var(--text-muted); font-size:0.75rem;">${item.id} · ${item.rubro}</span>
+ <span style="color:var(--text-muted); font-size:0.75rem;">${ST.escapeHtml(item.id)} · ${ST.escapeHtml(item.rubro)}</span>
  </div>
  <button class="btn-computo" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.selectMaterialOnMap(${ST.escAttr(item.id)}, ${ST.escAttr(item.denominacion)})">Ver en mapa</button>
  </div>
@@ -468,7 +468,27 @@ import * as ST from './state.js';
  loadNearbyBranchesOnMap();
  }
 
- /**
+ // (21/11, auditoría de pulido) Teléfono legible: "5493755573109" → "(3755) 57-3109".
+// Código de área de 2, 3 o 4 dígitos según los más comunes; si no lo reconoce, lo deja como vino.
+const AREAS_3 = ['376', '379', '387', '388', '381', '385', '351', '341', '342', '343', '261', '264', '221', '223', '291', '297', '299', '362', '370', '380', '383'];
+function digitosLocales(raw) {
+ let d = String(raw || '').replace(/\D/g, '');
+ if (d.startsWith('549')) d = d.slice(3); else if (d.startsWith('54')) d = d.slice(2);
+ if (d.startsWith('0')) d = d.slice(1);
+ if (d.length === 12) { const a = d.startsWith('11') ? 2 : AREAS_3.includes(d.slice(0, 3)) ? 3 : 4; if (d.slice(a, a + 2) === '15') d = d.slice(0, a) + d.slice(a + 2); }
+ return d;
+}
+export function formatPhoneAR(raw) {
+ const d = digitosLocales(raw);
+ if (d.length !== 10) return String(raw || '');
+ const a = d.startsWith('11') ? 2 : AREAS_3.includes(d.slice(0, 3)) ? 3 : 4;
+ const loc = d.slice(a);
+ return `(${d.slice(0, a)}) ${loc.slice(0, loc.length - 4)}-${loc.slice(-4)}`;
+}
+function telE164(raw) { const d = digitosLocales(raw); return d.length === 10 ? '549' + d : String(raw || '').replace(/\D/g, ''); }
+const capitalizar = (t) => String(t || '').replace(/^\s*\p{L}/u, (c) => c.toUpperCase());
+
+/**
  * Datos del home (16/11, auditoría 12/11 falla 4). Antes mostraba
  * proveedores, usuarios registrados y visitas -- con 1 · 1 · 4 · 178, la
  * prueba social jugaba en contra, y esos números ahora viven en el tablero
@@ -494,8 +514,12 @@ import * as ST from './state.js';
  setTimeout(() => loadHomeStats(false), 2500);
  }
  if (!ST.supabaseClient) return;
- const { count, error } = await ST.supabaseClient.from('apu_tasks').select('id', { count: 'exact', head: true });
- if (!error && count) apuEl.textContent = ST.formatInt(count);
+ // (21/11, auditoría de pulido) Solo cuentan las tareas habilitadas: mientras
+ // se revisan las APU el público ve 0, y el home no puede prometer "80".
+ const { count, error } = await ST.supabaseClient.from('apu_tasks').select('id', { count: 'exact', head: true }).eq('habilitada', true);
+ const tile = apuEl.closest('.home-stat-tile');
+ if (!error && count) { apuEl.textContent = ST.formatInt(count); if (tile) tile.style.display = ''; }
+ else if (tile) tile.style.display = 'none';
  }
 
  export async function loadNearbyBranchesOnMap() {
@@ -1847,15 +1871,15 @@ import * as ST from './state.js';
  <section class="pp-card">
  <h3>Datos</h3>
  <ul class="pp-data">
- ${branch.address ? `<li><span>Dirección</span>${ST.escapeHtml(branch.address)}, ${ST.escapeHtml(branch.locality)}</li>` : `<li><span>Localidad</span>${ST.escapeHtml(branch.locality)}</li>`}
- ${contactPhone ? `<li><span>Teléfono</span>${ST.escapeHtml(contactPhone)}</li>` : ''}
+ ${branch.address ? `<li><span>Dirección</span>${ST.escapeHtml(capitalizar(branch.address))}, ${ST.escapeHtml(branch.locality)}</li>` : `<li><span>Localidad</span>${ST.escapeHtml(branch.locality)}</li>`}
+ ${contactPhone ? `<li><span>Teléfono</span><a href="tel:+${ST.escapeHtml(telE164(contactPhone))}">${ST.escapeHtml(formatPhoneAR(contactPhone))}</a></li>` : ''}
  ${provider.contact_email ? `<li><span>Email</span><a href="mailto:${ST.escapeHtml(provider.contact_email)}">${ST.escapeHtml(provider.contact_email)}</a></li>` : ''}
  ${provider.matricula ? `<li><span>Matrícula</span>${ST.escapeHtml(provider.matricula)}</li>` : ''}
  </ul>
  ${branch.business_hours ? `<h4 class="pp-subtitle">Horarios</h4>${renderBusinessHours(branch.business_hours)}` : ''}
  </section>
  <section class="pp-card pp-cta">
- <p>Esta es la página de ${ST.escapeHtml(provider.business_name)} en <strong>NEXOBRA</strong>, el comparador técnico de precios de la construcción.</p>
+ <p>Esta es la página de ${ST.escapeHtml(provider.business_name)} en <strong>NEXOBRA</strong>, el planificador de obra que conecta tu obra con los comercios de tu zona.</p>
  <button type="button" class="btn-action-drawer" onclick="window.nexoBraApp.switchView('providers-directory')">Ver más proveedores</button>
  ${sinDueno ? '' : '<button type="button" class="link-button" onclick="window.nexoBraApp.startProviderSignup()">¿Tenés un negocio? Sumalo gratis</button>'}
  </section>
@@ -1895,7 +1919,7 @@ import * as ST from './state.js';
  <div class="pp-offer">
  <div class="pp-offer-info">
  <strong>${ST.escapeHtml(o.materials?.denomination || '(material eliminado)')}</strong>
- <span>${o.brand ? `${ST.escapeHtml(o.brand)} · ` : ''}<span class="stock-badge ${o.stock_status}">${o.stock_status === 'en_stock' ? 'En stock' : o.stock_status === 'a_pedido' ? 'A pedido' : 'Agotado'}</span> ${ST.offerAgeTag(o.reported_at)}</span>
+ <span>${o.brand ? `${ST.escapeHtml(o.brand)} · ` : ''}<span class="stock-badge ${ST.stockClass(o.stock_status)}">${o.stock_status === 'en_stock' ? 'En stock' : o.stock_status === 'a_pedido' ? 'A pedido' : 'Agotado'}</span> ${ST.offerAgeTag(o.reported_at)}</span>
  </div>
  <div class="pp-offer-price">
  <strong>${ST.formatMoney(o.amount)}</strong>

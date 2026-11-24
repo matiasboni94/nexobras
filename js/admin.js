@@ -77,7 +77,7 @@ function renderMaterialSearchResults() {
  <div class="provider-search-row">
  <div class="provider-search-row-info">
  <strong>${ST.escapeHtml(item.denominacion)}</strong><br>
- <span style="color:var(--text-muted); font-size:0.75rem;">${item.id} · ${item.rubro}</span>
+ <span style="color:var(--text-muted); font-size:0.75rem;">${ST.escapeHtml(item.id)} · ${ST.escapeHtml(item.rubro)}</span>
  </div>
  <button class="btn-computo" style="padding: 6px 12px; font-size: 0.78rem;" onclick="window.nexoBraApp.openMaterialEditor(${ST.escAttr(item.id)})">Editar</button>
  </div>
@@ -134,7 +134,7 @@ export async function loadMaterialsBrowse(reset = true) {
  materialBrowseState.loading = false;
 
  if (error) {
- document.getElementById('admin-material-list').innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+ document.getElementById('admin-material-list').innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.escapeHtml(error.message)}</p>`;
  return;
  }
 
@@ -159,7 +159,7 @@ function renderMaterialBrowseList() {
  <div class="provider-search-row">
  <div class="provider-search-row-info">
  <strong>${ST.escapeHtml(item.denomination)}</strong>${item.active === false ? ' <span style="color:#b91c1c; font-size:0.72rem; font-weight:700;">(inactivo)</span>' : ''}<br>
- <span style="color:var(--text-muted); font-size:0.75rem;">${item.id} · ${item.rubro} · modificado: ${formatDateTime(item.updated_at)}</span>
+ <span style="color:var(--text-muted); font-size:0.75rem;">${ST.escapeHtml(item.id)} · ${ST.escapeHtml(item.rubro)} · modificado: ${formatDateTime(item.updated_at)}</span>
  </div>
  <button class="btn-computo" style="padding: 6px 12px; font-size: 0.78rem;" onclick="window.nexoBraApp.openMaterialEditor(${ST.escAttr(item.id)})">Editar</button>
  </div>
@@ -320,7 +320,7 @@ export async function loadPendingProviders() {
  .order('created_at');
 
  if (error) {
- container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+ container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.escapeHtml(error.message)}</p>`;
  return;
  }
  adminState.pendingProviders = data || [];
@@ -363,7 +363,7 @@ export async function openProviderReview(providerId) {
  .single();
 
  if (error) {
- panel.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+ panel.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.escapeHtml(error.message)}</p>`;
  return;
  }
  adminState.reviewingProvider = provider;
@@ -440,7 +440,7 @@ export async function loadPendingOffers() {
  .order('reported_at');
 
  if (error) {
- container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+ container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.escapeHtml(error.message)}</p>`;
  return;
  }
  adminState.pendingOffers = data || [];
@@ -477,7 +477,7 @@ function renderPendingOffers() {
  <div class="provider-catalog-row">
  <div class="provider-catalog-row-info">
  <h5>${ST.escapeHtml(offer.materials?.denomination) || '(material eliminado)'}</h5>
- <span>${offer.brand ? `<strong>${ST.escapeHtml(offer.brand)}</strong> · ` : ''}${offer.provider_sku ? `SKU: ${ST.escapeHtml(offer.provider_sku)} · ` : ''}${ST.formatMoney(offer.amount)} / ${offer.unit} · ${offer.stock_status} · cargado ${formatDateTime(offer.reported_at)}</span>
+ <span>${offer.brand ? `<strong>${ST.escapeHtml(offer.brand)}</strong> · ` : ''}${offer.provider_sku ? `SKU: ${ST.escapeHtml(offer.provider_sku)} · ` : ''}${ST.formatMoney(offer.amount)} / ${ST.escapeHtml(offer.unit)} · ${ST.escapeHtml(offer.stock_status)} · cargado ${formatDateTime(offer.reported_at)}</span>
  </div>
  <div class="provider-catalog-row-controls">
  <button class="btn-computo" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.approveOffer(${ST.escAttr(offer.id)})">✓ Aprobar</button>
@@ -620,7 +620,7 @@ export async function loadTechSuggestions() {
  .order('created_at');
 
  if (error) {
- container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+ container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.escapeHtml(error.message)}</p>`;
  return;
  }
  if (!data || data.length === 0) {
@@ -690,7 +690,7 @@ export async function loadSearchAnalytics(zeroResultsOnly) {
  });
 
  if (error) {
- container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+ container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.escapeHtml(error.message)}</p>`;
  return;
  }
  if (!data || data.length === 0) {
@@ -717,11 +717,11 @@ export async function loadIndexSeriesOptions() {
  .order('applies_to')
  .order('name');
  if (error) {
- select.innerHTML = `<option value="">Error: ${error.message}</option>`;
+ select.innerHTML = `<option value="">Error: ${ST.escapeHtml(error.message)}</option>`;
  return;
  }
  select.innerHTML = (data || []).map(s =>
- `<option value="${s.id}">${s.applies_to === 'labor' ? ' UOCRA' : ' IPC'} — ${s.name}</option>`
+ `<option value="${ST.escapeHtml(s.id)}">${s.applies_to === 'labor' ? ' UOCRA' : ' IPC'} — ${ST.escapeHtml(s.name)}</option>`
  ).join('');
  if ((data || []).length > 0) loadRecentIndexValues();
 }
@@ -769,7 +769,7 @@ export async function loadRecentIndexValues() {
  .limit(12);
 
  if (error) {
- container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+ container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.escapeHtml(error.message)}</p>`;
  return;
  }
  if (!data || data.length === 0) {
@@ -1328,7 +1328,7 @@ export async function loadReportedReviews() {
  .order('created_at');
 
  if (error) {
- container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+ container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.escapeHtml(error.message)}</p>`;
  return;
  }
  if (!data || data.length === 0) {
@@ -1400,11 +1400,11 @@ export async function loadAdminProviderList() {
 
  const { data, error } = await ST.supabaseClient
  .from('providers')
- .select('id, business_name, verification_status, owner_id, created_at, provider_branches(name, locality)')
+ .select('*, provider_branches(name, locality)')
  .order('business_name');
 
  if (error) {
- container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+ container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.escapeHtml(error.message)}</p>`;
  return;
  }
  adminState.manageProviders = data || [];
@@ -1434,7 +1434,7 @@ function renderAdminProviderList() {
  <div class="computation-row">
  <div class="computation-row-info">
  <h4>${ST.escapeHtml(p.business_name)}</h4>
- <span>${branch ? `${ST.escapeHtml(branch.name)}, ${ST.escapeHtml(branch.locality)}` : 'Sin sucursal cargada'} · ${statusLabel[p.verification_status] || p.verification_status} · ${p.owner_id ? 'Con dueño propio' : 'Sin dueño (lo administrás vos)'}</span>
+ <span>${branch ? `${ST.escapeHtml(branch.name)}, ${ST.escapeHtml(branch.locality)}` : 'Sin sucursal cargada'} · ${statusLabel[p.verification_status] || p.verification_status} · ${p.owner_id ? 'Con dueño propio' : 'Sin dueño (lo administrás vos)'}${p.publicado === true ? ' · <b class="prov-pub-tag on">Publicado</b>' : p.publicado === false ? ' · <b class="prov-pub-tag">Borrador</b>' : ''}</span>
  </div>
  <div class="computation-row-actions">
  <button onclick="window.nexoBraApp.openAdminProviderEditor(${ST.escAttr(p.id)})">Administrar</button>
@@ -1572,6 +1572,7 @@ export async function openAdminProviderEditor(providerId) {
  adminState.manageSelectedBranch = null;
  updateAdminLogoPreview(null);
  updateAdminProviderPublicLinkBox(null);
+ renderAdminProviderPublishBox(null);
  document.getElementById('admin-prov-owner-info').textContent = 'Guardá primero los datos comerciales -- una vez creado el proveedor vas a poder transferirlo, cargarle palabras clave y precios.';
  document.getElementById('admin-prov-transfer-email').closest('div').style.display = 'none';
  document.getElementById('admin-prov-keywords-list').innerHTML = '<p style="font-size:0.82rem; color:var(--text-muted);">Guardá primero los datos comerciales.</p>';
@@ -1600,6 +1601,7 @@ export async function openAdminProviderEditor(providerId) {
 
  adminState.manageSelectedProvider = provider;
  updateAdminLogoPreview(provider.logo_url);
+ renderAdminProviderPublishBox(provider);
 
  document.getElementById('admin-prov-business-name').value = provider.business_name || '';
  document.getElementById('admin-prov-category').value = provider.category_id || '';
@@ -1664,6 +1666,47 @@ function updateAdminLogoPreview(url) {
 }
 
 /** Igual que updateProviderPublicLinkBox() en provider.js, pero para la sucursal que el admin tiene seleccionada. */
+// (22/11-d) Fichas en borrador (migración 044): todo proveedor arranca sin
+// publicar. Mientras tanto sus precios cuentan para el precio de referencia,
+// pero no aparece en el mapa, el directorio ni su página pública. Se publica
+// cuando el proveedor aceptó figurar.
+function renderAdminProviderPublishBox(provider) {
+ const box = document.getElementById('admin-prov-publish-box');
+ if (!box) return;
+ if (!provider) {
+ box.style.display = 'block';
+ box.className = 'prov-publish-box';
+ box.innerHTML = '<b>Borrador</b><span>Las fichas nuevas arrancan sin publicar. Guardá los datos y, cuando el proveedor acepte figurar, publicala.</span>';
+ return;
+ }
+ box.style.display = 'block';
+ if (typeof provider.publicado !== 'boolean') {
+ box.className = 'prov-publish-box';
+ box.innerHTML = '<b>Publicación</b><span>Corré la migración 044 para poder dejar fichas en borrador y publicarlas.</span>';
+ return;
+ }
+ const on = provider.publicado;
+ const fecha = on && provider.publicado_at ? ` desde el ${new Date(provider.publicado_at).toLocaleDateString('es-AR')}` : '';
+ box.className = `prov-publish-box${on ? ' on' : ''}`;
+ box.innerHTML = on
+ ? `<b>Publicado${fecha}</b><span>Aparece en el mapa, el directorio, la ficha de cada material y su página pública.</span><button type="button" class="btn-action-drawer btn-copy" onclick="window.nexoBraApp.toggleAdminProviderPublicado()">Pasar a borrador</button>`
+ : `<b>Borrador</b><span>No lo ve nadie más que vos${provider.owner_id ? ' y su dueño' : ''}. Sus precios cuentan para el precio de referencia, sin nombrarlo. Publicalo cuando haya aceptado figurar.</span><button type="button" class="btn-computo" onclick="window.nexoBraApp.toggleAdminProviderPublicado()">Publicar</button>`;
+}
+
+export async function toggleAdminProviderPublicado() {
+ const provider = adminState.manageSelectedProvider;
+ if (!provider || typeof provider.publicado !== 'boolean') return;
+ const nuevo = !provider.publicado;
+ if (nuevo && !confirm(`¿Publicar "${provider.business_name}"? Va a aparecer en el mapa, el directorio y su página pública. Hacelo cuando el proveedor haya aceptado figurar.`)) return;
+ const { data, error } = await ST.supabaseClient.from('providers').update({ publicado: nuevo }).eq('id', provider.id).select('publicado, publicado_at').single();
+ if (error || !data) { ST.showToast('No se pudo cambiar la publicación' + (error ? ': ' + error.message : '.')); return; }
+ Object.assign(provider, data);
+ renderAdminProviderPublishBox(provider);
+ const enLista = (adminState.manageProviders || []).find(p => p.id === provider.id);
+ if (enLista) Object.assign(enLista, data);
+ ST.showToast(data.publicado ? `Publicado: ${provider.business_name}` : `Pasó a borrador: ${provider.business_name}`);
+}
+
 function updateAdminProviderPublicLinkBox(branch) {
  const box = document.getElementById('admin-prov-public-link-box');
  const textEl = document.getElementById('admin-prov-public-link-text');
@@ -1877,14 +1920,14 @@ export function renderAdminProviderAddResults() {
  <div class="provider-search-row">
  <div class="provider-search-row-info">
  <strong>${ST.escapeHtml(item.denominacion)}</strong><br>
- <span style="color:var(--text-muted); font-size:0.75rem;">${item.id} · ${item.rubro}</span>
+ <span style="color:var(--text-muted); font-size:0.75rem;">${ST.escapeHtml(item.id)} · ${ST.escapeHtml(item.rubro)}</span>
  </div>
  <div class="provider-search-row-controls">
  <input type="text" id="admin-prov-sku-${item.id}" placeholder="SKU (opcional)">
  <input type="text" id="admin-prov-brand-${item.id}" placeholder="Marca (opcional)" maxlength="40">
  <select id="admin-prov-unit-${item.id}">
- <option value="venta">Por ${item.unidadVenta} (compra)</option>
- <option value="computo">Por ${item.unidadComputo} (cómputo)</option>
+ <option value="venta">Por ${ST.escapeHtml(item.unidadVenta)} (compra)</option>
+ <option value="computo">Por ${ST.escapeHtml(item.unidadComputo)} (cómputo)</option>
  </select>
  <input type="number" id="admin-prov-price-${item.id}" placeholder="Precio" min="0" step="0.01">
  <select id="admin-prov-stock-${item.id}">
@@ -2150,7 +2193,7 @@ export async function loadAdminProviderCatalog() {
  .order('reported_at', { ascending: false });
 
  if (error) {
- container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">Error: ${error.message}</p>`;
+ container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">Error: ${ST.escapeHtml(error.message)}</p>`;
  return;
  }
  renderAdminProviderCatalog(data || []);
@@ -2166,12 +2209,12 @@ function renderAdminProviderCatalog(offers) {
  <div class="provider-catalog-row">
  <div class="provider-catalog-row-info">
  <h5>${ST.escapeHtml(offer.materials?.denomination) || '(material eliminado)'}</h5>
- <span>${offer.brand ? `<strong>${ST.escapeHtml(offer.brand)}</strong> · ` : ''}${offer.provider_sku ? `SKU: ${ST.escapeHtml(offer.provider_sku)} · ` : ''}${offer.unit}</span>
+ <span>${offer.brand ? `<strong>${ST.escapeHtml(offer.brand)}</strong> · ` : ''}${offer.provider_sku ? `SKU: ${ST.escapeHtml(offer.provider_sku)} · ` : ''}${ST.escapeHtml(offer.unit)}</span>
  ${offer.status === 'pending' ? '<br><span style="font-size:0.7rem; font-weight:700; color:#b45309;">Pendiente de aprobación</span>' : ''}
  ${offer.status === 'rejected' ? `<br><span style="font-size:0.7rem; font-weight:700; color:#b91c1c;">✕ Rechazado${offer.rejection_reason ? ': ' + ST.escapeHtml(offer.rejection_reason) : ''}</span>` : ''}
  </div>
  <div class="provider-catalog-row-controls">
- <span class="stock-badge ${offer.stock_status}">${offer.stock_status === 'en_stock' ? 'En stock' : offer.stock_status === 'a_pedido' ? 'A pedido' : 'Agotado'}</span>
+ <span class="stock-badge ${ST.stockClass(offer.stock_status)}">${offer.stock_status === 'en_stock' ? 'En stock' : offer.stock_status === 'a_pedido' ? 'A pedido' : 'Agotado'}</span>
  <select onchange="window.nexoBraApp.updateAdminOfferStock('${offer.id}', this.value)">
  <option value="en_stock" ${offer.stock_status === 'en_stock' ? 'selected' : ''}>En stock</option>
  <option value="a_pedido" ${offer.stock_status === 'a_pedido' ? 'selected' : ''}>A pedido</option>
@@ -2222,7 +2265,7 @@ export async function loadAdminProviderKeywords() {
  .order('created_at');
 
  if (error) {
- container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+ container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.escapeHtml(error.message)}</p>`;
  return;
  }
  if (!data || data.length === 0) {
@@ -2301,7 +2344,7 @@ export async function loadAdminProviderAnnouncements() {
  .order('created_at', { ascending: false });
 
  if (error) {
- container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+ container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.escapeHtml(error.message)}</p>`;
  return;
  }
  renderAdminProviderAnnouncements(data || []);
@@ -2399,7 +2442,7 @@ export async function loadAdminProviderBranchPhotos() {
  .eq('branch_id', branch.id)
  .order('sort_order');
  if (error) {
- container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${error.message}</p>`;
+ container.innerHTML = `<p style="color:#b91c1c; font-size:0.85rem;">${ST.escapeHtml(error.message)}</p>`;
  return;
  }
  renderAdminProviderBranchPhotos(data || []);
@@ -2707,7 +2750,7 @@ export async function openAdminApuTaskModal() {
  document.getElementById('admin-apu-unidad').value = '';
  document.getElementById('admin-apu-rubro').value = '';
  document.getElementById('admin-apu-descripcion').value = '';
- document.getElementById('admin-apu-desperdicio').value = '0';
+ document.getElementById('admin-apu-desperdicio').value = '5';
  document.getElementById('admin-apu-herramientas').value = '0';
  document.getElementById('admin-apu-material-search').value = '';
  document.getElementById('admin-apu-material-results').innerHTML = '';

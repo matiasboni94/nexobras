@@ -1323,7 +1323,7 @@ export function openApuCustomTaskModal() {
  if (ST.apuCustomNombre) ST.apuCustomNombre.value = '';
  if (ST.apuCustomUnidad) ST.apuCustomUnidad.value = '';
  if (ST.apuCustomRubro) ST.apuCustomRubro.value = '';
- if (ST.apuCustomDesperdicio) ST.apuCustomDesperdicio.value = '0';
+ if (ST.apuCustomDesperdicio) ST.apuCustomDesperdicio.value = '5';
  if (ST.apuCustomHerramientas) ST.apuCustomHerramientas.value = '0';
  if (ST.apuCustomMaterialSearch) ST.apuCustomMaterialSearch.value = '';
  if (ST.apuCustomMaterialResults) ST.apuCustomMaterialResults.innerHTML = '';
@@ -1870,7 +1870,7 @@ function renderApuComponentSection(titulo, lineas, subtotal, item, herramientas 
  <td></td>
  </tr>` : '';
  return `
- <tr class="apu-component-section-title"><td colspan="6">${titulo}</td></tr>
+ <tr class="apu-component-section-title"><td colspan="6">${titulo}${titulo === 'Materiales' ? renderApuDesperdicioControl(item) : ''}</td></tr>
  ${lineas.map(l => renderComponentRow(item, l)).join('')}
  ${herramientasRow}
  <tr class="apu-component-section-subtotal"><td colspan="4">Subtotal ${titulo}</td><td style="text-align:right;">${ST.formatMoney(subtotal)}</td><td></td></tr>
@@ -2372,6 +2372,22 @@ export function updateApuItemQuantity(itemLocalId, qty) {
  updateApuBudgetUI();
 }
 
+/** (22/11) % de desperdicio de materiales de un ítem: arranca con el de la tarea (5 % por defecto) y cada usuario lo puede cambiar en su presupuesto. */
+function renderApuDesperdicioControl(item) {
+ const v = Number(item.desperdicio_pct_snapshot || 0);
+ return ` <label class="apu-desperdicio-ctrl">Desperdicio <input type="number" min="0" max="100" step="0.5" value="${v}" aria-label="Porcentaje de desperdicio de materiales"
+ onchange="window.nexoBraApp.updateApuItemDesperdicio('${item.localId}', this.value)"> %</label>`;
+}
+
+export function updateApuItemDesperdicio(itemLocalId, value) {
+ const item = ST.state.apuBudgetItems.find(i => i.localId === itemLocalId);
+ if (!item) return;
+ const v = Number(String(value).replace(',', '.'));
+ item.desperdicio_pct_snapshot = Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : 0;
+ saveApuCart();
+ updateApuBudgetUI();
+}
+
 export function updateApuComponentRendimiento(itemLocalId, componentLocalId, value) {
  const item = ST.state.apuBudgetItems.find(i => i.localId === itemLocalId);
  if (!item) return;
@@ -2724,7 +2740,7 @@ export async function loadMyApuBudgets() {
  <div class="computation-row">
  <div class="computation-row-info">
  <h4>${ST.escapeHtml(b.name)}</h4>
- <span>${count} ítem${count === 1 ? '' : 's'} · actualizado el ${fecha}${b.locality ? ' · ' + b.locality : ''}</span>
+ <span>${count} ítem${count === 1 ? '' : 's'} · actualizado el ${fecha}${b.locality ? ' · ' + ST.escapeHtml(b.locality) : ''}</span>
  </div>
  <div class="computation-row-actions">
  <button onclick="window.nexoBraApp.openApuBudget('${b.id}')">Abrir</button>

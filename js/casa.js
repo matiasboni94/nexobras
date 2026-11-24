@@ -17,8 +17,12 @@ import * as ST from './state.js';
 
 const STORE_KEY = 'nexobra_casa';
 const MIN_ALTURA = 2.6; // altura mínima de locales de primera (referencia Pro.Cre.Ar, a validar)
+// (24/11) Medidas del lote (editables desde el croquis) y medianera donde se apoya la casa
+const LOTE_LIM = { loteAncho: [6, 30], loteFondo: [12, 60] };
+const LOTES_RAPIDOS = [[10, 25], [10, 30], [12, 30], [15, 30], [20, 40]];
+const limLote = (k, v) => Math.round(Math.min(LOTE_LIM[k][1], Math.max(LOTE_LIM[k][0], Number(v) || 0)) * 100) / 100;
 const DEFAULTS = {
- ciudad: 'Oberá', lote: 'a1', norte: 0,
+ ciudad: 'Oberá', lote: 'a1', norte: 0, loteAncho: 10, loteFondo: 25, medLado: 'auto',
  tipo: 'lineal', dorm: 2, galeria: true, cochera: false, bano2: 'no',
  techo: '1', techoMat: 'chapa', fachada: 'revoque',
  nivel: 'B', muro: 'eps2', aisTecho: 'lana5', piso: 'ceramico', abert: 'aluminio', dvh: false, solar: false,
@@ -46,6 +50,8 @@ function cargarEstado() {
  if (S.bano2 === true) S.bano2 = 'pasillo'; else if (!['no', 'pasillo', 'suite'].includes(S.bano2)) S.bano2 = 'no';
  if (!S.dims || typeof S.dims !== 'object') S.dims = {};
  S.altura = Math.max(MIN_ALTURA, Number(S.altura) || 2.6);
+ S.loteAncho = limLote('loteAncho', S.loteAncho || 10); S.loteFondo = limLote('loteFondo', S.loteFondo || 25);
+ if (!['auto', 'otra'].includes(S.medLado)) S.medLado = 'auto';
  if (S.solar === true) { S.agua = 'solar'; S.solar = false; }
  ['vent', 'artef', 'aa'].forEach(k => { if (!S[k] || typeof S[k] !== 'object') S[k] = {}; });
  if (![1, 2, 3, 4, 5].includes(S.paso)) S.paso = 1;
@@ -147,8 +153,9 @@ const idx8 = (b) => Math.round((((b % 360) + 360) % 360) / 45) % 8;
 const norm = (a) => ((a % 360) + 360) % 360;
 function lotesManzana() {
  const L = [], A = 30, P = 56, M = 28; // manzana de 224 px dentro de 284
- const add = (id, x, y, w, h, lado, esquina) => L.push({ id, x, y, w, h, lado, esquina });
- add('e1', A, A, P, P, 0, true); add('e2', A + 168, A, P, P, 0, true); add('e3', A + 168, A + 168, P, P, 180, true); add('e4', A, A + 168, P, P, 180, true);
+ const add = (id, x, y, w, h, lado, esquina, calle2 = null) => L.push({ id, x, y, w, h, lado, esquina, calle2 });
+ // (24/11) calle2: de qué lado (mirando el lote desde la calle) está la otra calle de la esquina
+ add('e1', A, A, P, P, 0, true, 'der'); add('e2', A + 168, A, P, P, 0, true, 'izq'); add('e3', A + 168, A + 168, P, P, 180, true, 'der'); add('e4', A, A + 168, P, P, 180, true, 'izq');
  for (let i = 0; i < 4; i++) {
  add('a' + i, A + P + i * M, A, M, P, 0, false);
  add('b' + i, A + P + i * M, A + 168, M, P, 180, false);
@@ -162,8 +169,13 @@ function orientacion() {
  const lote = lotesManzana().find(l => l.id === S.lote) || lotesManzana()[0];
  const fb = norm(lote.lado - S.norte); // rumbo hacia donde mira el frente
  const izq = norm(90 + fb), der = norm(fb - 90); // medianeras vistas desde la calle
- const bienIzq = puntajeMedianera(izq) >= puntajeMedianera(der);
- const medBien = bienIzq ? izq : der;
+ // (24/11) La recomendada es la que deja abrir la casa al norte; se puede elegir la otra.
+ // En esquina hay una sola medianera lateral: la casa se apoya en esa.
+ const solIzq = puntajeMedianera(izq) >= puntajeMedianera(der);
+ const calle2 = lote.esquina ? lote.calle2 : null;
+ const recIzq = calle2 ? calle2 === 'der' : solIzq;
+ const bienIzq = calle2 ? recIzq : (S.medLado === 'otra' ? !recIzq : recIzq);
+ const medBien = bienIzq ? izq : der, medOtra = bienIzq ? der : izq;
  const norteFrente = Math.cos(fb * Math.PI / 180); // >0: el norte entra por el frente
  const invertir = norteFrente < -0.3;
  const oeste = Math.sin(fb * Math.PI / 180) < -0.5;
@@ -172,9 +184,12 @@ function orientacion() {
  if (invertir) { titulo = 'Damos vuelta la casa'; texto = `El norte queda al fondo del lote: el estar y la galería van atrás y los dormitorios hacia la calle. La casa se apoya en la medianera ${SIG8[idx8(medBien)]}.`; }
  else if (norteFrente > 0.3) { titulo = 'Ideal: el estar al frente'; texto = `El sol del norte entra por el frente: ahí va el estar. La casa se apoya en la medianera ${SIG8[idx8(medBien)]} y se abre al ${NOM8[idx8(medBien + 180)]}.`; }
  else { titulo = 'Abrimos la casa hacia el norte'; texto = `El norte queda de costado: la casa se apoya en la medianera ${SIG8[idx8(medBien)]} para que las ventanas de los ambientes miren al ${NOM8[idx8(medBien + 180)]}.`; }
+ if (calle2) texto += ` Lote de esquina: la otra calle queda al ${NOM8[idx8(medOtra)]}, así que la casa se apoya en la única medianera lateral.`;
+ else if (bienIzq !== solIzq) texto += ` Ojo: por el sol recomendamos apoyarla en la medianera ${SIG8[idx8(medOtra)]}.`;
  if (oeste) texto += ' El frente recibe el sol de la tarde: alero más largo y ventana más chica.';
  const desfavorable = [2, 6].includes(i);
- return { lote, fb, i, nombre: NOM8[i], medArriba: bienIzq, invertir, oeste, medBien, titulo, texto, desfavorable,
+ return { lote, fb, i, nombre: NOM8[i], medArriba: bienIzq, invertir, oeste, medBien, medOtra, calle2, titulo, texto, desfavorable,
+ sigRec: SIG8[idx8(recIzq ? izq : der)], sigOtra: SIG8[idx8(recIzq ? der : izq)],
  aguja: norm(270 - fb) /* en la planta la calle queda a la izquierda */ };
 }
 
@@ -307,12 +322,12 @@ function tipologia(o) {
  return ajustarVentanas({ rooms, doors, wins, Wf, L, texto });
 }
 
-// ¿La casa entra en el lote de 10 × 25 m? Devuelve el motivo si no entra.
+// ¿La casa entra en el lote? (24/11: las medidas del lote se eligen en el croquis) Devuelve el motivo si no entra.
 function problemaLote(T) {
- const RET = (S.cochera && S.tipo !== 'lineal') ? 5.5 : 4;
- if (T.Wf > 10) return `La casa queda de ${f(T.Wf, 2)} m de ancho y el lote tiene 10 m.`;
- if (S.cochera && S.tipo === 'lineal' && T.Wf + 3.8 > 10) return 'Con cochera al costado, la casa no puede pasar de 6,20 m de ancho.';
- if (RET + T.L > 24) return `La casa queda de ${f(T.L, 2)} m de largo: con el retiro de ${f(RET, 1)} m no deja patio en el lote de 25 m.`;
+ const RET = (S.cochera && S.tipo !== 'lineal') ? 5.5 : 4, A = S.loteAncho, F = S.loteFondo;
+ if (T.Wf > A + 1e-9) return `La casa queda de ${f(T.Wf, 2)} m de ancho y el lote tiene ${f(A, 2)} m.`;
+ if (S.cochera && S.tipo === 'lineal' && T.Wf + 3.8 > A + 1e-9) return `Con cochera al costado, la casa no puede pasar de ${f(A - 3.8, 2)} m de ancho.`;
+ if (RET + T.L > F - 1 + 1e-9) return `La casa queda de ${f(T.L, 2)} m de largo: con el retiro de ${f(RET, 1)} m no deja patio en el lote de ${f(F, 2)} m.`;
  if (S.tipo === 'compacta' && T.Wf - D('estar', 4.9) < MIN.cocLado) return `La cocina queda de menos de ${f(MIN.cocLado, 2)} m: achicá el estar o agrandá los dormitorios.`;
  if (S.tipo === 'L' && D('ala', 4.3) > T.Wf - 1.2) return 'El ala de dormitorios queda más ancha que el frente: no queda patio.';
  return incumpleCodigo(T);
@@ -568,7 +583,7 @@ function pluviales(T, M, fach) {
 function ampliacion(T) {
  const RET = (S.cochera && S.tipo !== 'lineal') ? 5.5 : 4;
  const largo = 3.0, ancho = S.tipo === 'L' ? D('ala', 4.3) : S.tipo === 'compacta' ? Math.min(T.Wf, 3.4) : T.Wf;
- const entra = RET + T.L + largo <= 24;
+ const entra = RET + T.L + largo <= S.loteFondo - 1 + 1e-9;
  return { u0: T.L, u1: T.L + largo, v0: 0, v1: ancho, m2: largo * ancho, entra };
 }
 const kFactor = () => Apu.computeKFactor ? (Apu.computeKFactor({ gastosGenerales: S.k.gg, beneficio: S.k.ben, iibb: S.k.iibb, iva: S.k.iva }) || 1) : 1;
@@ -609,7 +624,9 @@ function cronograma(lineas, K) {
 // las mediciones que usa el cómputo.
 // ---------------------------------------------------------------------------
 function plano(o, T, S_px, capa = '', E = null) {
- const SC = S_px, CALLE = 26, LX = CALLE + 8, LT = 14, LOTE_L = 25, LOTE_A = 10, FS = SC >= 18 ? 10 : 8;
+ // (24/11) Lote con medidas propias. En esquina la otra calle va del lado libre (el de enfrente a la medianera de la casa).
+ const SC = S_px, CALLE = 26, LX = CALLE + 8, LOTE_L = S.loteFondo, LOTE_A = S.loteAncho, FS = SC >= 18 ? 10 : 8;
+ const CAL2 = o.calle2 ? 24 : 0, LT = 14 + (o.medArriba ? 0 : CAL2);
  const RET = (S.cochera && S.tipo !== 'lineal') ? 5.5 : 4;
  const MURO = '#2B3038', FINO = '#7A8492';
  const { rooms, doors, wins, L } = T;
@@ -617,7 +634,7 @@ function plano(o, T, S_px, capa = '', E = null) {
  const at = (u, v) => solid.find(r => u > r.u0 && u < r.u1 && v > r.v0 && v < r.v1) || null;
  const byId = (id) => rooms.find(r => r.id === id);
  const su = o.invertir ? -1 : 1, sv = o.medArriba ? 1 : -1;
- const X0 = LX + RET * SC, loteAbajo = LT + LOTE_A * SC;
+ const X0 = LX + RET * SC, loteAbajo = LT + LOTE_A * SC, yCotaLote = loteAbajo + 8 + (o.medArriba ? CAL2 : 0);
  const X = (u) => o.invertir ? X0 + (L - u) * SC : X0 + u * SC;
  const Y = (v) => o.medArriba ? LT + v * SC : loteAbajo - v * SC;
  const rect = (u1, u2, v1, v2) => {
@@ -643,8 +660,10 @@ function plano(o, T, S_px, capa = '', E = null) {
  if (!run) return;
  const th = run.t === 'ext' ? 0.2 : 0.1, ext = run.t === 'ext' ? 0.1 : 0;
  const a = run.a - ext, b = run.b + ext;
- if (g.du === 0) muros.push(rect(g.su - th / 2, g.su + th / 2, g.sv + a, g.sv + b));
- else muros.push(rect(g.su + a, g.su + b, g.sv - th / 2, g.sv + th / 2));
+ // (24/11) el muro de la medianera va entero de este lado del eje (muro propio contiguo, hueco 12)
+ if (run.t === 'ext' && e === 'v0' && r.v0 === 0) muros.push({ st: rect(g.su + a, g.su + b, 0, 0.15), med: true });
+ else if (g.du === 0) muros.push({ st: rect(g.su - th / 2, g.su + th / 2, Math.max(0, g.sv + a), g.sv + b) });
+ else muros.push({ st: rect(g.su + a, g.su + b, g.sv - th / 2, g.sv + th / 2) });
  const largo = run.b - run.a;
  if (run.t === 'int') med.int += largo;
  else if (e === 'v0' && r.v0 === 0) med.medianera += largo;
@@ -731,12 +750,44 @@ function plano(o, T, S_px, capa = '', E = null) {
  }
  const yCasa = o.medArriba ? Y(Wmax) + 7 : Y(Wmax) - 21;
 
+ // (24/11) Linderos: línea municipal (llena), medianeras (eje en trazo y punto) y sus rótulos
+ const xF = LX + LOTE_L * SC, yMed = Y(0), yLib = Y(LOTE_A), anchoPl = xF + 28, altoPl = yCotaLote + 26;
+ const EJE = '#A0522D', LM = '#2B3038', TRAZO = 'stroke-dasharray="7 3 1.5 3"';
+ const lineaL = (x1, y1, x2, y2, esLM) => `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${esLM ? LM : EJE}" stroke-width="${esLM ? 2 : 1.8}" ${esLM ? '' : TRAZO}/>`;
+ const linderos = `<svg class="casa-linderos" width="${anchoPl.toFixed(0)}" height="${altoPl.toFixed(0)}" aria-hidden="true">${lineaL(LX, LT, LX, loteAbajo, true)}${lineaL(LX, yMed, xF, yMed, false)}${lineaL(LX, yLib, xF, yLib, !!o.calle2)}${lineaL(xF, LT, xF, loteAbajo, false)}</svg>`;
+ const casaFin = X0 + L * SC, patio = xF - casaFin;
+ const xRot = patio >= 64 ? casaFin + patio / 2 : (X0 - LX >= 50 ? (LX + X0) / 2 : null);
+ const rotLind = [];
+ if (xRot !== null) {
+ rotLind.push(`<div class="casa-lindero" style="left:${xRot.toFixed(1)}px;top:${(o.medArriba ? yMed + 3 : yMed - 12).toFixed(1)}px">Medianera</div>`);
+ rotLind.push(`<div class="casa-lindero${o.calle2 ? ' lm' : ''}" style="left:${xRot.toFixed(1)}px;top:${(o.medArriba ? yLib - 12 : yLib + 3).toFixed(1)}px">${o.calle2 ? 'Línea municipal' : 'Medianera'}</div>`);
+ }
+ // el rótulo del fondo va en la mitad del lado de la medianera de la casa; el tirador, en la otra mitad
+ const yMitad = (Y(0) + Y(LOTE_A / 2)) / 2, yMitadLib = (Y(LOTE_A / 2) + Y(LOTE_A)) / 2;
+ if (LOTE_A * SC / 2 >= 56) rotLind.push(`<div class="casa-lindero v" style="left:${(xF - 12).toFixed(1)}px;top:${yMitad.toFixed(1)}px">${LOTE_A * SC / 2 >= 100 ? 'Medianera de fondo' : 'Medianera'}</div>`);
+ const calle2Html = o.calle2 ? `<div class="casa-calle casa-calle-h" style="left:${LX}px;top:${(o.medArriba ? loteAbajo + 3 : LT - CAL2 + 1).toFixed(1)}px;width:${(LOTE_L * SC).toFixed(1)}px;height:${CAL2 - 4}px">CALLE</div>` : '';
+ const loteTxt = `${f(LOTE_A, 2)} × ${f(LOTE_L, 2)} m`;
+ const loteHtml = capa
+ ? `<div class="casa-lote" style="left:${LX}px;top:${LT}px;width:${LOTE_L * SC}px;height:${LOTE_A * SC}px"></div>`
+ : `<button type="button" class="casa-lote casa-lote-area${S.local === 'lote' ? ' sel' : ''}" data-casa="local:lote" aria-pressed="${S.local === 'lote' ? 'true' : 'false'}" aria-label="Terreno de ${loteTxt}. Cambiar las medidas del lote" title="Tocá el terreno para cambiar sus medidas" style="left:${LX}px;top:${LT}px;width:${(LOTE_L * SC).toFixed(1)}px;height:${(LOTE_A * SC).toFixed(1)}px"></button>`;
+ const cotaFondo = `left:${LX}px;top:${yCotaLote.toFixed(1)}px;width:${(LOTE_L * SC).toFixed(1)}px`, cotaAncho = `left:${(xF + 6).toFixed(1)}px;top:${LT}px;height:${(LOTE_A * SC).toFixed(1)}px`;
+ const cotasLote = capa
+ ? `<div class="casa-cota" style="${cotaFondo}">${f(LOTE_L, 2)} m</div><div class="casa-cota casa-cota-v" style="${cotaAncho}">${f(LOTE_A, 2)} m</div>`
+ : `<button type="button" class="casa-cota casa-cota-btn" data-casa="loteEd:1" aria-label="Fondo del lote: ${f(LOTE_L, 2)} m. Cambiar" title="Cambiar el fondo del lote" style="${cotaFondo}">${f(LOTE_L, 2)} m <span aria-hidden="true">✎</span></button>`
+ + `<button type="button" class="casa-cota casa-cota-v casa-cota-btn" data-casa="loteEd:1" aria-label="Frente del lote: ${f(LOTE_A, 2)} m. Cambiar" title="Cambiar el frente del lote" style="${cotaAncho}">${f(LOTE_A, 2)} m <span aria-hidden="true">✎</span></button>`;
+ const tiradores = capa ? '' : `
+ <button type="button" class="casa-tirador v" data-lote-drag="loteFondo" aria-label="Fondo del lote: ${f(LOTE_L, 2)} m. Arrastrá o usá las flechas para cambiarlo" title="Arrastrá para cambiar el fondo" style="left:${(xF - 6).toFixed(1)}px;top:${(yMitadLib - 16).toFixed(1)}px"></button>
+ <button type="button" class="casa-tirador h" data-lote-drag="loteAncho" aria-label="Frente del lote: ${f(LOTE_A, 2)} m. Arrastrá o usá las flechas para cambiarlo" title="Arrastrá para cambiar el frente" style="left:${((LX + X0) / 2 - 16).toFixed(1)}px;top:${(yLib - 6).toFixed(1)}px"></button>`;
+
  const html = `
- <div class="casa-plano" role="img" aria-label="Planta esquemática ${esc(S.tipo === 'L' ? 'en L' : S.tipo)} de ${S.dorm} dormitorios en un lote de 10 por 25 metros, frente al ${esc(o.nombre)}, con puertas y ventanas" style="width:${LX + LOTE_L * SC + 28}px;height:${LT + LOTE_A * SC + 34}px">
+ <div class="casa-plano" role="img" aria-label="Planta esquemática ${esc(S.tipo === 'L' ? 'en L' : S.tipo)} de ${S.dorm} dormitorios en un lote de ${f(LOTE_A, 2)} por ${f(LOTE_L, 2)} metros, frente al ${esc(o.nombre)}, apoyada en la medianera ${SIG8[idx8(o.medBien)]}, con puertas y ventanas" data-sc="${SC}" data-lx="${LX}" data-lt="${LT}" data-med-arriba="${o.medArriba ? 1 : 0}" style="width:${anchoPl.toFixed(0)}px;height:${altoPl.toFixed(0)}px">
  <div class="casa-calle" style="top:${LT}px;width:${CALLE}px;height:${LOTE_A * SC}px">CALLE</div>
- <div class="casa-lote" style="left:${LX}px;top:${LT}px;width:${LOTE_L * SC}px;height:${LOTE_A * SC}px"></div>
+ ${calle2Html}
+ ${loteHtml}
+ ${linderos}
+ ${rotLind.join('')}
  ${pisos.map(p => `<div class="casa-piso${p.semi ? ' semi' : ''}" style="${p.st}"></div>`).join('')}
- ${muros.map(m => `<div class="casa-muro" style="${m}"></div>`).join('')}
+ ${muros.map(m => `<div class="casa-muro${m.med ? ' med' : ''}" style="${m.st}"></div>`).join('')}
  ${huecos.map(h => `<div class="casa-hueco" style="${h}"></div>`).join('')}
  ${ventanas.map(v => `<div class="casa-ventana ${v.cls}" style="${v.st}"></div>`).join('')}
  ${puertas.map(p => `<div class="casa-puerta" style="${p}"></div>`).join('')}
@@ -745,10 +796,10 @@ function plano(o, T, S_px, capa = '', E = null) {
  ${simbolosInst(T, capa, E).map(z => `<span class="casa-sim ${z.c}" style="left:${X(z.u).toFixed(1)}px;top:${Y(z.v).toFixed(1)}px"${z.t ? ` title="${esc(z.t)}"` : ''}>${z.l ? esc(z.l) : ''}</span>`).join('')}
  ${rot.map(ajustarRotulo).filter(r => !r.oculto).map(r => `<div class="casa-rotulo" style="left:${r.x.toFixed(1)}px;top:${r.y.toFixed(1)}px;font-size:${r.fs}px"><b>${esc(r.n)}</b>${SC >= 18 ? `<span>${r.a}</span>` : ''}</div>`).join('')}
  ${S.ampliacion ? (() => { const A = ampliacion(T); return A.entra ? `<div class="casa-futuro" style="${rect(A.u0, A.u1, A.v0, A.v1)}"><span>Ampliación<br>${f(A.m2)} m²</span></div>` : ''; })() : ''}
- <div class="casa-cota" style="left:${LX}px;top:${loteAbajo + 8}px;width:${LOTE_L * SC}px">25,00 m</div>
- <div class="casa-cota casa-cota-v" style="left:${LX + LOTE_L * SC + 6}px;top:${LT}px;height:${LOTE_A * SC}px">10,00 m</div>
+ ${cotasLote}
  <div class="casa-cota casa-cota-casa ${o.medArriba ? 'arriba' : 'abajo'}" style="left:${Math.min(X(0), X(L)).toFixed(1)}px;top:${yCasa.toFixed(1)}px;width:${(L * SC).toFixed(1)}px">casa ${f(L, 2)} m</div>
  <div class="casa-sol" aria-hidden="true" style="left:${(sx - 12).toFixed(1)}px;top:${(sy - 12).toFixed(1)}px">${SOL_SVG}</div>
+ ${tiradores}
  </div>`;
  return { html, med };
 }
@@ -1008,8 +1059,8 @@ function computo(o, T, M, fach) {
  add('Instalación pluvial', null, 'Desagüe pluvial a la calle (cañería Ø 100 enterrada)', PL.desague, 'ml', 'Del fondo de la casa al cordón, aprox.');
  if (S.lluvia) add('Instalación pluvial', null, 'Tanque de agua de lluvia de 2000 l con filtro y canilla', 1, 'un', `Podría juntar ≈ ${Math.round(PL.area * 1.8 * 0.8)} m³ al año (1.800 mm, a validar)`);
  // Exterior
- const ancho = 10, fondo = 25;
- if (S.cercoFrente !== 'no') add('Exterior', null, S.cercoFrente === 'muro' ? 'Cerco de frente: muro bajo con reja' : 'Cerco de frente con reja', ancho - (S.porton ? 3 : 1), 'ml', `${ancho} m de frente − portón${S.porton ? '' : ' peatonal'}`);
+ const ancho = S.loteAncho, fondo = S.loteFondo;
+ if (S.cercoFrente !== 'no') add('Exterior', null, S.cercoFrente === 'muro' ? 'Cerco de frente: muro bajo con reja' : 'Cerco de frente con reja', ancho - (S.porton ? 3 : 1), 'ml', `${f(ancho, 2)} m de frente − portón${S.porton ? '' : ' peatonal'}`);
  if (S.cercoLat !== 'no') add('Exterior', null, S.cercoLat === 'muro' ? 'Muro divisorio de bloques h 1,80 m' : 'Cerco de tejido romboidal h 1,80 m con postes', 2 * fondo - 2 * 4 + ancho, 'ml', 'Laterales y fondo (sin el retiro de frente)');
  if (S.porton) add('Exterior', null, S.cochera ? 'Portón vehicular de caño y chapa' : 'Portón peatonal de caño', 1, 'un', '1');
  if (S.parrilla) add('Exterior', null, 'Parrilla de ladrillo con campana', 1, 'un', '1');
@@ -1066,14 +1117,96 @@ export async function loadCasaView() {
  root.dataset.listo = '1';
  root.addEventListener('click', onClick);
  root.addEventListener('change', onChange);
+ root.addEventListener('pointerdown', tiradorDown);
+ root.addEventListener('keydown', tiradorTecla);
  window.addEventListener('resize', () => { if (!root.hidden && ST.state.currentView === 'costo-m2') render(); });
  }
  render();
 }
 
+// ---------------------------------------------------------------------------
+// (24/11) Medidas del lote desde el croquis: tirando de los bordes, con las
+// flechas o con el editor del terreno. Si la casa no entra, se avisa y no cambia.
+// ---------------------------------------------------------------------------
+let arrastre = null, finArrastre = 0;
+function probarLote(cambios) {
+ const guard = { loteAncho: S.loteAncho, loteFondo: S.loteFondo };
+ Object.entries(cambios).forEach(([k, v]) => { S[k] = limLote(k, v); });
+ const pr = problemaLote(tipologia(orientacion()));
+ Object.assign(S, guard);
+ return pr;
+}
+function aplicarLote(cambios, foco = '') {
+ const antes = { loteAncho: S.loteAncho, loteFondo: S.loteFondo };
+ Object.entries(cambios).forEach(([k, v]) => { S[k] = limLote(k, v); });
+ const pr = problemaLote(tipologia(orientacion()));
+ if (pr) {
+ const nuevo = { loteAncho: S.loteAncho, loteFondo: S.loteFondo };
+ Object.assign(S, antes);
+ if (!problemaLote(tipologia(orientacion()))) { ST.showToast(pr); render(); return false; }
+ Object.assign(S, nuevo); // el lote anterior tampoco cumplía: se deja corregir
+ }
+ guardarEstado(); render();
+ if (foco) document.querySelector(`#casa-root [data-lote-drag="${foco}"]`)?.focus();
+ return true;
+}
+function tiradorDown(e) {
+ const h = e.target.closest('[data-lote-drag]');
+ if (!h || (e.button !== undefined && e.button > 0)) return;
+ const pl = h.closest('.casa-plano'); if (!pl) return;
+ e.preventDefault();
+ const fan = document.createElement('div');
+ fan.className = 'casa-lote-fantasma';
+ pl.appendChild(fan);
+ const k = h.dataset.loteDrag;
+ arrastre = { k, h, fan, x: e.clientX, y: e.clientY, v0: S[k], v: S[k], sc: Number(pl.dataset.sc) || 20, lx: Number(pl.dataset.lx) || 0, lt: Number(pl.dataset.lt) || 0, arriba: pl.dataset.medArriba === '1', movio: false };
+ try { h.setPointerCapture(e.pointerId); } catch (err) { /* sin captura */ }
+ h.addEventListener('pointermove', tiradorMove);
+ h.addEventListener('pointerup', tiradorUp);
+ h.addEventListener('pointercancel', tiradorUp);
+ dibujarFantasma();
+}
+function tiradorMove(e) {
+ const a = arrastre; if (!a) return;
+ const dx = e.clientX - a.x, dy = e.clientY - a.y;
+ if (Math.abs(dx) + Math.abs(dy) > 4) a.movio = true;
+ const delta = a.k === 'loteFondo' ? dx : (a.arriba ? dy : -dy);
+ a.v = limLote(a.k, Math.round((a.v0 + delta / a.sc) * 2) / 2); // de a 50 cm
+ dibujarFantasma();
+}
+function dibujarFantasma() {
+ const a = arrastre;
+ const F = a.k === 'loteFondo' ? a.v : S.loteFondo, A = a.k === 'loteAncho' ? a.v : S.loteAncho;
+ const top = a.arriba ? a.lt : a.lt + (S.loteAncho - A) * a.sc;
+ Object.assign(a.fan.style, { left: a.lx + 'px', top: top + 'px', width: (F * a.sc) + 'px', height: (A * a.sc) + 'px' });
+ const pr = probarLote({ [a.k]: a.v });
+ a.fan.classList.toggle('no', !!pr);
+ a.fan.innerHTML = `<span>${f(A, 2)} × ${f(F, 2)} m${pr ? ' · no entra la casa' : ''}</span>`;
+}
+function tiradorUp(e) {
+ const a = arrastre; if (!a) return;
+ arrastre = null; finArrastre = Date.now();
+ a.h.removeEventListener('pointermove', tiradorMove);
+ a.h.removeEventListener('pointerup', tiradorUp);
+ a.h.removeEventListener('pointercancel', tiradorUp);
+ a.fan.remove();
+ if (e.type === 'pointercancel') return;
+ if (!a.movio) { S.local = 'lote'; guardarEstado(); render(); return; } // un toque abre el editor del terreno
+ if (a.v !== a.v0) aplicarLote({ [a.k]: a.v });
+}
+function tiradorTecla(e) {
+ const k = e.target && e.target.dataset ? e.target.dataset.loteDrag : null;
+ if (!k) return;
+ const d = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }[e.key];
+ if (!d) return;
+ e.preventDefault();
+ aplicarLote({ [k]: S[k] + d * 0.5 }, k);
+}
+
 function onClick(e) {
  const b = e.target.closest('[data-casa]');
  if (!b) return;
+ if (Date.now() - finArrastre < 350) return; // el click que sigue a soltar un tirador
  const [accion, valor] = b.dataset.casa.split(':');
  if (b.getAttribute('aria-disabled') === 'true') { if (b.title && !['mínimo', 'máximo'].includes(b.title)) ST.showToast(b.title); return; }
  if (accion === 'apu') { window.nexoBraApp?.editAdminApuTask?.(Number(valor)); return; }
@@ -1087,6 +1220,8 @@ function onClick(e) {
  if (accion === 'mBorrar') { borrarModelo(valor); return; }
  if (accion === 'mNueva') { nuevaCasa(); return; }
  if (accion === 'kReset') { S.k = { ...DEFAULTS.k }; guardarEstado(); render(); return; }
+ if (accion === 'loteSet') { const [a, fo] = valor.split('x').map(Number); S.local = 'lote'; aplicarLote({ loteAncho: a, loteFondo: fo }); return; }
+ if (accion === 'loteEd') { S.local = 'lote'; guardarEstado(); render(); document.querySelector('#casa-root .casa-lote-ed')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return; }
  const antes = JSON.stringify(S);
  if (accion === 'toggle') S[valor] = !S[valor];
  else if (accion === 'girar') S.norte = norm(S.norte + Number(valor));
@@ -1115,6 +1250,7 @@ function onClick(e) {
  const [k, paso] = valor.split('|');
  if (k === 'base') { const dims = { ...S.dims }; Object.keys(dims).filter(x => x.startsWith(S.tipo + '.')).forEach(x => delete dims[x]); S.dims = dims; S.altura = DEFAULTS.altura; }
  else if (k === 'altura') S.altura = r2(Math.min(3.2, Math.max(MIN_ALTURA, S.altura + Number(paso) * 0.05)));
+ else if (k === 'loteAncho' || k === 'loteFondo') S[k] = limLote(k, S[k] + Number(paso) * 0.5);
  else {
  const p = paramsTipo().find(x => x.k === k);
  if (!p) return;
@@ -1175,7 +1311,7 @@ const btn = (accion, valor, on, contenido, extra = '') => `<button type="button"
 // Esquemas orientativos, no son detalles de obra. Dibujados en SVG.
 // ---------------------------------------------------------------------------
 const COL = {
- rev: '#E6DDCC', yeso: '#E4E6E8', eps: '#FFFFFF', lch: '#C8693E', hueco: '#F3E3D3', comun: '#B5532E', junta: '#BDB4A6',
+ rev: '#E6DDCC', yeso: '#E4E6E8', eps: '#FFFFFF', lch: '#F39A2B', hueco: '#5B6067', comun: '#F6D9BE', junta: '#C4C2BC', borde: '#1E2229', hierro: '#E0201B',
  horm: '#C9C9C4', tierra: '#E7DCC6', lana: '#F4D98B', madera: '#D9A86C', maderaOsc: '#B5834A', chapa: '#8A939E', teja: '#B0482A',
  membrana: '#2B3038', pvc: '#EEF0F2', aire: '#FBFBFA', linea: '#7A8492', piso: { ceramico: '#C98F67', porcelanato: '#CFC8BF' }
 };
@@ -1189,7 +1325,7 @@ function patrones(p) {
  <pattern id="${p}-eps" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#fff"/><circle cx="3" cy="3" r="2" fill="none" stroke="#AFC0D0" stroke-width="0.7"/></pattern>
  <pattern id="${p}-horm" width="7" height="7" patternUnits="userSpaceOnUse"><rect width="7" height="7" fill="${COL.horm}"/><circle cx="1.5" cy="2" r="0.7" fill="#8E8E88"/><circle cx="5" cy="5" r="0.9" fill="#9C9C96"/><path d="M4 1 l1.2 1.4 -1.6 0z" fill="#A5A59F"/></pattern>
  <pattern id="${p}-pobre" width="7" height="7" patternUnits="userSpaceOnUse"><rect width="7" height="7" fill="#D6D3CB"/><circle cx="2" cy="3" r="0.8" fill="#B3ABA0"/><circle cx="5.5" cy="5.5" r="0.6" fill="#B3ABA0"/></pattern>
- <pattern id="${p}-tierra" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="${COL.tierra}"/><line x1="0" y1="0" x2="0" y2="8" stroke="#BFAF8E" stroke-width="1.4"/></pattern>
+ <pattern id="${p}-tierra" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="12" height="12" fill="#F7F4EE"/><path d="M0 6 L6 0 M0 12 L6 6 M6 0 L12 6 M6 6 L12 12" stroke="#C9C2B4" stroke-width="0.8" fill="none"/></pattern>
  <pattern id="${p}-lana" width="10" height="6" patternUnits="userSpaceOnUse"><rect width="10" height="6" fill="${COL.lana}"/><path d="M0 3 q2.5 -3 5 0 t5 0" fill="none" stroke="#D9A92E" stroke-width="0.8"/></pattern>
  <pattern id="${p}-mad" width="14" height="5" patternUnits="userSpaceOnUse"><rect width="14" height="5" fill="${COL.madera}"/><path d="M0 2 q7 -1.5 14 0" fill="none" stroke="${COL.maderaOsc}" stroke-width="0.6"/></pattern>
  <pattern id="${p}-madv" width="5" height="14" patternUnits="userSpaceOnUse"><rect width="5" height="14" fill="${COL.madera}"/><path d="M2 0 q-1.5 7 0 14" fill="none" stroke="${COL.maderaOsc}" stroke-width="0.6"/></pattern>
@@ -1206,30 +1342,137 @@ function capaVertical(t, x, w, y0, y1, p, PX) {
  if (t === 'mach') { let s = rct(x, y0, w, H, `url(#${p}-madv)`); for (let y = y0 + 10 * PX; y < y1; y += 10 * PX) s += lin(x, y, x + w, y, COL.maderaOsc, 0.8); return s; }
  if (t === 'bastidor') return rct(x, y0, w, H, `url(#${p}-madv)`, `stroke="${COL.maderaOsc}" stroke-width="0.6"`);
  if (t === 'cavidad') { let c = rct(x, y0, w, H, '#EDF0F3') + rct(x, y0, 1.6, H, COL.chapa) + rct(x + w - 1.6, y0, 1.6, H, COL.chapa); for (let y = y0 + 6; y < y1; y += 14) c += lin(x + 3, y, x + w - 3, y + 8, '#C5CDD5', 0.7); return c; }
- // Ladrillos: hiladas con sus juntas; los huecos muestran los tubos cortados
+ // (22/11-g) Ladrillos como en los detalles de la cátedra: los huecos, naranjas con
+ // borde negro y los tubos cortados en gris oscuro; los comunes, con sus juntas
+ // (una hilada entera y la siguiente partida al medio).
  const hil = { lch18: [18, 3, 3], lch12: [18, 2, 3], lc15: [5.5, 0, 0], comun: [5.5, 0, 0], plaqueta: [5.5, 0, 0] }[t] || [18, 0, 0];
- const hc = hil[0] * PX, j = 1 * PX, cols = hil[1], filas = hil[2];
- const color = cols ? COL.lch : COL.comun;
- let s = '';
- for (let y = y0 - hc * 0.4; y < y1; y += hc + j) {
+ const cols = hil[1], filas = hil[2], hc = hil[0] * PX, j = (cols ? 1.5 : 1.2) * PX;
+ let s = rct(x, y0, w, H, COL.junta);
+ let k = 0;
+ for (let y = y0 - (hc + j) * 0.35; y < y1; y += hc + j, k++) {
  const ya = Math.max(y, y0), yb = Math.min(y + hc, y1);
- if (yb > ya) s += rct(x, ya, w, yb - ya, color);
+ if (yb <= ya) continue;
  if (cols) {
- const t0 = 0.9 * PX, hw = (w - (cols + 1) * t0) / cols, hh = (hc - (filas + 1) * t0) / filas;
+ s += rct(x, ya, w, yb - ya, COL.lch, `stroke="${COL.borde}" stroke-width="1.2"`);
+ const t0 = Math.max(1.2, 0.9 * PX), hw = (w - (cols + 1) * t0) / cols, hh = (hc - (filas + 1) * t0) / filas;
  for (let c = 0; c < cols; c++) for (let r = 0; r < filas; r++) {
  const hy = y + t0 + r * (hh + t0);
  const a = Math.max(hy, y0), b = Math.min(hy + hh, y1);
- if (b > a) s += rct(x + t0 + c * (hw + t0), a, hw, b - a, COL.hueco);
+ if (b > a) s += rct(x + t0 + c * (hw + t0), a, hw, b - a, COL.hueco, `stroke="${COL.borde}" stroke-width="0.5"`);
  }
+ } else if (k % 2 && w > 3 * j) {
+ const hw = (w - j) / 2;
+ s += rct(x, ya, hw, yb - ya, COL.comun) + rct(x + hw + j, ya, hw, yb - ya, COL.comun);
+ } else s += rct(x, ya, w, yb - ya, COL.comun);
  }
- const ja = Math.max(y + hc, y0), jb = Math.min(y + hc + j, y1);
- if (jb > ja) s += rct(x, ja, w, jb - ja, COL.junta);
- }
+ return s;
+}
+// (22/11-g) Hormigón armado en corte: borde negro, estribo y barras en rojo
+function hormigonArmado(x, y, w, h, p, rec = 3) {
+ const r = Math.min(rec, w / 4, h / 4);
+ let s = rct(x, y, w, h, `url(#${p}-horm)`, `stroke="${COL.borde}" stroke-width="1.2"`);
+ s += `<rect x="${fx(x + r)}" y="${fx(y + r)}" width="${fx(w - 2 * r)}" height="${fx(h - 2 * r)}" rx="1.5" fill="none" stroke="${COL.hierro}" stroke-width="1.6"/>`;
+ const b = 1.9, pts = [[x + r + b, y + r + b], [x + w - r - b, y + r + b], [x + r + b, y + h - r - b], [x + w - r - b, y + h - r - b]];
+ if (w > 14 * r) pts.push([x + w / 2, y + h - r - b]);
+ pts.forEach(([cx, cy]) => { s += `<circle cx="${fx(cx)}" cy="${fx(cy)}" r="${b}" fill="${COL.hierro}"/>`; });
+ s += lin(x + w - r - 1, y + r + 1, x + w - r - 6, y + r + 6, COL.hierro, 1.4); // gancho del estribo
  return s;
 }
 const SWATCH = { rev: COL.rev, yeso: COL.yeso, eps: '#E8EEF4', lch18: COL.lch, lch12: COL.lch, lc15: COL.comun, comun: COL.comun, plaqueta: COL.comun, mach: COL.madera, bastidor: COL.madera, cavidad: '#EDF0F3' };
 const leyenda = (items) => `<ul class="casa-corte-ley">${items.map(it => `<li><i style="background:${it.c}"></i><span>${esc(it.n)}${it.e ? ` <em>${esc(it.e)}</em>` : ''}</span></li>`).join('')}</ul>`;
 const ficha = (svg, items, pie = '') => `<figure class="casa-corte">${svg}<figcaption>${leyenda(items)}${pie ? `<p>${pie}</p>` : ''}</figcaption></figure>`;
+
+// (24/11) Corte transversal del lote, visto desde la calle: la casa contra su
+// medianera (muro propio contiguo al eje), el techo y su canaleta, el costado
+// libre y el cerco del otro lado. A escala aproximada. Las distancias de la
+// canaleta al eje medianero son de la Ord. Oberá 2557 (a validar).
+function corteMedianera(o, T) {
+ const A = S.loteAncho, Wf = T.Wf, HM = S.altura, pend = pendienteTecho(), plana = S.techo === 'plana';
+ const AL = plana ? 0 : (o.oeste ? 0.8 : 0.5);
+ const sube = S.techo === '1' ? Wf * pend : plana ? 0.5 : (Wf / 2) * pend;
+ const W = 340, VEC = 34, k = Math.min(40, (W - 20 - 2 * VEC) / A);
+ const yG = 22 + (HM + sube + 0.5) * k, H = yG + 54;
+ const izq = o.medArriba; // como en la fachada: con la medianera de la casa a la izquierda
+ const X = (v) => 10 + VEC + (izq ? v : A - v) * k;
+ const Y = (h) => yG - h * k;
+ const p = 'cmed', EJE = '#A0522D';
+ const techoCol = plana ? '#C9CED6' : (S.techoMat === 'teja' ? COL.teja : COL.chapa);
+ const xa = (v1, v2) => Math.min(X(v1), X(v2)), wa = (v1, v2) => Math.abs(X(v2) - X(v1));
+ const tm = Math.max(5, 0.15 * k), esp = (BASES_MURO[S.muroBase] || BASES_MURO.lch18).esp, te = Math.max(5, esp / 100 * k);
+ let b = '';
+ // terreno, vecinos y calle
+ b += rct(0, yG, W, 12, `url(#${p}-tierra)`) + lin(0, yG, W, yG, '#8A96A6', 1.2);
+ const xVecCasa = izq ? 10 + VEC / 2 : W - 10 - VEC / 2, xVecOtro = izq ? W - 10 - VEC / 2 : 10 + VEC / 2;
+ b += txt(xVecCasa, yG - 6, 'Vecino', 'text-anchor="middle" font-size="8"');
+ if (o.calle2) b += rct(izq ? X(A) : 0, yG, VEC + 10, 5, '#9AA3B0') + txt(xVecOtro, yG - 6, 'Calle', 'text-anchor="middle" font-size="8" font-weight="700"');
+ else b += txt(xVecOtro, yG - 6, 'Vecino', 'text-anchor="middle" font-size="8"');
+ // ejes medianeros (o línea municipal en esquina)
+ const eje = (x, esLM) => lin(x, 8, x, yG + 12, esLM ? '#2B3038' : EJE, esLM ? 1.6 : 1.4, esLM ? '' : 'stroke-dasharray="6 3 1.5 3"');
+ b += eje(X(0), false) + eje(X(A), !!o.calle2);
+ b += txt(X(0) + (izq ? -3 : 3), 14, 'eje', `text-anchor="${izq ? 'end' : 'start'}" font-size="8" fill="${EJE}"`);
+ b += txt(X(A) + (izq ? 3 : -3), 14, o.calle2 ? 'L.M.' : 'eje', `text-anchor="${izq ? 'start' : 'end'}" font-size="8" fill="${o.calle2 ? '#2B3038' : EJE}"`);
+ // piso de la casa
+ b += rct(xa(0, Wf), yG - Math.max(3, 0.12 * k), wa(0, Wf), Math.max(3, 0.12 * k), `url(#${p}-horm)`, `stroke="${COL.borde}" stroke-width="0.6"`);
+ // muros: el de la medianera (sube hasta el techo a 1 agua o hasta el parapeto) y el del costado libre
+ const hMed = S.techo === '1' ? HM + sube : plana ? HM + 0.5 : HM;
+ const xMed = izq ? X(0) : X(0) - tm, xLib = izq ? X(Wf) - te : X(Wf);
+ b += rct(xMed, Y(hMed), tm, hMed * k, COL.lch, `stroke="${COL.borde}" stroke-width="0.8"`);
+ b += rct(xLib, Y(plana ? HM + 0.5 : HM), te, (plana ? HM + 0.5 : HM) * k, COL.lch, `stroke="${COL.borde}" stroke-width="0.8"`);
+ // techo y canaletas
+ const canaleta = (v, h, mal) => { const cx = X(v), cy = Y(h); return `<path d="M${fx(cx - 4)} ${fx(cy - 1)} V${fx(cy + 5)} H${fx(cx + 4)} V${fx(cy - 1)}" fill="none" stroke="${mal ? '#C2410C' : '#5E6670'}" stroke-width="1.6"/>`; };
+ const linea = (pts) => `<polyline points="${pts.map(([v, h]) => `${fx(X(v))},${fx(Y(h))}`).join(' ')}" fill="none" stroke="${techoCol}" stroke-width="4" stroke-linejoin="round"/>`;
+ let distLibre = A - (Wf + AL), canMed = false;
+ if (S.techo === '1') { b += linea([[0.07, HM + sube], [Wf + AL, HM - AL * pend]]) + canaleta(Wf + AL, HM - AL * pend - 0.05); }
+ else if (plana) {
+ b += rct(xa(0, Wf), Y(HM + 0.15), wa(0, Wf), 0.15 * k, `url(#${p}-horm)`, `stroke="${COL.borde}" stroke-width="0.8"`);
+ distLibre = null;
+ } else {
+ b += linea([[0.15, HM], [Wf / 2, HM + sube], [Wf + AL, HM - AL * pend]]) + canaleta(Wf + AL, HM - AL * pend - 0.05) + canaleta(0.3, HM - 0.05, true);
+ canMed = true;
+ }
+ b += txt((X(0) + X(Wf)) / 2, Y(HM * 0.45), 'Casa', 'text-anchor="middle" font-size="10" font-weight="700" fill="#2B3038"');
+ // cochera al costado (planta lineal)
+ if (S.cochera && S.tipo === 'lineal') b += rct(xa(Wf + 0.9, Wf + 3.8), Y(2.4), wa(Wf + 0.9, Wf + 3.8), 2.4 * k, 'none', 'stroke="#7A8492" stroke-dasharray="4 3"') + txt((X(Wf + 0.9) + X(Wf + 3.8)) / 2, Y(1.1), 'cochera', 'text-anchor="middle" font-size="8"');
+ // cerco del otro lado
+ if (!o.calle2) {
+ const xc = izq ? X(A) - 4 : X(A) + 1;
+ if (S.cercoLat === 'muro') { b += rct(xc - 1, Y(1.8), 4.5, 1.8 * k, '#B9BEC5', `stroke="${COL.borde}" stroke-width="0.6"`); for (let h = 0.2; h < 1.8; h += 0.2) b += lin(xc - 1, Y(h), xc + 3.5, Y(h), '#8E949C', 0.5); }
+ else if (S.cercoLat === 'tejido') { b += rct(xc, Y(1.8), 2.5, 1.8 * k, '#5E6670') + lin(xc + 1.2, Y(1.8), xc + 1.2, yG, '#9AA3B0', 3, 'stroke-dasharray="1.5 1.5"'); }
+ }
+ // canaleta: distancia al eje del vecino
+ if (distLibre !== null && !o.calle2) {
+ const okD = distLibre >= 0.85 - 1e-9, yc = Y(HM - AL * pend) + 12;
+ b += lin(X(Wf + AL), yc, X(A), yc, okD ? '#0E9F6E' : '#C2410C', 1, 'stroke-dasharray="2 2"');
+ if (wa(Wf + AL, A) > 26) b += txt((X(Wf + AL) + X(A)) / 2, yc - 3, `${f(distLibre, 2)} m`, `text-anchor="middle" font-size="8" fill="${okD ? '#0E9F6E' : '#C2410C'}"`);
+ }
+ // cotas
+ const cota = (v1, v2, y, t) => { const x1 = Math.min(X(v1), X(v2)), x2 = Math.max(X(v1), X(v2)); let c = lin(x1, y, x2, y, '#5E6977', 0.8) + lin(x1, y - 3, x1, y + 3, '#5E6977', 0.8) + lin(x2, y - 3, x2, y + 3, '#5E6977', 0.8); if (x2 - x1 > t.length * 4.6) c += txt((x1 + x2) / 2, y - 3, t, 'text-anchor="middle" font-size="8.5"'); return c; };
+ b += cota(0, Wf, yG + 26, `casa ${f(Wf, 2)} m`) + cota(Wf, A, yG + 26, `libre ${f(A - Wf, 2)} m`) + cota(0, A, yG + 46, `terreno ${f(A, 2)} m`);
+ // leyenda y verificación
+ const items = [
+ { c: COL.lch, n: 'Muro propio sobre la medianera', e: 'hueco 12, pegado al eje: cada casa tiene el suyo' },
+ { c: EJE, n: o.calle2 ? 'Eje medianero y, del otro lado, la línea municipal' : 'Eje medianero: el límite con el vecino', e: '' },
+ S.techo === '1' ? { c: techoCol, n: 'Techo a 1 agua: lo alto va sobre la medianera', e: 'sin alero hacia el vecino; el muro sube hasta el techo' }
+ : plana ? { c: techoCol, n: 'Losa con parapeto de 0,50 m', e: 'desagua a embudos propios, sin volcar al vecino' }
+ : { c: techoCol, n: `Techo a ${S.techo} aguas: sin alero del lado de la medianera`, e: 'ese faldón desagua en una canaleta pegada al muro' }
+ ];
+ if (!o.calle2) items.push({ c: S.cercoLat === 'muro' ? '#B9BEC5' : S.cercoLat === 'tejido' ? '#5E6670' : '#E2E6EC', n: { no: 'Sin cerco en la otra medianera', tejido: 'Cerco de tejido de 1,80 m', muro: 'Muro de bloques de 1,80 m' }[S.cercoLat] || 'Sin cerco', e: 'se elige en Terminaciones › Exterior' });
+ else items.push({ c: '#9AA3B0', n: 'Lote de esquina: del lado libre está la otra calle', e: 'ochava y retiros según el código: a validar' });
+ const avisos = [];
+ if (distLibre !== null && !o.calle2) avisos.push(distLibre >= 0.85 - 1e-9 ? `<span class="ok">La canaleta queda a ${f(distLibre, 2)} m del eje del vecino (la Ord. Oberá 2557 pide 0,85 m o más; a validar).</span>` : `<span class="no">La canaleta queda a ${f(distLibre, 2)} m del eje del vecino y la Ord. Oberá 2557 pide 0,85 m o más (a validar): achicá la casa o ensanchá el lote.</span>`);
+ if (distLibre !== null && o.calle2 && distLibre < 0) avisos.push('<span class="no">El alero pasa la línea municipal: achicá la casa o ensanchá el lote.</span>');
+ if (canMed) avisos.push('<span class="no">Del lado de la medianera la canaleta queda a unos 0,30 m del eje: no llega a los 0,85 m de la Ord. 2557 (a validar). A 1 agua, con lo alto sobre la medianera, se evita.</span>');
+ avisos.push('Esquema a escala aproximada, visto desde la calle.');
+ return ficha(svgCorte(W, Math.round(H), p, b, `Corte por el terreno: casa apoyada en la medianera ${SIG8[idx8(o.medBien)]}`), items, avisos.join(' '));
+}
+// Ícono de cada cerco (para los botones de Exterior)
+function iconoCerco(t) {
+ let c = '<line x1="2" y1="21" x2="42" y2="21" stroke="#8A96A6" stroke-width="1.5"/>';
+ if (t === 'tejido') { c += '<rect x="5" y="5" width="2.5" height="16" fill="#5E6670"/><rect x="36.5" y="5" width="2.5" height="16" fill="#5E6670"/>'; for (let x = 8; x < 36; x += 5) c += `<path d="M${x} 6 l5 7 l-5 7 M${x + 5} 6 l-5 7 l5 7" fill="none" stroke="#9AA3B0" stroke-width="0.7"/>`; }
+ else if (t === 'muro') { c += '<rect x="4" y="6" width="36" height="15" fill="#B9BEC5" stroke="#5E6670" stroke-width="0.8"/>'; for (let y = 11; y < 21; y += 5) c += `<line x1="4" y1="${y}" x2="40" y2="${y}" stroke="#8E949C" stroke-width="0.6"/>`; for (let i = 0; i < 3; i++) for (let x = (i % 2 ? 10 : 16); x < 40; x += 12) c += `<line x1="${x}" y1="${6 + i * 5}" x2="${x}" y2="${11 + i * 5}" stroke="#8E949C" stroke-width="0.6"/>`; }
+ else c += '<line x1="22" y1="3" x2="22" y2="21" stroke="#A0522D" stroke-width="1.2" stroke-dasharray="4 2 1 2"/>';
+ return `<svg class="casa-ico-cerco" width="44" height="24" viewBox="0 0 44 24" aria-hidden="true">${c}</svg>`;
+}
 
 // Capas del muro exterior (de adentro hacia afuera)
 function capasMuroDibujo() {
@@ -1426,12 +1669,12 @@ function corteFundacion() {
  const piso = COL.piso[S.piso] || COL.piso.ceramico;
  let body = rct(0, yg, W, H - yg, `url(#${p}-tierra)`); // terreno natural
  const xe = xw + espMuro * PX; // cara exterior
- let yBaseMuro;
+ let yBaseMuro, cajon = ''; // el cajón hidrófugo se dibuja arriba del muro
  if (S.fundacion === 'platea') {
  const ep = 15 * PX, yp = yf + 3 * PX; // piso + carpeta sobre la platea
- body += rct(0, yp, xe + 10 * PX, ep, `url(#${p}-horm)`);
- body += rct(xw - 5 * PX, yp + ep, espMuro * PX + 15 * PX, 25 * PX, `url(#${p}-horm)`); // viga de borde
- for (let xx = 8; xx < xe + 8 * PX; xx += 14) body += `<circle cx="${xx}" cy="${fx(yp + ep - 3 * PX)}" r="1.4" fill="#3A3F47"/>`;
+ body += rct(0, yp, xe + 10 * PX, ep, `url(#${p}-horm)`, `stroke="${COL.borde}" stroke-width="1"`);
+ body += hormigonArmado(xw - 5 * PX, yp + ep, espMuro * PX + 15 * PX, 25 * PX, p, 3 * PX); // viga de borde
+ for (let xx = 8; xx < xe + 8 * PX; xx += 14) body += `<circle cx="${xx}" cy="${fx(yp + ep - 3 * PX)}" r="1.3" fill="${COL.hierro}"/>`;
  body += rct(0, yp + ep, xw - 5 * PX, 1.2, '#3A3F47'); // film de polietileno
  body += rct(0, yf + 1 * PX, xw, 2 * PX, `url(#${p}-rev)`) + rct(0, yf, xw, 1 * PX, piso);
  yBaseMuro = yp;
@@ -1439,8 +1682,7 @@ function corteFundacion() {
  } else {
  const yz0 = yg + 30 * PX, yz1 = yg + 60 * PX, cx = xw + espMuro * PX / 2;
  if (S.fundacion === 'zapataH') {
- body += rct(cx - 20 * PX, yz0, 40 * PX, yz1 - yz0, `url(#${p}-horm)`);
- for (let xx = cx - 16 * PX; xx <= cx + 16 * PX; xx += 8 * PX) body += `<circle cx="${fx(xx)}" cy="${fx(yz1 - 4 * PX)}" r="1.4" fill="#3A3F47"/>`;
+ body += hormigonArmado(cx - 20 * PX, yz0, 40 * PX, yz1 - yz0, p, 3 * PX);
  items.push({ c: COL.horm, n: 'Zapata corrida de hormigón armado', e: '40 × 30 cm' });
  } else {
  [[45, yz1 - 10 * PX, yz1], [37.5, yz0 + 10 * PX, yz1 - 10 * PX], [30, yz0, yz0 + 10 * PX]].forEach(([a, y1, y2]) => { body += capaVertical('comun', cx - a * PX / 2, a * PX, y1, y2, p, PX); });
@@ -1453,13 +1695,14 @@ function corteFundacion() {
  body += rct(0, yf + 1 * PX, xw, 2 * PX, `url(#${p}-rev)`) + rct(0, yf, xw, 1 * PX, piso);
  // capa aisladora horizontal (cajón hidrófugo)
  const yA = yf + 4 * PX, yB = yf - 8 * PX;
- body += rct(xw, yA, espMuro * PX, 1.6, '#2B3038') + rct(xw, yB, espMuro * PX, 1.6, '#2B3038') + rct(xw - 1, yB, 1.6, yA - yB, '#2B3038') + rct(xe - 0.6, yB, 1.6, yA - yB, '#2B3038');
+ cajon = rct(xw, yA, espMuro * PX, 2.2, COL.borde) + rct(xw, yB, espMuro * PX, 2.2, COL.borde) + rct(xw - 1.2, yB, 2.2, yA - yB, COL.borde) + rct(xe - 1, yB - 18 * PX, 2.2, yA - yB + 18 * PX, COL.borde);
  yBaseMuro = yf + 5 * PX;
  items.push({ c: COL.comun, n: 'Muro de cimiento de ladrillo común', e: '' }, { c: '#D6D3CB', n: 'Contrapiso sobre terreno compactado', e: '10 cm' }, { c: '#2B3038', n: 'Capa aisladora horizontal (cajón)', e: '' });
  }
  // muro exterior con sus capas, desde la base hasta arriba
  let x = xw;
  capas.forEach(c => { body += capaVertical(c.t, x, c.cm * PX, 0, yBaseMuro, p, PX); x += c.cm * PX; });
+ body += cajon;
  // vereda exterior
  body += rct(xe, yg - 8 * PX, W - xe, 8 * PX, `url(#${p}-pobre)`) + rct(xe, yg - 8 * PX, W - xe, 1.4, '#9A938A');
  items.push({ c: COL.rev, n: 'Carpeta', e: '2 cm' }, { c: piso, n: { porcelanato: 'Porcelanato', flotante: 'Piso flotante', alisado: 'Cemento alisado' }[S.piso] || 'Piso cerámico', e: '' });
@@ -1519,9 +1762,36 @@ function localesPorMedida(o) {
  } finally { S.dims = guard; }
  return out;
 }
+function filaLote(k, n, det) {
+ const [mn, mx] = LOTE_LIM[k], v = S[k];
+ const noMenos = v <= mn + 1e-9 ? 'mínimo' : probarLote({ [k]: v - 0.5 });
+ const noMas = v >= mx - 1e-9 ? 'máximo' : '';
+ return `<div class="casa-dim">
+ <div class="casa-dim-txt"><b>${n}</b><small>${det} · entre ${f(mn, 0)} y ${f(mx, 0)} m</small></div>
+ <div class="casa-dim-ctrl">
+ <button type="button" class="casa-opt" data-casa="dim:${k}|-1" aria-label="Achicar 50 cm" ${noMenos ? `aria-disabled="true" title="${esc(noMenos)}"` : ''}>−</button>
+ <label class="casa-lote-num"><input type="text" inputmode="decimal" data-casa-lote="${k}" value="${f(v, 2)}" aria-label="${esc(n.replace(/<[^>]+>/g, '').trim())} en metros"><span>m</span></label>
+ <button type="button" class="casa-opt" data-casa="dim:${k}|1" aria-label="Agrandar 50 cm" ${noMas ? `aria-disabled="true" title="${noMas}"` : ''}>+</button>
+ </div>
+ </div>`;
+}
+function editorLote(T, o) {
+ const A = S.loteAncho, F = S.loteFondo, RET = (S.cochera && S.tipo !== 'lineal') ? 5.5 : 4;
+ const huella = T.rooms.reduce((t, r) => t + (r.u1 - r.u0) * (r.v1 - r.v0), 0) + (S.cochera ? 14.5 : 0);
+ const pct = Math.round(huella / (A * F) * 100);
+ return `<div class="casa-local-ed casa-lote-ed" aria-live="polite">
+ <div class="casa-local-tit"><div><b>Terreno</b><span>${f(A, 2)} × ${f(F, 2)} m · ${f(A * F, 0)} m²</span></div><button type="button" class="casa-local-x" data-casa="local:" aria-label="Cerrar el editor del terreno">×</button></div>
+ ${filaLote('loteAncho', '<span class="casa-eje" aria-hidden="true">↕</span> Frente', o.calle2 ? 'De la medianera a la otra calle' : 'De medianera a medianera')}
+ ${filaLote('loteFondo', '<span class="casa-eje" aria-hidden="true">↔</span> Fondo', 'De la línea municipal a la medianera del fondo')}
+ <div class="casa-chips casa-lote-atajos" role="group" aria-label="Medidas rápidas">${LOTES_RAPIDOS.map(([a, b]) => btn('loteSet', `${a}x${b}`, A === a && F === b, `${a} × ${b} m`, 'data-chip="1"')).join('')}</div>
+ <p class="casa-muted">Retiro de frente ${f(RET, 2)} m · costado libre ${f(A - T.Wf, 2)} m · patio al fondo ${f(F - RET - T.L, 2)} m · la casa ocupa ≈ ${pct} % del terreno.</p>
+ <p class="casa-muted casa-medidas-nota">También podés tirar de las manijas naranjas del croquis. El retiro y la ocupación máxima dependen de la zona del código de cada municipio: <b>a validar</b>.</p>
+ </div>`;
+}
 function editorLocal(T, o) {
+ if (S.local === 'lote') return editorLote(T, o);
  const r = S.local && T.rooms.find(x => x.id === S.local);
- if (!r) return `<p class="casa-local-hint">Tocá un local del croquis para cambiar sus medidas.</p>`;
+ if (!r) return `<p class="casa-local-hint">Tocá un local del croquis para cambiar sus medidas, o el terreno (o sus cotas) para cambiar el lote.</p>`;
  const porMedida = localesPorMedida(o);
  const probar = (k, v) => { const guard = S.dims; S.dims = { ...guard, [`${S.tipo}.${k}`]: r2(v) }; const pr = problemaLote(tipologia(o)); S.dims = guard; return pr; };
  const nom = (id) => { const x = T.rooms.find(y => y.id === id); return x ? nombreLocal(x).replace('Dormitorio', 'Dorm.').replace('Estar-comedor', 'Estar') : id; };
@@ -1642,6 +1912,12 @@ function nuevaCasa() {
  guardarEstado(); render();
 }
 function onChange(e) {
+ const kl = e.target && e.target.dataset ? e.target.dataset.casaLote : null;
+ if (kl) {
+ const v = Number(String(e.target.value).replace(',', '.'));
+ if (Number.isFinite(v) && v > 0) aplicarLote({ [kl]: v }); else render();
+ return;
+ }
  const k = e.target && e.target.dataset ? e.target.dataset.casaK : null;
  if (!k) return;
  const v = Number(String(e.target.value).replace(',', '.'));
@@ -1686,7 +1962,7 @@ function render() {
  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16; // (22/11) en pantallas grandes el rem crece
  const colDer = ancho >= 900 ? ancho - 23.75 * rem - 18 - 36 : ancho - 28;
  // en el celular la planta no baja de 13 px/m: si no entra, se desliza de costado (casa-scroll)
- const SC = Math.max(13, Math.min(36, (colDer - 64) / 25));
+ const SC = Math.max(13, Math.min(36, (colDer - 64) / S.loteFondo, 520 / S.loteAncho));
  const P = plano(o, T, SC);
  const E = instalElec(T, P.med);
  const K = kFactor();
@@ -1742,7 +2018,7 @@ function render() {
  <div class="casa-card-head"><h3>Tu casa</h3><span class="casa-muted">${esc(resumen)}</span></div>
  <div class="casa-resumen-grid">
  <div><h4>Terreno y casa <button type="button" class="casa-link" data-casa="paso:1">Cambiar</button></h4><ul>
- ${fila('Ciudad', `${S.ciudad} · zona ${C.zona}`)}${fila('Lote', `Frente al ${o.nombre} · ${o.lote.esquina ? 'esquina' : 'intermedio'}`)}${fila('Forma', `${tipoNombre} · ${S.dorm} dormitorios`)}${fila('Baños', banosTxt)}${fila('Semicubiertos', [S.galeria ? 'galería' : '', S.cochera ? 'cochera' : ''].filter(Boolean).join(' y ') || 'ninguno')}${fila('Superficie', `${f(P.med.m2Cub)} m² cubiertos${P.med.semi ? ` + ${f(P.med.semi)} semicubiertos` : ''}`)}
+ ${fila('Ciudad', `${S.ciudad} · zona ${C.zona}`)}${fila('Lote', `${f(S.loteAncho, 2)} × ${f(S.loteFondo, 2)} m · frente al ${o.nombre} · ${o.lote.esquina ? 'esquina' : 'intermedio'}`)}${fila('Medianera', `Casa apoyada en la ${SIG8[idx8(o.medBien)]}`)}${fila('Forma', `${tipoNombre} · ${S.dorm} dormitorios`)}${fila('Baños', banosTxt)}${fila('Semicubiertos', [S.galeria ? 'galería' : '', S.cochera ? 'cochera' : ''].filter(Boolean).join(' y ') || 'ninguno')}${fila('Superficie', `${f(P.med.m2Cub)} m² cubiertos${P.med.semi ? ` + ${f(P.med.semi)} semicubiertos` : ''}`)}
  </ul></div>
  <div><h4>Cómo se construye <button type="button" class="casa-link" data-casa="paso:2">Cambiar</button></h4><ul>
  ${fila('Fundación', { platea: 'Platea', zapataH: 'Zapata corrida de hormigón', zapataL: 'Cimiento de ladrillo común' }[S.fundacion])}${fila('Muro exterior', `${BASES_MURO[S.muroBase].n} · ${AIS_MURO[S.muro].n.toLowerCase()}`)}${fila('Tabiques', { ladrillo: 'Ladrillo hueco 12', durlock: 'Placa de yeso', madera: 'Madera' }[S.tabique])}${fila('Techo', S.techo === 'plana' ? 'Losa plana' : `${S.techoMat === 'teja' ? 'Teja' : 'Chapa'} ${nombreAguas} · estructura ${S.estructTecho === 'madera' ? 'de madera' : 'metálica'}`)}${fila('Aislación del techo', TECHOS_AIS[S.aisTecho].n)}${fila('Cielorraso', S.techo === 'plana' ? 'Yeso aplicado' : `${{ machimbre: 'Machimbre', pvc: 'PVC', durlock: 'Placa de yeso' }[S.cieloMat]} · ${S.cielo === 'suspendido' ? 'suspendido' : 'sigue la pendiente'}`)}${fila('Carpinterías', `${{ aluminio: 'Aluminio', pvc: 'PVC', madera: 'Madera' }[S.abert]}${S.dvh ? ' con DVH' : ''}`)}${fila('Fachada', { revoque: 'Clásica', ladrillo: 'Ladrillo visto', contemporanea: 'Contemporánea' }[S.fachada])}${fila('Confort', `Nivel ${S.nivel} (IRAM 11605)`)}
@@ -1788,6 +2064,12 @@ function render() {
  </div>
  </div>
  <p class="casa-frente">Frente al <b>${esc(o.nombre)}</b> · lote ${o.lote.esquina ? 'de esquina' : 'intermedio'}${o.desfavorable ? ' · <span class="no">orientación desfavorable en zona I</span>' : ''}</p>
+ <label class="casa-label">Medidas del terreno</label>
+ <div class="casa-lote-resumen"><span><b>${f(S.loteAncho, 2)} × ${f(S.loteFondo, 2)} m</b> · ${f(S.loteAncho * S.loteFondo, 0)} m²</span><button type="button" class="casa-link" data-casa="loteEd:1">Cambiar en el croquis</button></div>
+ <label class="casa-label">Medianera donde se apoya la casa</label>
+ ${o.calle2 ? `<p class="casa-muted">Lote de esquina: hay una sola medianera lateral (${esc(SIG8[idx8(o.medBien)])}) y la casa se apoya en ella.</p>`
+ : `<div class="casa-grid2">${btn('medLado', 'auto', S.medLado !== 'otra', `<b>Medianera ${esc(o.sigRec)}</b><small>Recomendada por el sol</small>`)}${btn('medLado', 'otra', S.medLado === 'otra', `<b>Medianera ${esc(o.sigOtra)}</b><small>La de enfrente</small>`)}</div>`}
+ ${corteMedianera(o, T)}
  <div class="casa-solo-movil">${consejo}</div>
  ${seguir('grupo1', G1, g1)}
  </section>` : `
@@ -1809,7 +2091,7 @@ function render() {
  ${btn('toggle', 'galeria', S.galeria, '<b>Galería</b><small>Semicubierta</small>')}
  ${btn('toggle', 'cochera', S.cochera, '<b>Cochera</b><small>Semicubierta, 14,5 m²</small>')}
  </div>
- <div class="casa-lista">${(() => { const A = ampliacion(T); return btn('toggle', 'ampliacion', S.ampliacion && A.entra, `<b>Casa que crece</b><small>${A.entra ? `Dejar previsto un dormitorio más (≈ ${f(A.m2)} m²)` : 'No entra otro dormitorio en el lote'}</small>`, A.entra ? '' : 'aria-disabled="true" title="No entra otro dormitorio en el lote de 25 m"'); })()}</div>
+ <div class="casa-lista">${(() => { const A = ampliacion(T); return btn('toggle', 'ampliacion', S.ampliacion && A.entra, `<b>Casa que crece</b><small>${A.entra ? `Dejar previsto un dormitorio más (≈ ${f(A.m2)} m²)` : 'No entra otro dormitorio en el lote'}</small>`, A.entra ? '' : `aria-disabled="true" title="No entra otro dormitorio en el lote de ${f(S.loteFondo, 2)} m"`); })()}</div>
  <label class="casa-label">Medidas</label>
  <p class="casa-tip"><b>Tocá un local en el croquis</b> para cambiar sus medidas.</p>
  <div class="casa-medidas">
@@ -1826,7 +2108,7 @@ function render() {
  <div class="casa-scroll">${P.html}</div>
  ${editorLocal(T, o)}
  <div class="casa-solo-esc">${consejo}</div>
- <p class="casa-muted casa-leyenda casa-solo-esc"><span class="casa-ley-it"><span class="ley muro"></span>Muros</span><span class="casa-ley-it"><span class="ley puerta"></span>Puertas</span><span class="casa-ley-it"><span class="ley ventana"></span>Ventanas</span><span class="casa-ley-it"><span class="ley semi"></span>Semicubierto</span><span>Esquema orientativo, no es un plano de obra.</span></p>
+ <p class="casa-muted casa-leyenda casa-solo-esc"><span class="casa-ley-it"><span class="ley muro"></span>Muros</span><span class="casa-ley-it"><span class="ley puerta"></span>Puertas</span><span class="casa-ley-it"><span class="ley ventana"></span>Ventanas</span><span class="casa-ley-it"><span class="ley semi"></span>Semicubierto</span><span class="casa-ley-it"><span class="ley med"></span>Muro sobre la medianera</span><span class="casa-ley-it"><span class="ley eje"></span>Eje medianero</span><span>Esquema orientativo, no es un plano de obra.</span></p>
  </section>
  </div>
  <div class="casa-opciones">
@@ -1868,7 +2150,7 @@ function render() {
  ${S.techo !== 'plana' ? `<p class="casa-muted">Luz entre apoyos: <b>${f(lzT.luz, 2)} m</b>${!lzT.portantes && S.estructTecho === 'madera' ? ' (los tabiques livianos no son portantes)' : ''}. Hasta unos 4 m alcanzan ${S.estructTecho === 'madera' ? 'tirantes' : 'correas'}; más que eso conviene cerchas o sumar apoyos (a validar con cálculo).</p>` : ''}
  <label class="casa-label">Aislación</label>
  <div class="casa-grid2">${ORDEN_TECHO.map(id => btn('aisTecho', id, S.aisTecho === id, `<b>${esc(TECHOS_AIS[id].n)}</b><small>K ${f(TECHOS_AIS[id].k, 2)} (a validar)</small>`)).join('')}</div>
- <p class="casa-muted">El cielorraso se elige en el paso Terminaciones.</p>`, () => corteTecho() + esquemaTecho(T)],
+ <p class="casa-muted">El cielorraso se elige en el paso Terminaciones.</p>`, () => corteTecho() + esquemaTecho(T) + corteMedianera(o, T)],
  abert: ['Carpinterías', `
  <div class="casa-grid3">${[['aluminio', 'Aluminio', 'Puerta de chapa'], ['pvc', 'PVC', ''], ['madera', 'Madera', '']].map(([k, n, d]) => btn('abert', k, S.abert === k, `<b>${n}</b>${d ? `<small>${d}</small>` : ''}`)).join('')}</div>
  <div class="casa-lista">${btn('toggle', 'dvh', S.dvh, '<b>Doble vidriado hermético</b><small>Menos pérdidas en invierno</small>')}</div>
@@ -2003,8 +2285,8 @@ ${verifHtml}
  <label class="casa-label">Cerco de frente</label>
  <div class="casa-grid3">${[['no', 'Sin cerco'], ['reja', 'Reja'], ['muro', 'Muro bajo y reja']].map(([k, n]) => btn('cercoFrente', k, S.cercoFrente === k, `<b>${n}</b>`)).join('')}</div>
  <label class="casa-label">Laterales y fondo</label>
- <div class="casa-grid3">${[['no', 'Sin cerco'], ['tejido', 'Tejido'], ['muro', 'Muro de bloques']].map(([k, n]) => btn('cercoLat', k, S.cercoLat === k, `<b>${n}</b>`)).join('')}</div>
- <div class="casa-grid2">${btn('toggle', 'porton', S.porton, `<b>Portón</b><small>${S.cochera ? 'Vehicular' : 'Peatonal'}</small>`)}${btn('toggle', 'parrilla', S.parrilla, '<b>Parrilla</b><small>De ladrillo con campana</small>')}</div>`, null]
+ <div class="casa-grid3">${[['no', 'Sin cerco'], ['tejido', 'Tejido'], ['muro', 'Muro de bloques']].map(([k, n]) => btn('cercoLat', k, S.cercoLat === k, `${iconoCerco(k)}<b>${n}</b>`)).join('')}</div>
+ <div class="casa-grid2">${btn('toggle', 'porton', S.porton, `<b>Portón</b><small>${S.cochera ? 'Vehicular' : 'Peatonal'}</small>`)}${btn('toggle', 'parrilla', S.parrilla, '<b>Parrilla</b><small>De ladrillo con campana</small>')}</div>`, () => corteMedianera(o, T)]
  };
  const [tit4, html4, fig4] = OPC4[g4];
  cuerpo = `
