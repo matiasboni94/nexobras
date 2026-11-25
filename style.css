@@ -1436,7 +1436,7 @@ html[data-theme=dark] .casa-leyenda .ley.muro{background:#C9CED6}
 .cta-botones .btn-computo{min-height:48px;padding:0 24px}
 @media (max-width:640px){.cta-perfiles,.cta-campos{grid-template-columns:minmax(0,1fr)}}
 /* (24/11-e) Guía de uso según quién la lee */
-#guide-view[data-perfil="vecino"] [data-para]:not([data-para~="vecino"]),#guide-view[data-perfil="tecnico"] [data-para]:not([data-para~="tecnico"]),#guide-view[data-perfil="proveedor"] [data-para]:not([data-para~="proveedor"]){display:none!important}
+#guide-view[data-perfil="visitante"] [data-para]:not([data-para~="visitante"]),#guide-view[data-perfil="usuario"] [data-para]:not([data-para~="usuario"]),#guide-view[data-perfil="tecnico"] [data-para]:not([data-para~="tecnico"]),#guide-view[data-perfil="proveedor"] [data-para]:not([data-para~="proveedor"]){display:none!important}
 .guia-perfil{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin:4px 0 14px}
 .guia-perfil-tit{flex-basis:100%;font-size:.82rem;font-weight:700;color:var(--text-muted)}
 .guia-perfil-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:48px;padding:8px 14px;border:2px solid var(--border-light);border-radius:12px;background:var(--bg-card);color:var(--text-main);font:inherit;text-align:left;cursor:pointer}
@@ -1445,10 +1445,10 @@ html[data-theme=dark] .casa-leyenda .ley.muro{background:#C9CED6}
 .guia-perfil-btn[aria-checked="true"]{border-color:#E09E00;background:var(--brand-yellow-light)}
 .guia-perfil-btn:focus-visible{outline:2.5px solid var(--brand-dark);outline-offset:2px}
 @media (max-width:640px){.guia-perfil-btn{flex:1 1 140px}}
-/* (24/11-f) El sitio según el perfil (js/modo.js). html[data-modo] = vecino | tecnico | servicios | materiales.
+/* (24/11-f) El sitio según el perfil (js/modo.js). html[data-modo] = visitante | usuario | tecnico | servicios | materiales.
    Nada se bloquea: data-modos="…" muestra un elemento solo en esos modos; el color de énfasis cambia por modo
    (el logo queda siempre amarillo). Tonos con luminancia parecida al amarillo: texto oscuro encima, se leen igual. */
-html[data-modo="vecino"] [data-modos]:not([data-modos~="vecino"]),html:not([data-modo]) [data-modos]:not([data-modos~="vecino"]),html[data-modo="tecnico"] [data-modos]:not([data-modos~="tecnico"]),html[data-modo="servicios"] [data-modos]:not([data-modos~="servicios"]),html[data-modo="materiales"] [data-modos]:not([data-modos~="materiales"]){display:none!important}
+html[data-modo="visitante"] [data-modos]:not([data-modos~="visitante"]),html:not([data-modo]) [data-modos]:not([data-modos~="visitante"]),html[data-modo="usuario"] [data-modos]:not([data-modos~="usuario"]),html[data-modo="tecnico"] [data-modos]:not([data-modos~="tecnico"]),html[data-modo="servicios"] [data-modos]:not([data-modos~="servicios"]),html[data-modo="materiales"] [data-modos]:not([data-modos~="materiales"]){display:none!important}
 html[data-modo="tecnico"]{--brand-yellow:#4DA3FF;--brand-yellow-hover:#2F8BEA;--brand-yellow-light:#EAF4FF;--brand-yellow-border:#B9DAFF;--brand-yellow-rgb:77,163,255}
 html[data-modo="servicios"]{--brand-yellow:#2EC48D;--brand-yellow-hover:#1FA876;--brand-yellow-light:#E8F8F1;--brand-yellow-border:#A6E6CD;--brand-yellow-rgb:46,196,141}
 html[data-modo="materiales"]{--brand-yellow:#FF8A5B;--brand-yellow-hover:#EE6E3C;--brand-yellow-light:#FFF0E9;--brand-yellow-border:#FFC7B0;--brand-yellow-rgb:255,138,91}
@@ -1464,8 +1464,8 @@ html[data-modo="tecnico"] .nav-links-desktop #nav-btn-apu{order:-1}
 .btn-auth-login .auth-modo-badge{display:inline-flex}
 .btn-auth-login .auth-modo-badge[hidden]{display:none}
 @media (max-width:640px){.btn-auth-login .auth-modo-badge{display:none}}
-html[data-vista-cliente] .auth-modo-badge{background:transparent;color:var(--text-inverse,#fff);border:1px dashed rgba(255,255,255,.55)}
-.auth-dropdown #btn-ver-como-cliente{color:var(--text-muted)}
+html[data-vista-usuario] .auth-modo-badge{background:transparent;color:var(--text-inverse,#fff);border:1px dashed rgba(255,255,255,.55)}
+.auth-dropdown #btn-ver-como-usuario{color:var(--text-muted)}
 .mobile-modo-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0 8px 8px;padding:10px 12px;border-radius:10px;background:var(--brand-yellow-light);border:1px solid var(--brand-yellow-border);font-size:.82rem;font-weight:600;color:var(--text-main)}
 .mobile-modo-row[hidden]{display:none}
 .mobile-modo-dot{width:10px;height:10px;border-radius:50%;background:var(--brand-yellow);flex:0 0 auto}
@@ -1474,3 +1474,19 @@ html[data-vista-cliente] .auth-modo-badge{background:transparent;color:var(--tex
 .mobile-modo-btn{flex:1 1 100%;text-align:left}
 .hero-modo-nota{margin:.4rem auto 0;text-align:center;font-size:.88rem;color:var(--text-muted)}
 .hero-modo-nota .hero-modo-link{color:var(--text-main)}
+/* (25/11) Sin cuenta ("visitante"): lo que pide cuenta lleva candado y abre "Creá tu cuenta" (js/modo.js). */
+html[data-modo="visitante"] [data-cuenta]::after,html[data-modo="visitante"] [onclick*="addToComputo("]::after,html[data-modo="visitante"] [onclick*="addLaborToComputo("]::after,html[data-modo="visitante"] [onclick*="addMaterialPageToBudget("]::after{content:"";display:inline-block;flex:0 0 auto;width:.8em;height:.8em;margin-left:.35em;vertical-align:-.05em;background:currentColor;opacity:.7;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z'/%3E%3C/svg%3E") center/contain no-repeat}
+html[data-modo="visitante"] #guide-view .guia-perfil{display:none}
+.guia-visitante{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin:0 0 18px;padding:14px 16px;border-radius:12px;background:var(--brand-yellow-light);border:1px solid var(--brand-yellow-border)}
+.guia-visitante p{flex:1 1 320px;margin:0;font-size:.92rem;color:var(--text-main);line-height:1.5}
+.guia-visitante-cta{display:flex;justify-content:center;margin-top:18px}
+.cuenta-gate .modal-header{align-items:flex-start;justify-content:space-between;gap:12px}
+.cuenta-gate-motivo{margin:4px 0 0;font-size:.88rem;font-weight:600;color:rgba(255,255,255,.85)}
+.cuenta-gate-libre{margin:0 0 10px;font-size:.88rem;color:var(--text-muted);line-height:1.5}
+.cuenta-gate-lista{margin:0 0 16px;padding-left:1.1rem;font-size:.9rem;line-height:1.5;color:var(--text-main)}
+.cuenta-gate-lista li{margin-bottom:6px}
+.cuenta-gate-botones{display:flex;flex-wrap:wrap;gap:10px}
+.cuenta-gate-botones>*{flex:1 1 160px;justify-content:center;min-height:44px}
+.cuenta-gate-login{padding:10px 16px;font-size:.9rem}
+.cuenta-gate-ahora-no{display:block;margin:12px auto 0;min-height:32px;color:var(--text-muted)}
+.cuenta-gate .modal-header p,.cuenta-gate .modal-body p,.cuenta-gate li{text-align:left}
