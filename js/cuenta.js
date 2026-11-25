@@ -2,7 +2,7 @@
 // ============================================================================
 // (24/11) MI CUENTA: configuración inicial y avisos por mail. La primera vez
 // que alguien entra con su cuenta se le abre esta pantalla (/mi-cuenta) para
-// cualquier tipo de usuario: cómo va a usar NEXOBRA (particular, técnico u
+// cualquier tipo de usuario: cómo va a usar NEXOBRA (usuario, técnico u
 // oficio, proveedor de materiales, prestador de servicios), sus datos y los
 // avisos por mail, que acepta tildándolos (vienen destildados). Después queda
 // en el menú de la cuenta para cambiarla cuando quiera.
@@ -15,7 +15,7 @@ import * as ST from './state.js';
 
 const esc = (t) => ST.escapeHtml(String(t ?? ''));
 const PERFILES = [
- ['particular', 'Particular', 'Quiero comparar precios, saber cuánto me sale mi obra y pedir presupuestos.'],
+ ['particular', 'Usuario', 'Quiero comparar precios, saber cuánto me sale mi obra y pedir presupuestos.'],
  ['tecnico', 'Técnico u oficio', 'Presupuesto obras: profesional, MMO, albañil, electricista…'],
  ['materiales', 'Proveedor de materiales', 'Tengo un corralón, ferretería, pinturería u otro comercio.'],
  ['servicios', 'Prestador de servicios', 'Ofrezco mi trabajo: profesional, oficio o alquiler de equipos.']

@@ -127,14 +127,19 @@ import * as ST from './state.js';
  const PROVIDER_PATH_RE = /^\/proveedor\/([a-z0-9-]+)\/?$/i;
  let openingMaterialPage = false; // true solo mientras openMaterialPage() llama a switchView()
 
- // (24/11) La guía cambia según quién la lee: vecino, técnico u oficio, o
+ // (24/11, 25/11) La guía cambia según quién la lee: visitante (sin cuenta), usuario, técnico u oficio, o
  // comercio / prestador. Los bloques con data-para="…" se ven solo para esos
  // perfiles (CSS). El perfil sale de lo que eligió en la guía, si no de su
- // cuenta, y si no arranca como vecino.
- const GUIA_PERFILES = ['vecino', 'tecnico', 'proveedor'];
+ // cuenta (modo del sitio). Sin cuenta, siempre la del visitante.
+ const GUIA_PERFILES = ['visitante', 'usuario', 'tecnico', 'proveedor'];
  const paraPerfil = (el, perfil) => !el.dataset.para || el.dataset.para.split(' ').includes(perfil);
  function perfilGuiaInicial() {
- try { const g = localStorage.getItem('nexobra_guia_perfil'); if (GUIA_PERFILES.includes(g)) return g; } catch (e) { /* sin storage */ }
+ if (Modo.modoActual() === 'visitante') return 'visitante';
+ try {
+ let g = localStorage.getItem('nexobra_guia_perfil');
+ if (g === 'vecino') g = 'usuario'; // nombre anterior
+ if (GUIA_PERFILES.includes(g) && g !== 'visitante') return g;
+ } catch (e) { /* sin storage */ }
  // (24/11-f) si no eligió en la guía, la guía sigue al modo del sitio (js/modo.js)
  return Modo.guiaDelModo();
  }
@@ -164,7 +169,11 @@ export function openGuideSection(seccion) {
  // (24/11) perfil de la guía: si la sección pedida no es para el perfil actual, se cambia al suyo
  const gv = document.getElementById('guide-view');
  if (gv && !gv.dataset.perfil) aplicarPerfilGuia(perfilGuiaInicial(), false);
- if (gv && !paraPerfil(el, gv.dataset.perfil)) aplicarPerfilGuia(el.dataset.para.split(' ')[0], false);
+ if (gv && !paraPerfil(el, gv.dataset.perfil)) {
+ // (25/11) sin cuenta, lo que es para cuentas registradas lleva a "¿Necesito cuenta?"
+ if (gv.dataset.perfil === 'visitante') { if (seccion !== 'cuenta') openGuideSection('cuenta'); return; }
+ aplicarPerfilGuia(el.dataset.para.split(' ')[0], false);
+ }
  document.querySelectorAll('#guide-view .guia-seccion').forEach(p => { p.hidden = p !== el; });
  document.querySelectorAll('#guide-view .guia-chip[role="tab"]').forEach(t => {
  const on = t.dataset.guideSection === seccion;
@@ -177,6 +186,8 @@ export function openGuideSection(seccion) {
 }
 
 export function switchView(viewName, rubroFilter = null, searchString = null) {
+ // (25/11) La Calculadora y los presupuestos piden cuenta: sin sesión, cartel "Creá tu cuenta"
+ if (Modo.vistaBloqueada(viewName)) return;
  ST.state.currentView = viewName;
 
  // Si esta vista tiene una URL linda y todavía no estamos ahí, la
@@ -560,7 +571,7 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  // Solapas de la guía: flechas izquierda/derecha para moverse entre secciones.
  document.querySelector('#guide-view .guia-indice')?.addEventListener('keydown', (e) => {
  if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
- const perfilG = document.getElementById('guide-view')?.dataset.perfil || 'vecino';
+ const perfilG = document.getElementById('guide-view')?.dataset.perfil || 'usuario';
  const tabs = [...document.querySelectorAll('#guide-view .guia-chip[role="tab"]')].filter(t => paraPerfil(t, perfilG));
  const i = tabs.indexOf(document.activeElement);
  if (i < 0) return;
@@ -950,16 +961,16 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  aplicarModo: Modo.aplicarModo,
  setGuidePerfil,
  toggleApuSettings: Apu.toggleApuSettings,
- openCostoM2InCalculator: CostoM2.openCostoM2InCalculator,
+ openCostoM2InCalculator: Modo.conCuenta(CostoM2.openCostoM2InCalculator, 'abrirlo en la Calculadora'),
  changeMaterialPageQty: Catalog.changeMaterialPageQty,
- addMaterialPageToBudget: Catalog.addMaterialPageToBudget,
+ addMaterialPageToBudget: Modo.conCuenta(Catalog.addMaterialPageToBudget, 'sumarlo a tu presupuesto'),
  whatsappMaterialOffer: Catalog.whatsappMaterialOffer,
-addToComputo: Computo.addToComputo, // (17/11) ahora suma a la Calculadora, ver computo.js
+addToComputo: Modo.conCuenta(Computo.addToComputo, 'sumarlo a tu presupuesto'), // (17/11) ahora suma a la Calculadora, ver computo.js
 changeCardQty: Computo.changeCardQty,
 updateItemQtyInCart: Computo.updateItemQtyInCart,
 removeCartItem: Computo.removeCartItem,
 clearCatalogSearch: Catalog.clearCatalogSearch,
-addLaborToComputo: Computo.addLaborToComputo,
+addLaborToComputo: Modo.conCuenta(Computo.addLaborToComputo, 'sumarlo a tu presupuesto'),
 changeLaborQty: Catalog.changeLaborQty,
 openComputation: Computo.openComputation,
 duplicateComputation: Computo.duplicateComputation,
