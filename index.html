@@ -56,7 +56,7 @@
  <!-- LOGO NEXOBRA -->
  <a href="#inicio" class="brand-wrapper" id="nav-brand-logo">
  <div class="brand-logo-icon">
- <img src="/assets/nexobra-icon.png" alt="NEXOBRA" width="36" height="36" style="display:block; object-fit: contain;">
+ <svg class="nx-icono" viewBox="0 0 459 416" width="36" height="36" role="img" aria-label="NEXOBRA"><polygon class="nx-icono-acento" points="32,6 449,208 32,409 32,342 309,208 32,74"/><polygon class="nx-icono-base" points="433,7 16,208 433,409 433,342 155,208 433,74"/></svg>
  </div>
  <div class="brand-title-group">
  <div class="brand-name">NEX<span class="accent">OBRA</span></div>
@@ -193,10 +193,12 @@
  <p class="portada-frase anim d2" data-modos="materiales">Mantené tu ficha y tu lista de precios al día: quien arma su presupuesto en NEXOBRA te pide precio directo por WhatsApp.</p>
  <form class="portada-buscar anim d3" id="portada-buscar-form" role="search">
  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5E6977" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
- <label for="portada-buscar-input" class="sr-only">Buscar un material</label>
- <input type="search" id="portada-buscar-input" placeholder="Buscá un material: cemento, ladrillo, durlock…" autocomplete="off" maxlength="80">
+ <label for="home-map-material-search" class="sr-only">Buscar un material y quién lo tiene cerca</label>
+ <input type="search" id="home-map-material-search" placeholder="Cemento, ladrillo, arena…" autocomplete="off" maxlength="80" aria-controls="home-map-material-results">
  <button type="submit">Buscar</button>
  </form>
+ <!-- (26/11) Un solo buscador: el de la portada ES el del mapa de proveedores. Cada resultado: "Ver en el mapa" (baja al mapa) o "Precio" (catálogo). -->
+ <div id="home-map-material-results" class="provider-search-results portada-resultados" aria-live="polite"></div>
  <p class="portada-datos anim d4"><strong id="home-fact-materiales">943</strong> materiales con precio de referencia · precios de <strong id="home-fact-periodo">–</strong><span id="home-fact-apu" hidden>–</span></p>
  </div>
  </section>
@@ -298,21 +300,11 @@
  <section class="section-map-home">
  <div class="container">
  <h2 class="section-title" style="margin-bottom: 1.5rem;">Mapa de Proveedores</h2>
- <p class="section-desc" style="max-width: none; margin-bottom: 2rem;">Buscá un material y mirá qué proveedores lo tienen cerca tuyo, o explorá todos los proveedores de la zona.</p>
+ <p class="section-desc" style="max-width: none; margin-bottom: 1.25rem;">Buscá un material en el buscador de arriba y mirá qué proveedores lo tienen cerca tuyo, o explorá todos los proveedores de la zona.</p>
 
  <div class="home-map-search-row">
- <div class="search-input-wrapper" style="max-width: 100%; flex: 1;">
- <span class="search-icon">
- <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
- <circle cx="11" cy="11" r="8"></circle>
- <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
- </svg>
- </span>
- <input type="text" id="home-map-material-search" class="search-input" placeholder="Buscar un material en el mapa (ej: cemento, hierro)..." autocomplete="off">
- </div>
  <button class="btn-action-drawer btn-copy" id="btn-clear-map-material-search" type="button" style="display:none;">✕ Ver todos los proveedores</button>
  </div>
- <div id="home-map-material-results" class="provider-search-results" style="margin-bottom: 10px;"></div>
 
  <div class="catalog-header-banner" style="margin-top: 0;">
  <p id="map-status-msg" style="font-size: 0.8rem; color: var(--text-muted); margin: 0;"></p>
@@ -1393,13 +1385,19 @@
  <div class="catalog-header-banner">
  <div>
  <h2 class="catalog-title">Guía de Uso</h2>
- <p class="catalog-subtitle">Elegí para quién es la guía y abrí una sección para ver cómo funciona, con ejemplos.</p>
+ <p class="catalog-subtitle">Abrí una sección para ver cómo funciona, con ejemplos.</p>
  </div>
  </div>
 
  <!-- (24/11, 25/11) La guía cambia según quién la lee: visitante (sin cuenta), usuario, técnico u oficio, o proveedor. Cada bloque marcado con data-para se muestra solo para esos perfiles (main.js: setGuidePerfil). -->
- <div class="guia-perfil" role="radiogroup" aria-label="Mostrar la guía para">
- <span class="guia-perfil-tit">Mostrame la guía para:</span>
+ <!-- (26/11) La guía arranca en la del perfil de la cuenta (sin elegir). Si quiere, puede mirar la de otro perfil con "Ver la guía de otro perfil". -->
+ <p class="guia-perfil-linea" data-modos="usuario oficio profesional materiales">
+ <span id="guia-perfil-actual">Guía para tu perfil.</span>
+ <button type="button" class="link-button" id="guia-perfil-otro" aria-expanded="false" aria-controls="guia-perfil-sel">Ver la guía de otro perfil</button>
+ <button type="button" class="link-button" id="guia-perfil-volver" hidden>Volver a la de mi perfil</button>
+ </p>
+ <div class="guia-perfil" id="guia-perfil-sel" role="radiogroup" aria-label="Mostrar la guía para" hidden>
+ <span class="guia-perfil-tit">Ver la guía como:</span>
  <button type="button" class="guia-perfil-btn" role="radio" aria-checked="true" data-guia-perfil="usuario"><b>Usuario</b><small>Quiero comprar o saber cuánto sale</small></button>
  <button type="button" class="guia-perfil-btn" role="radio" aria-checked="false" data-guia-perfil="tecnico"><b>Técnico u oficio</b><small>Presupuesto obras</small></button>
  <button type="button" class="guia-perfil-btn" role="radio" aria-checked="false" data-guia-perfil="proveedor"><b>Comercio o prestador</b><small>Quiero que me encuentren</small></button>
@@ -3139,7 +3137,7 @@
  <div class="container header-container" style="justify-content: center;">
  <a href="/" class="brand-wrapper">
  <div class="brand-logo-icon">
- <img src="/assets/nexobra-icon.png" alt="NEXOBRA" width="36" height="36" style="display:block; object-fit: contain;">
+ <svg class="nx-icono" viewBox="0 0 459 416" width="36" height="36" role="img" aria-label="NEXOBRA"><polygon class="nx-icono-acento" points="32,6 449,208 32,409 32,342 309,208 32,74"/><polygon class="nx-icono-base" points="433,7 16,208 433,409 433,342 155,208 433,74"/></svg>
  </div>
  <div class="brand-title-group">
  <div class="brand-name">NEX<span class="accent">OBRA</span></div>
@@ -3161,7 +3159,7 @@
  <div class="container header-container" style="justify-content: center;">
  <a href="/" class="brand-wrapper">
  <div class="brand-logo-icon">
- <img src="/assets/nexobra-icon.png" alt="NEXOBRA" width="36" height="36" style="display:block; object-fit: contain;">
+ <svg class="nx-icono" viewBox="0 0 459 416" width="36" height="36" role="img" aria-label="NEXOBRA"><polygon class="nx-icono-acento" points="32,6 449,208 32,409 32,342 309,208 32,74"/><polygon class="nx-icono-base" points="433,7 16,208 433,409 433,342 155,208 433,74"/></svg>
  </div>
  <div class="brand-title-group">
  <div class="brand-name">NEX<span class="accent">OBRA</span></div>

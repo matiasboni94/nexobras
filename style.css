@@ -1607,3 +1607,19 @@ html[data-theme="dark"],html[data-theme="dark"][data-modo]{--accent-texto:var(--
 html[data-theme="dark"] .rubro-count-pill{color:var(--brand-yellow)}
 @media (prefers-color-scheme:dark){html:not([data-theme=light]) .rubro-count-pill{color:var(--brand-yellow)}}
 .footer,#nav-brand-logo{--text-subtle:#A7B0BC}
+/* (26/11) Logo: la X dibujada en SVG; el trazo amarillo toma el color del perfil (el resto, como el PNG original) */
+.nx-icono{display:block;width:100%;height:100%}
+.nx-icono-acento{fill:#FFD003}
+.nx-icono-base{fill:#2F2F2F}
+html[data-modo="profesional"] .nx-icono-acento,html[data-modo="oficio"] .nx-icono-acento,html[data-modo="materiales"] .nx-icono-acento{fill:var(--brand-yellow)}
+/* (26/11) Resultados del buscador de la portada (el del mapa de proveedores) */
+.portada-resultados{width:100%;max-width:700px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px;margin:0;padding:10px;background:var(--bg-card);color:var(--text-main);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.35);text-align:left;max-height:380px;overflow:auto}
+.portada-resultados:empty{display:none}
+.portada-resultados .provider-search-row{background:var(--bg-card)}
+.provider-search-row-acciones{display:flex;gap:6px;flex-wrap:wrap}
+.provider-search-pie{padding:4px 2px 0;font-size:.85rem}
+.section-map-home,.home-map-search-row{scroll-margin-top:80px}
+/* (26/11) Guía: arranca en la del perfil; "Ver la guía de otro perfil" despliega el selector */
+.guia-perfil-linea{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin:4px 0 12px;font-size:.88rem;color:var(--text-muted)}
+.guia-perfil-linea b{color:var(--text-main)}
+.guia-perfil[hidden],.guia-perfil-linea [hidden]{display:none}
