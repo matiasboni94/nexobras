@@ -7,6 +7,7 @@
 import * as ST from './state.js';
 import * as Provider from './provider.js';
 import * as Apu from './apu.js';
+import * as PanelDatos from './panel-datos.js'; // (26/11) profesionales, rendimientos e historial
 
 const adminState = {
  materialResults: [],
@@ -969,6 +970,10 @@ const ADMIN_PAGES = {
  proveedores: { title: 'Proveedores', subtitle: 'Fichas, precios, importación y transferencias.', load: () => { loadAdminProviderList(); loadAdminSurvey(); } },
  relevamiento: { title: 'Relevamiento de precios', subtitle: 'Canasta para corralones y precios de la zona.', load: () => { loadAdminSurvey(); } },
  apus: { title: 'APUs de la Calculadora', subtitle: 'Revisar, describir y habilitar tareas.', load: () => { loadAdminApuTasks(); } },
+ // (26/11, paquete 2) js/panel-datos.js
+ profesionales: { title: 'Profesionales y oficios', subtitle: 'Matrículas y acceso a la versión profesional.', load: () => { PanelDatos.cargarProfesionales(); } },
+ rendimientos: { title: 'Rendimientos de mercado', subtitle: 'Lo que usan los usuarios frente a tu base.', load: () => { PanelDatos.cargarRendimientos(); } },
+ historial: { title: 'Historial de cambios', subtitle: 'Cambios en los datos de referencia, con restaurar.', load: () => { PanelDatos.cargarHistorial(); } },
 };
 const adminPagesLoaded = new Set();
 
@@ -1016,6 +1021,7 @@ async function loadAdminMenuBadges() {
  };
  set('admin-menu-badge-pendientes', prov + offers + reports + claims);
  set('admin-menu-badge-materiales', sugg);
+ PanelDatos.insigniasPanelDatos();
 }
 
 function currentAdminHashPage() {

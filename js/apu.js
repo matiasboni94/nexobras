@@ -29,6 +29,41 @@ import * as ST from './state.js';
  * desde Supabase y los deja cacheados en ST.apuCatalogState. Idempotente: si
  * ya está cargado (o cargando) no vuelve a pedir nada.
  */
+// (26/11, paquete 2) Nivel de la Calculadora según la cuenta (js/modo.js lo pone en
+// <html data-nivel>): "completo" (profesional con matrícula verificada, acceso aprobado
+// o admin) o "simple" (usuario, oficio, profesional sin verificar). En la simple se ve
+// el resultado y el detalle, pero no se cambian rendimientos, desperdicio, Factor K,
+// fases ni se arman APU propias. Sin la migración 048 queda "completo", como antes.
+export const calcCompleta = () => document.documentElement.dataset.nivel !== 'simple';
+function avisoSoloCompleta() {
+ ST.showToast('Eso es de la versión profesional de la Calculadora (matrícula verificada). Podés pedir acceso desde Mi cuenta.');
+}
+
+// Rango de mercado de los rendimientos de mano de obra (solo versión completa): lo que
+// el admin dejó como orientativo. apu_task_component_id → { p25, p75, mediana, n }.
+let mercadoRend = null, mercadoCargando = false;
+export async function cargarRendimientosMercado() {
+ if (mercadoRend || mercadoCargando || !calcCompleta() || !ST.supabaseClient || !ST.authState.user) return;
+ mercadoCargando = true;
+ try {
+ const { data, error } = await ST.supabaseClient.rpc('rendimientos_mercado', { p_min: 5 });
+ mercadoRend = {};
+ if (!error) (data || []).forEach(r => { mercadoRend[r.apu_task_component_id] = r; });
+ if (Object.keys(mercadoRend).length) updateApuBudgetUI();
+ } catch (e) { mercadoRend = {}; } finally { mercadoCargando = false; }
+}
+export function olvidarRendimientosMercado() { mercadoRend = null; }
+
+/** Leyenda de toda exportación: estimación, no presupuesto profesional. Con matrícula verificada, quién la firma. */
+export function leyendaEstimacion() {
+ const out = ['Estimación generada con NEXOBRA a partir de precios de referencia. No es un presupuesto profesional ni un proyecto. No incluye impuestos, cargas sociales ni fletes.'];
+ const p = ST.authState.profile || {}, n = ST.authState.nivel || {};
+ if (n.matricula_estado === 'validada' && p.matricula) {
+ out.push(`Elaborado por: ${ST.sanitizeForExcel(p.full_name || '')} · Matrícula ${ST.sanitizeForExcel(p.matricula)}${n.colegio ? ' (' + ST.sanitizeForExcel(n.colegio) + ')' : ''}, bajo su responsabilidad profesional.`);
+ }
+ return out;
+}
+
 // (26/11) Si ya hay una carga en curso, se devuelve esa misma promesa: antes
 // volvía enseguida y quien llamaba (ej. Pedí presupuesto) dibujaba sin tareas.
 let apuCatalogPromise = null;
@@ -1322,6 +1357,7 @@ function populateApuCustomSelects() {
 }
 
 export function openApuCustomTaskModal() {
+ if (!calcCompleta()) { avisoSoloCompleta(); return; }
  if (!ST.apuCustomTaskModal || !ST.apuCustomTaskBackdrop) return;
  if (!ST.apuCatalogState.loaded) {
  ST.showToast('Esperá que termine de cargar el catálogo de NEXOBRA e intentá de nuevo.');
@@ -1826,6 +1862,7 @@ export function openApuExtra(kind) {
 }
 
 export function toggleApuSettings(force = null) {
+ if (!calcCompleta() && force !== false) { avisoSoloCompleta(); return; }
  const panel = document.getElementById('apu-settings-panel');
  const btn = document.getElementById('btn-apu-settings');
  if (!panel) return;
@@ -1895,18 +1932,26 @@ function renderComponentRow(item, l) {
  ${renderMaterialProviderControls(item, l)}
  </td>
  <td>
- <input class="apu-rendimiento-input" type="number" step="0.0001" value="${l.rendimiento}"
+ ${calcCompleta() ? `<input class="apu-rendimiento-input" type="number" step="0.0001" value="${l.rendimiento}"
  onchange="window.nexoBraApp.updateApuComponentRendimiento('${item.localId}', '${l.localId}', parseFloat(this.value) || 0)">
  ${l.is_rendimiento_modificado
  ? `<span class="apu-badge-modificado" title="Referencia NEXOBRA: ${l.rendimiento_referencia}">modificado</span><button class="apu-badge-reset" title="Volver al rendimiento de referencia" onclick="window.nexoBraApp.resetApuComponentRendimiento('${item.localId}', '${l.localId}')">↺</button>`
- : ''}
+ : ''}${renderMercadoRend(l)}` : `<span class="apu-rend-fijo">${ST.formatQty(l.rendimiento)}</span>`}
  </td>
  <td>${ST.formatQty(l.cantidadNecesaria)} ${ST.escapeHtml(l.unidad_snapshot)}</td>
  <td>${l.disponible ? ST.formatMoney(l.unitPriceConK) : '<span style="color:#b91c1c;">s/d</span>'}</td>
  <td style="text-align:right;">${ST.formatMoney(l.costo)}</td>
- <td><button class="apu-item-remove" title="Quitar este componente" onclick="window.nexoBraApp.removeApuItemComponent('${item.localId}', '${l.localId}')">&times;</button></td>
+ <td>${calcCompleta() ? `<button class="apu-item-remove" title="Quitar este componente" onclick="window.nexoBraApp.removeApuItemComponent('${item.localId}', '${l.localId}')">&times;</button>` : ''}</td>
  </tr>
  `;
+}
+
+/** "Mercado: 0,75–1,50 · 12 datos" debajo del rendimiento de mano de obra (solo versión completa). */
+function renderMercadoRend(l) {
+ if (l.tipo !== 'mano_obra' || !mercadoRend || !l.apu_task_component_id) return '';
+ const m = mercadoRend[l.apu_task_component_id];
+ if (!m) return '';
+ return `<small class="apu-mercado" title="Rango del mercado (percentiles 25 a 75) según ${m.n} usuarios. Orientativo: el cálculo usa el rendimiento de arriba.">Mercado: ${ST.formatQty(m.p25)}–${ST.formatQty(m.p75)} · ${m.n} datos</small>`;
 }
 
 /** Llena los <select> de mano de obra/equipo de la sección "Agregar material / mano de obra / equipo" de UN ítem puntual ya agregado al presupuesto -- se llama por cada tarjeta después de pintar renderBudgetItems, porque esos <select> se recrean de cero en cada repintado. */
@@ -1974,7 +2019,7 @@ function renderMaterialDirectoCard(item, nro, lineas, total) {
 /** Pinta cada tarea del presupuesto. Fila resumen (número, nombre, cantidad, unidad, precio unitario, subtotal) colapsada por default -- el desglose completo de materiales/mano de obra/equipos de una tarea de APU o personalizada se ve solo al desplegarla (toggleApuItemExpanded). Un ítem de material suelto nunca tiene desglose: es, de por sí, una sola fila. */
 /** Select de "Fase" de la cabecera de un item -- arma las <option> a partir de ST.state.apuPhases (más "Sin fase" primero). Sin ninguna fase creada todavía, no se muestra nada (nada para elegir). */
 function renderApuItemPhaseSelect(item) {
- if (ST.state.apuPhases.length === 0) return '';
+ if (ST.state.apuPhases.length === 0 || !calcCompleta()) return '';
  return `
  <select class="form-select apu-item-phase-select" title="Fase de obra" onchange="window.nexoBraApp.setApuItemPhase('${item.localId}', this.value)">
  <option value="">Sin fase</option>
@@ -2032,7 +2077,7 @@ function renderApuItemCard({ item, lineas, herramientas, materialesCost, manoObr
  ${renderApuComponentSection('Mano de obra', lineas.filter(l => l.tipo === 'mano_obra'), manoObraCost, item)}
  </tbody>
  </table>
- <details style="margin-top:10px;">
+ <details class="apu-item-extra" style="margin-top:10px;"${calcCompleta() ? '' : ' hidden'}>
  <summary style="cursor:pointer; font-size:0.8rem; font-weight:700; color:var(--text-muted);">+ Agregar material / mano de obra / equipo a esta tarea</summary>
  <div style="margin-top:8px;">
  <input type="text" id="apu-item-material-search-${item.localId}" class="form-select" placeholder="Buscar material por nombre..." oninput="window.nexoBraApp.renderApuItemMaterialResults('${item.localId}', this.value)">
@@ -2383,11 +2428,13 @@ export function updateApuItemQuantity(itemLocalId, qty) {
 /** (22/11) % de desperdicio de materiales de un ítem: arranca con el de la tarea (5 % por defecto) y cada usuario lo puede cambiar en su presupuesto. */
 function renderApuDesperdicioControl(item) {
  const v = Number(item.desperdicio_pct_snapshot || 0);
+ if (!calcCompleta()) return ` <span class="apu-desperdicio-ctrl">Desperdicio ${ST.formatQty(v)} %</span>`;
  return ` <label class="apu-desperdicio-ctrl">Desperdicio <input type="number" min="0" max="100" step="0.5" value="${v}" aria-label="Porcentaje de desperdicio de materiales"
  onchange="window.nexoBraApp.updateApuItemDesperdicio('${item.localId}', this.value)"> %</label>`;
 }
 
 export function updateApuItemDesperdicio(itemLocalId, value) {
+ if (!calcCompleta()) { avisoSoloCompleta(); updateApuBudgetUI(); return; }
  const item = ST.state.apuBudgetItems.find(i => i.localId === itemLocalId);
  if (!item) return;
  const v = Number(String(value).replace(',', '.'));
@@ -2397,6 +2444,7 @@ export function updateApuItemDesperdicio(itemLocalId, value) {
 }
 
 export function updateApuComponentRendimiento(itemLocalId, componentLocalId, value) {
+ if (!calcCompleta()) { avisoSoloCompleta(); updateApuBudgetUI(); return; }
  const item = ST.state.apuBudgetItems.find(i => i.localId === itemLocalId);
  if (!item) return;
  setComponentRendimiento(item, componentLocalId, value);
@@ -2511,6 +2559,7 @@ export function renderApuItemMaterialResults(itemLocalId, query) {
 }
 
 export function addApuItemMaterialComponentUI(itemLocalId, materialId) {
+ if (!calcCompleta()) { avisoSoloCompleta(); return; }
  const item = ST.state.apuBudgetItems.find(i => i.localId === itemLocalId);
  if (!item) return;
  const rendInput = document.getElementById(`apu-item-material-rend-${itemLocalId}-${materialId}`);
@@ -2524,6 +2573,7 @@ export function addApuItemMaterialComponentUI(itemLocalId, materialId) {
 }
 
 export function addApuItemLaborComponentUI(itemLocalId) {
+ if (!calcCompleta()) { avisoSoloCompleta(); return; }
  const item = ST.state.apuBudgetItems.find(i => i.localId === itemLocalId);
  if (!item) return;
  const select = document.getElementById(`apu-item-labor-select-${itemLocalId}`);
@@ -2539,6 +2589,7 @@ export function addApuItemLaborComponentUI(itemLocalId) {
 }
 
 export function addApuItemEquipmentComponentUI(itemLocalId) {
+ if (!calcCompleta()) { avisoSoloCompleta(); return; }
  const item = ST.state.apuBudgetItems.find(i => i.localId === itemLocalId);
  if (!item) return;
  const select = document.getElementById(`apu-item-equipment-select-${itemLocalId}`);
@@ -2554,6 +2605,7 @@ export function addApuItemEquipmentComponentUI(itemLocalId) {
 }
 
 export function removeApuItemComponent(itemLocalId, componentLocalId) {
+ if (!calcCompleta()) { avisoSoloCompleta(); return; }
  const item = ST.state.apuBudgetItems.find(i => i.localId === itemLocalId);
  if (!item) return;
  removeItemComponent(item, componentLocalId);
@@ -3145,7 +3197,7 @@ export async function renderSharedApuBudget(token) {
  <span>Total Estimado</span>
  <span>${ST.formatMoney(total)}</span>
  </div>
- <p style="font-size:0.78rem; color:var(--text-muted); margin-top:8px;">Valores orientativos, calculados con precios de NEXOBRA al momento de compartir este presupuesto. No incluyen impuestos, cargas sociales ni fletes.
+ <p style="font-size:0.78rem; color:var(--text-muted); margin-top:8px;">Estimación calculada con precios de referencia de NEXOBRA al momento de compartir este presupuesto. No es un presupuesto profesional ni un proyecto. No incluye impuestos, cargas sociales ni fletes.
  </p>
  <div style="text-align:center; margin-top: 2.5rem; padding-top: 2rem; border-top: 1px solid var(--border-light);">
  <p style="margin-bottom:12px;">¿Necesitás armar tu propio presupuesto de obra?</p>
@@ -3204,7 +3256,7 @@ export async function exportApuFull() {
 
  exportData.push(['', '', '', '', '', 'TOTAL ESTIMADO:', Number(breakdown.total.toFixed(2))]);
  exportData.push([]);
- exportData.push(['Valores orientativos con precios de referencia NEXOBRA. No incluyen impuestos, cargas sociales ni fletes.']);
+ leyendaEstimacion().forEach(t => exportData.push([t]));
 
  const ws = XLSX.utils.aoa_to_sheet(exportData);
  ws['!cols'] = [{ wch: 16 }, { wch: 40 }, { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 18 }, { wch: 16 }];
@@ -3249,7 +3301,7 @@ export async function exportApuItem(itemLocalId) {
  ]);
  exportData.push(['', '', '', '', '', 'TOTAL:', Number(total.toFixed(2))]);
  exportData.push([]);
- exportData.push(['Valores orientativos con precios de referencia NEXOBRA. No incluyen impuestos, cargas sociales ni fletes.']);
+ leyendaEstimacion().forEach(t => exportData.push([t]));
 
  const ws = XLSX.utils.aoa_to_sheet(exportData);
  ws['!cols'] = [{ wch: 16 }, { wch: 40 }, { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 18 }, { wch: 16 }];
@@ -3316,7 +3368,8 @@ export async function exportApuConsolidated() {
  const totalMateriales = breakdown.materialesConsolidados.reduce((s, m) => s + m.costo, 0);
  exportData.push(['', '', '', '', 'Total Materiales:', Number(totalMateriales.toFixed(2))]);
  exportData.push([]);
- exportData.push(['"A pedir" ya está redondeado hacia arriba a la unidad en la que se compra (bolsa, balde, caja, etc). Valores orientativos con precios de referencia NEXOBRA. No incluyen impuestos, cargas sociales ni fletes.']);
+ exportData.push(['"A pedir" ya está redondeado hacia arriba a la unidad en la que se compra (bolsa, balde, caja, etc).']);
+ leyendaEstimacion().forEach(t => exportData.push([t]));
 
  const ws = XLSX.utils.aoa_to_sheet(exportData);
  ws['!cols'] = [{ wch: 40 }, { wch: 10 }, { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 16 }];

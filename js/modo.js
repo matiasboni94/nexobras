@@ -5,18 +5,24 @@
 // presupuesto piden cuenta (se ven con candado y abren "Creá tu cuenta").
 // La cuenta común se llama "usuario" (antes "vecino").
 //
-// Modos: visitante · usuario · tecnico · servicios (prestador / oficio) ·
-// materiales (corralón, ferretería, proveedor de materiales).
+// Modos: visitante · usuario · oficio (oficial, ayudante: albañil, electricista…) ·
+// profesional (ingeniero, arquitecto, MMO, técnico) · materiales (comercio).
+// (26/11, paquete 2) Además, <html data-nivel> = "completo" | "simple": la Calculadora
+// completa es para profesionales con matrícula verificada (o acceso aprobado por el
+// admin); el resto usa la simple. Sale de la función mi_nivel() (migración 048).
 // En el HTML: data-modos="usuario tecnico" muestra el elemento solo en esos
 // modos y data-cuenta marca lo que pide cuenta (style.css + este módulo).
 import * as ST from './state.js';
 import * as Auth from './auth.js';
 
-export const MODOS = ['visitante', 'usuario', 'tecnico', 'servicios', 'materiales'];
-const NOMBRE = { tecnico: 'Técnico', servicios: 'Prestador', materiales: 'Corralón' };
-const NOMBRE_LARGO = { tecnico: 'técnico / profesional', servicios: 'prestador de servicios', materiales: 'corralón / proveedor de materiales' };
+export const MODOS = ['visitante', 'usuario', 'oficio', 'profesional', 'materiales'];
+const NOMBRE = { oficio: 'Oficio', profesional: 'Profesional', materiales: 'Comercio' };
+const NOMBRE_LARGO = { oficio: 'oficio (oficial, ayudante)', profesional: 'profesional o técnico', materiales: 'comercio de materiales' };
+// Rubros que son oficio (el resto de los rubros de Mi cuenta son profesionales)
+const RUBROS_OFICIO = ['albañil', 'electricista', 'plomero', 'gasista', 'pintor', 'herrero', 'carpintero', 'construcción en seco', 'techista', 'otro oficio', 'oficial', 'ayudante'];
+export const esRubroOficio = (r) => { const t = String(r || '').toLowerCase(); return !!t && RUBROS_OFICIO.some(x => t.includes(x)); };
 const CLAVE_USUARIO = 'nexobra_ver_como_usuario';
-const GUIA = { visitante: 'visitante', usuario: 'usuario', tecnico: 'tecnico', servicios: 'proveedor', materiales: 'proveedor' };
+const GUIA = { visitante: 'visitante', usuario: 'usuario', oficio: 'proveedor', profesional: 'tecnico', materiales: 'proveedor' };
 // Vistas que piden cuenta (el link compartido de un presupuesto sigue abierto)
 const VISTAS_CON_CUENTA = { apu: 'usar la Calculadora de Obra', 'my-apu-budgets': 'ver tus presupuestos', 'my-computations': 'ver tus listas' };
 
@@ -50,10 +56,16 @@ export async function modoDeCuenta() {
   const u = ST.authState.user, p = ST.authState.profile;
   if (!u) return 'visitante';
   if (!p) return 'usuario';
-  if (p.perfil === 'tecnico' || p.perfil === 'servicios' || p.perfil === 'materiales') return p.perfil;
+  if (p.perfil === 'oficio' || p.perfil === 'profesional' || p.perfil === 'materiales') return p.perfil;
   if (p.perfil === 'particular') return 'usuario';
-  if (p.role === 'provider') return (await kindDeMiFicha(u.id)) === 'services' ? 'servicios' : 'materiales';
-  if (p.matricula || p.rubro_habitual) return 'tecnico';
+  // valores viejos (046): 'tecnico' y 'servicios' se reparten según el rubro
+  if (p.perfil === 'tecnico' || p.perfil === 'servicios') return esRubroOficio(p.rubro_habitual) && !p.matricula ? 'oficio' : 'profesional';
+  if (p.role === 'provider') {
+    if ((await kindDeMiFicha(u.id)) !== 'services') return 'materiales';
+    return esRubroOficio(p.rubro_habitual) && !p.matricula ? 'oficio' : 'profesional';
+  }
+  if (p.matricula) return 'profesional';
+  if (p.rubro_habitual) return esRubroOficio(p.rubro_habitual) ? 'oficio' : 'profesional';
   return 'usuario';
 }
 
@@ -99,23 +111,42 @@ function cerrarCartel(olvidar = true) {
   if (olvidar) pendiente = null;
 }
 
+/** Nivel de herramientas de la cuenta (048). Sin la 048 queda "completo", como antes. */
+async function cargarNivel() {
+  if (!ST.authState.user || !ST.supabaseClient) { ST.authState.nivel = null; return null; }
+  try {
+    const { data, error } = await ST.supabaseClient.rpc('mi_nivel');
+    if (error) { ST.authState.nivel = { nivel: 'completo', sinMigracion: true }; return ST.authState.nivel; }
+    ST.authState.nivel = data || { nivel: 'simple' };
+  } catch (e) { ST.authState.nivel = { nivel: 'completo', sinMigracion: true }; }
+  return ST.authState.nivel;
+}
+export function nivelCalculadora() { return document.documentElement.dataset.nivel || 'simple'; }
+
 /** Pinta el modo. Se llama desde refreshAuthUI (con y sin sesión). */
 export async function aplicarModo() {
   authListo = true;
   modoCuenta = await modoDeCuenta();
+  const nv = await cargarNivel();
   const comoUsuario = modoCuenta !== 'visitante' && modoCuenta !== 'usuario' && leerUsuario();
   const modo = comoUsuario ? 'usuario' : modoCuenta;
   const antes = ultimo; ultimo = modo;
   const html = document.documentElement;
   html.dataset.modo = modo;
   html.toggleAttribute('data-vista-usuario', comoUsuario);
+  const nivelAntes = html.dataset.nivel;
+  html.dataset.nivel = modo === 'visitante' ? 'simple' : (comoUsuario ? 'simple' : ((nv && nv.nivel) || 'simple'));
+  if (nivelAntes && nivelAntes !== html.dataset.nivel && ST.state.currentView === 'apu') {
+    window.nexoBraApp?.refrescarCalculadora?.();
+  }
   // Para pintar el modo correcto desde el primer momento en la próxima visita (index.html)
   try { if (modo === 'visitante') localStorage.removeItem('nexobra_modo'); else localStorage.setItem('nexobra_modo', modo); } catch (e) { /* sin storage */ }
 
   // Insignia junto al botón de la cuenta (solo técnicos y negocios)
   const badge = document.getElementById('auth-modo-badge');
   if (badge) {
-    const txt = comoUsuario ? 'Vista usuario' : (NOMBRE[modo] || '');
+    const sinVerificar = modo === 'profesional' && nv && !nv.sinMigracion && nv.nivel !== 'completo';
+    const txt = comoUsuario ? 'Vista usuario' : (NOMBRE[modo] ? NOMBRE[modo] + (sinVerificar ? ' · sin verificar' : '') : '');
     badge.textContent = txt;
     badge.hidden = !txt;
     badge.title = comoUsuario ? 'Estás viendo el sitio como un usuario. Desde tu cuenta volvés a tu vista.' : (txt ? 'El sitio está acomodado para tu perfil: ' + NOMBRE_LARGO[modo] : '');
@@ -142,7 +173,7 @@ export async function aplicarModo() {
     try { elegida = localStorage.getItem('nexobra_guia_perfil'); } catch (e) { /* sin storage */ }
     if (document.getElementById('guide-view')?.dataset.perfil && (modo === 'visitante' || !elegida)) window.nexoBraApp?.setGuidePerfil?.(GUIA[modo], false);
     // Técnicos y prestadores: los ajustes de obra (Factor K, fases) a la vista.
-    if (modo === 'tecnico' || modo === 'servicios') window.nexoBraApp?.toggleApuSettings?.(true);
+    if (html.dataset.nivel === 'completo' && modo === 'profesional') window.nexoBraApp?.toggleApuSettings?.(true);
   }
 
   // Sin cuenta en una vista que la pide (entró por link): al inicio + cartel.

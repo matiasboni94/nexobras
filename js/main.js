@@ -299,6 +299,7 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  // link/a un proveedor quedan ocultos hasta registrarse (Apu.updateApuGatingUI,
  // que corre dentro de updateApuBudgetUI más abajo).
  Apu.loadApuCatalog().then(() => {
+ Apu.cargarRendimientosMercado(); // (26/11) rango de mercado, solo versión completa
  Apu.renderTaskResults(ST.apuTaskSearch ? ST.apuTaskSearch.value : '');
  Apu.renderApuDirectLaborOptions();
  // Si ya había tareas en el carrito (localStorage) de una sesión
@@ -963,6 +964,8 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  aplicarModo: Modo.aplicarModo,
  setGuidePerfil,
  toggleApuSettings: Apu.toggleApuSettings,
+ // (26/11) cambió el nivel de la Calculadora (simple / completa): se vuelve a dibujar
+ refrescarCalculadora: () => { Apu.olvidarRendimientosMercado(); Apu.updateApuBudgetUI(); Apu.cargarRendimientosMercado(); },
  openCostoM2InCalculator: Modo.conCuenta(CostoM2.openCostoM2InCalculator, 'abrirlo en la Calculadora'),
  changeMaterialPageQty: Catalog.changeMaterialPageQty,
  addMaterialPageToBudget: Modo.conCuenta(Catalog.addMaterialPageToBudget, 'sumarlo a tu presupuesto'),

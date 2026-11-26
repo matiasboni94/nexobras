@@ -12,18 +12,27 @@
 // ============================================================================
 import * as Auth from './auth.js';
 import * as ST from './state.js';
+import { esRubroOficio } from './modo.js';
 
 const esc = (t) => ST.escapeHtml(String(t ?? ''));
+// (26/11, paquete 2) Perfiles: usuario, oficio, profesional y comercio. Tener una ficha
+// para recibir pedidos es un agregado que pueden sumar oficio y profesional.
 const PERFILES = [
- ['particular', 'Usuario', 'Quiero comparar precios, saber cuánto me sale mi obra y pedir presupuestos.'],
- ['tecnico', 'Técnico u oficio', 'Presupuesto obras: profesional, MMO, albañil, electricista…'],
- ['materiales', 'Proveedor de materiales', 'Tengo un corralón, ferretería, pinturería u otro comercio.'],
- ['servicios', 'Prestador de servicios', 'Ofrezco mi trabajo: profesional, oficio o alquiler de equipos.']
+ ['particular', 'Usuario', 'Quiero buscar materiales, comparar precios y contactar proveedores o prestadores.'],
+ ['oficio', 'Oficio', 'Trabajo en obra: albañil, electricista, plomero, pintor… (oficial o ayudante).'],
+ ['profesional', 'Profesional o técnico', 'Ingeniero/a, arquitecto/a, maestro mayor de obras o técnico constructor.'],
+ ['materiales', 'Comercio de materiales', 'Tengo un corralón, ferretería, pinturería u otro comercio.']
 ];
-const RUBROS = ['Ingeniero/a civil', 'Arquitecto/a', 'Maestro mayor de obras', 'Técnico/a constructor', 'Albañil', 'Electricista', 'Plomero / gasista', 'Pintor', 'Herrero', 'Carpintero', 'Construcción en seco', 'Techista', 'Otro oficio', 'Estudiante'];
+const RUBROS_PROF = ['Ingeniero/a civil', 'Ingeniero/a (otra especialidad)', 'Arquitecto/a', 'Maestro mayor de obras', 'Técnico/a constructor', 'Estudiante'];
+const RUBROS_OFICIO = ['Albañil', 'Electricista', 'Plomero / gasista', 'Pintor', 'Herrero', 'Carpintero', 'Construcción en seco', 'Techista', 'Otro oficio'];
+const CATEGORIAS = [['oficial_especializado', 'Oficial especializado'], ['oficial', 'Oficial'], ['medio_oficial', 'Medio oficial'], ['ayudante', 'Ayudante']];
+// Nombres orientativos para autocompletar (a validar con cada colegio)
+const COLEGIOS = ['Consejo Profesional de Ingeniería de Misiones (CPIM)', 'Colegio de Arquitectos de Misiones', 'Consejo Profesional de Técnicos de Misiones'];
+const ESTADO_MAT = { sin_validar: 'Sin verificar todavía', validada: 'Verificada', rechazada: 'No la pudimos verificar' };
+const ACCESO = { solicitado: 'Pediste acceso a la versión profesional: lo estamos revisando.', aprobado: 'Tenés acceso a la versión profesional.', revocado: 'Tu acceso a la versión profesional fue dado de baja. Escribinos si querés revisarlo.' };
 const ORIGENES = [['instagram', 'Instagram'], ['facebook', 'Facebook'], ['whatsapp', 'Un grupo o mensaje de WhatsApp'], ['recomendacion', 'Me lo recomendó alguien'], ['proveedor', 'Un corralón / proveedor me lo mencionó'], ['buscador', 'Buscando en Google / internet'], ['prensa', 'Diario, radio o TV'], ['colegio', 'Colegio profesional o una charla'], ['otro', 'Otro']];
 
-const S = { disponible: null, pendiente: false, perfil: '', prefs: { email_pedidos: false, email_mis_trabajos: false }, cargado: false, guardando: false, volverA: 'home', error: '' };
+const S = { disponible: null, pendiente: false, perfil: '', ficha: false, prefs: { email_pedidos: false, email_mis_trabajos: false }, cargado: false, guardando: false, volverA: 'home', error: '' };
 
 /** ¿Hay que mostrarle la configuración inicial? null si la 046 no está corrida. */
 export async function cuentaPendiente() {
@@ -62,10 +71,13 @@ export async function loadCuentaView() {
  if (!S.disponible) { root.innerHTML = '<p class="trb-muted">Esta sección todavía no está disponible.</p>'; return; }
  const { data: pr } = await ST.supabaseClient.from('avisos_prefs').select('email_pedidos, email_mis_trabajos').eq('user_id', ST.authState.user.id).maybeSingle();
  S.prefs = { email_pedidos: !!(pr && pr.email_pedidos), email_mis_trabajos: !!(pr && pr.email_mis_trabajos) };
+ const pf = ST.authState.profile || {};
+ S.ficha = pf.role === 'provider' || S.perfil === 'servicios';
+ if (S.perfil === 'tecnico' || S.perfil === 'servicios') S.perfil = esRubroOficio(pf.rubro_habitual) && !pf.matricula ? 'oficio' : 'profesional';
  if (!S.perfil) {
- const r = ST.authState.profile?.role;
- S.perfil = r === 'provider' ? 'materiales' : (ST.authState.profile?.matricula || ST.authState.profile?.rubro_habitual) ? 'tecnico' : '';
+ S.perfil = pf.role === 'provider' ? 'materiales' : pf.matricula ? 'profesional' : pf.rubro_habitual ? (esRubroOficio(pf.rubro_habitual) ? 'oficio' : 'profesional') : '';
  }
+ if (S.perfil === 'materiales') S.ficha = true;
  S.cargado = true; S.error = '';
  render();
 }
@@ -74,8 +86,11 @@ function render() {
  const root = document.getElementById('cuenta-root');
  if (!root || !S.cargado) return;
  const p = ST.authState.profile || {}, mail = ST.authState.user?.email || '';
- const proveedor = S.perfil === 'materiales' || S.perfil === 'servicios';
- const ofreceServicios = S.perfil === 'servicios' || (p.role === 'provider' && S.perfil !== 'materiales');
+ const trabaja = S.perfil === 'oficio' || S.perfil === 'profesional';
+ const proveedor = S.perfil === 'materiales' || (trabaja && S.ficha);
+ const ofreceServicios = trabaja && S.ficha;
+ const nv = ST.authState.nivel || {};
+ const rubros = S.perfil === 'oficio' ? RUBROS_OFICIO : RUBROS_PROF;
  root.innerHTML = `
  <div class="cta-head">
  <h2 class="catalog-title">${S.pendiente ? '¡Bienvenido! Completá tu cuenta' : 'Mi cuenta y avisos'}</h2>
@@ -95,10 +110,16 @@ function render() {
  <label class="trb-campo" for="cta-localidad"><span>Localidad</span><input id="cta-localidad" type="text" maxlength="120" value="${esc(p.locality || 'Oberá')}"></label>
  <label class="trb-campo" for="cta-telefono"><span>WhatsApp</span><input id="cta-telefono" type="tel" maxlength="40" autocomplete="tel" placeholder="Ej: 3755 412345" value="${esc(p.phone || '')}"><small>Solo se lo pasamos a quien elijas (o a quien te elija) en Pedí presupuesto.</small></label>
  ${!p.referral_source ? `<label class="trb-campo" for="cta-origen"><span>¿Cómo nos conociste?</span><select id="cta-origen"><option value="">Elegí una opción</option>${ORIGENES.map(([v, n]) => `<option value="${v}">${esc(n)}</option>`).join('')}</select></label>` : ''}
- ${S.perfil === 'tecnico' || S.perfil === 'servicios' ? `
- <label class="trb-campo" for="cta-rubro"><span>Tu rubro</span><select id="cta-rubro"><option value="">Elegí tu rubro</option>${RUBROS.map(r => `<option${(p.rubro_habitual || '') === r ? ' selected' : ''}>${esc(r)}</option>`).join('')}</select></label>
- <label class="trb-campo" for="cta-matricula"><span>Matrícula (si tenés)</span><input id="cta-matricula" type="text" maxlength="60" placeholder="Ej: MP 1234" value="${esc(p.matricula || '')}"></label>` : ''}
+ ${trabaja ? `
+ <label class="trb-campo" for="cta-rubro"><span>Tu rubro</span><select id="cta-rubro"><option value="">Elegí tu rubro</option>${rubros.map(r => `<option${(p.rubro_habitual || '') === r ? ' selected' : ''}>${esc(r)}</option>`).join('')}</select></label>` : ''}
+ ${S.perfil === 'oficio' ? `
+ <label class="trb-campo" for="cta-categoria"><span>Categoría (UOCRA)</span><select id="cta-categoria"><option value="">Elegí tu categoría</option>${CATEGORIAS.map(([k, n]) => `<option value="${k}"${(nv.categoria_uocra || p.categoria_uocra || '') === k ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></label>` : ''}
+ ${S.perfil === 'profesional' ? `
+ <label class="trb-campo" for="cta-matricula"><span>Matrícula</span><input id="cta-matricula" type="text" maxlength="60" placeholder="Ej: MP 1234" value="${esc(p.matricula || '')}"><small>La verificamos con el padrón de tu colegio o consejo.</small></label>
+ <label class="trb-campo" for="cta-colegio"><span>Colegio o consejo</span><input id="cta-colegio" type="text" maxlength="120" list="cta-colegios" value="${esc(nv.colegio || p.colegio || '')}"><datalist id="cta-colegios">${COLEGIOS.map(c => `<option value="${esc(c)}">`).join('')}</datalist></label>` : ''}
  </div>
+ ${trabaja ? `<label class="cta-aviso cta-ficha" for="cta-ficha"><input id="cta-ficha" type="checkbox"${S.ficha ? ' checked' : ''}><span><b>Quiero recibir pedidos de trabajo</b><small>Armás tu ficha de prestador (aparece en el mapa y en el directorio cuando la revisamos) y te pueden pedir presupuesto.</small></span></label>` : ''}
+ ${trabaja && !S.pendiente && !nv.sinMigracion ? renderNivel(nv) : ''}
  ${proveedor ? `<p class="cta-nota">Después de guardar te llevamos a <b>Mi proveedor</b> para que cargues la ficha de tu ${S.perfil === 'materiales' ? 'comercio' : 'servicio'}: rubro, CUIT, dirección y horarios. Aparece en el mapa cuando la revisamos.</p>` : ''}
  </section>
  <section class="cta-card">
@@ -120,6 +141,31 @@ function render() {
  if (form) form.addEventListener('submit', (e) => { e.preventDefault(); guardar(); });
 }
 
+/** Estado de la matrícula y de la versión profesional de la Calculadora. */
+function renderNivel(nv) {
+ const p = ST.authState.profile || {};
+ const partes = [];
+ if (S.perfil === 'profesional' && p.matricula) {
+ const vence = nv.matricula_estado === 'validada' && nv.matricula_vence ? ` hasta el ${new Date(String(nv.matricula_vence).slice(0, 10) + 'T12:00:00').toLocaleDateString('es-AR')}` : '';
+ partes.push(`<p><b>Matrícula:</b> ${esc(ESTADO_MAT[nv.matricula_estado] || 'Sin verificar todavía')}${vence}.</p>`);
+ }
+ if (nv.nivel === 'completo') partes.push('<p>Usás la <b>versión profesional</b> de la Calculadora: rendimientos, desperdicio, Factor K, fases y el rango de mercado de la mano de obra.</p>');
+ else {
+ partes.push('<p>Usás la <b>versión simple</b> de la Calculadora. La profesional se habilita con la matrícula verificada' + (S.perfil === 'oficio' ? ', o pidiendo acceso.' : '. Si todavía no la tenés al día, podés pedir acceso.') + '</p>');
+ if (ACCESO[nv.acceso_pro]) partes.push(`<p>${esc(ACCESO[nv.acceso_pro])}</p>`);
+ else partes.push('<button type="button" class="btn-action-drawer" data-cta="acceso">Pedir acceso a la versión profesional</button>');
+ }
+ return `<div class="cta-nivel">${partes.join('')}</div>`;
+}
+
+async function pedirAcceso() {
+ const { error } = await ST.supabaseClient.rpc('pedir_acceso_pro');
+ if (error) { ST.showToast('No se pudo enviar el pedido. Probá de nuevo en un rato.'); return; }
+ ST.showToast('Listo: te avisamos cuando lo revisemos.');
+ await Auth.refreshAuthUI();
+ render();
+}
+
 const val = (id) => { const el = document.getElementById(id); return el ? String(el.value || '').trim() : null; };
 const chk = (id) => { const el = document.getElementById(id); return el ? el.checked : null; };
 
@@ -132,8 +178,12 @@ async function guardar() {
  const datos = { full_name: nombre, locality: val('cta-localidad') || null, phone: val('cta-telefono') || null, perfil: S.perfil, onboarding_at: new Date().toISOString() };
  if (val('cta-rubro') !== null) datos.rubro_habitual = val('cta-rubro') || null;
  if (val('cta-matricula') !== null) datos.matricula = val('cta-matricula') || null;
+ if (val('cta-colegio') !== null) datos.colegio = val('cta-colegio') || null;
+ if (val('cta-categoria') !== null) datos.categoria_uocra = val('cta-categoria') || null;
  if (val('cta-origen')) datos.referral_source = val('cta-origen');
- const proveedor = S.perfil === 'materiales' || S.perfil === 'servicios';
+ if (chk('cta-ficha') !== null) S.ficha = chk('cta-ficha');
+ const trabaja = S.perfil === 'oficio' || S.perfil === 'profesional';
+ const proveedor = S.perfil === 'materiales' || (trabaja && S.ficha);
  // Rol: proveedor si vende o presta servicios; si no, queda como estaba (nunca se baja a un proveedor)
  const rol = proveedor ? 'provider' : (p.role === 'provider' || p.role === 'admin' ? null : 'user');
  S.guardando = true; S.error = ''; render();
@@ -142,7 +192,13 @@ async function guardar() {
  const { error } = await ST.supabaseClient.rpc('perfil_elegir_rol', { p_rol: rol });
  if (error) throw error;
  }
- const { error: e1 } = await ST.supabaseClient.from('profiles').update(datos).eq('id', ST.authState.user.id);
+ let { error: e1 } = await ST.supabaseClient.from('profiles').update(datos).eq('id', ST.authState.user.id);
+ if (e1 && ['PGRST204', '42703', '23514'].includes(e1.code)) {
+ // sin la migración 048: perfiles y columnas de antes
+ const viejo = { ...datos, perfil: S.perfil === 'oficio' ? (S.ficha ? 'servicios' : 'tecnico') : S.perfil === 'profesional' ? (S.ficha ? 'servicios' : 'tecnico') : S.perfil };
+ delete viejo.colegio; delete viejo.categoria_uocra;
+ ({ error: e1 } = await ST.supabaseClient.from('profiles').update(viejo).eq('id', ST.authState.user.id));
+ }
  if (e1) throw e1;
  const { error: e2 } = await ST.supabaseClient.from('avisos_prefs').upsert({ user_id: ST.authState.user.id, ...prefs }, { onConflict: 'user_id' });
  if (e2) throw e2;
@@ -153,7 +209,7 @@ async function guardar() {
  S.guardando = false; S.pendiente = false; S.prefs = prefs;
  await Auth.refreshAuthUI();
  if (proveedor && eraPendiente) {
- ST.showToast('¡Listo! Ahora cargá la ficha de tu ' + (S.perfil === 'materiales' ? 'comercio.' : 'servicio.'));
+ ST.showToast('¡Listo! Ahora cargá la ficha de tu ' + (S.perfil === 'materiales' ? 'comercio.' : 'trabajo.'));
  window.nexoBraApp?.switchView?.('provider');
  } else if (eraPendiente) {
  ST.showToast('¡Listo! Ya podés usar NEXOBRA.');
@@ -174,15 +230,29 @@ function onClick(e) {
  const b = e.target.closest('[data-cta]');
  if (!b) return;
  if (b.dataset.cta === 'despues') completarDespues();
+ if (b.dataset.cta === 'acceso') pedirAcceso();
  if (b.dataset.cta === 'login') { Auth.showAuthTab('login'); Auth.openAuthModal(); }
 }
 function onChange(e) {
  if (e.target.name === 'cta-perfil') {
  // se conserva lo que ya escribió antes de redibujar
  const p = ST.authState.profile || (ST.authState.profile = {});
- ['full_name:cta-nombre', 'locality:cta-localidad', 'phone:cta-telefono', 'rubro_habitual:cta-rubro', 'matricula:cta-matricula'].forEach(par => { const [k, id] = par.split(':'); const v = val(id); if (v !== null) p[k] = v; });
+ ['full_name:cta-nombre', 'locality:cta-localidad', 'phone:cta-telefono', 'rubro_habitual:cta-rubro', 'matricula:cta-matricula', 'colegio:cta-colegio', 'categoria_uocra:cta-categoria'].forEach(par => { const [k, id] = par.split(':'); const v = val(id); if (v !== null) p[k] = v; });
+ const f = chk('cta-ficha'); if (f !== null) S.ficha = f;
+ // el rubro de un perfil no vale para el otro
+ if ((e.target.value === 'oficio') !== esRubroOficio(p.rubro_habitual)) p.rubro_habitual = '';
  const m = chk('cta-av-mis'); if (m !== null) S.prefs.email_mis_trabajos = m;
  const q = chk('cta-av-pedidos'); if (q !== null) S.prefs.email_pedidos = q;
- S.perfil = e.target.value; render();
+ S.perfil = e.target.value;
+ if (S.perfil === 'materiales') S.ficha = true;
+ render();
  }
+ if (e.target.id === 'cta-ficha') { S.ficha = e.target.checked; keepAndRender(); }
+}
+function keepAndRender() {
+ const p = ST.authState.profile || (ST.authState.profile = {});
+ ['full_name:cta-nombre', 'locality:cta-localidad', 'phone:cta-telefono', 'rubro_habitual:cta-rubro', 'matricula:cta-matricula', 'colegio:cta-colegio', 'categoria_uocra:cta-categoria'].forEach(par => { const [k, id] = par.split(':'); const v = val(id); if (v !== null) p[k] = v; });
+ const m = chk('cta-av-mis'); if (m !== null) S.prefs.email_mis_trabajos = m;
+ const q = chk('cta-av-pedidos'); if (q !== null) S.prefs.email_pedidos = q;
+ render();
 }
