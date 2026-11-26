@@ -91,6 +91,7 @@ import * as ST from './state.js';
         .eq('id', ST.authState.user.id)
         .single();
       ST.authState.profile = profile || null;
+      window.nexoBraApp?.actualizarSaludo?.(); // (26/11) "Hola, {nombre}" apenas llega el perfil
 
       const nombre = (profile?.full_name || '').trim() || ST.authState.user.email;
       ST.authHeaderLabel.textContent = nombre.length > 18 ? nombre.slice(0, 16) + '…' : nombre;

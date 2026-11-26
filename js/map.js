@@ -58,15 +58,21 @@ import * as ST from './state.js';
  container.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted); padding: 8px 0;">Sin resultados.</p>';
  return;
  }
+ // (26/11) El buscador de la portada es este: cada resultado va al mapa
+ // (quién lo tiene cerca) o, si solo quiere el precio, al catálogo.
  container.innerHTML = results.map(item => `
  <div class="provider-search-row">
  <div class="provider-search-row-info">
  <strong>${ST.escapeHtml(item.denominacion)}</strong><br>
  <span style="color:var(--text-muted); font-size:0.75rem;">${ST.escapeHtml(item.id)} · ${ST.escapeHtml(item.rubro)}</span>
  </div>
- <button class="btn-computo" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.selectMaterialOnMap(${ST.escAttr(item.id)}, ${ST.escAttr(item.denominacion)})">Ver en mapa</button>
+ <div class="provider-search-row-acciones">
+ <button type="button" class="btn-computo" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.selectMaterialOnMap(${ST.escAttr(item.id)}, ${ST.escAttr(item.denominacion)})">Ver en el mapa</button>
+ <button type="button" class="btn-action-drawer btn-copy" style="padding:6px 12px; font-size:0.78rem;" onclick="window.nexoBraApp.buscarEnCatalogo(${ST.escAttr(item.denominacion)})">Precio</button>
  </div>
- `).join('');
+ </div>
+ `).join('') + `
+ <div class="provider-search-pie"><button type="button" class="link-button" onclick="window.nexoBraApp.buscarEnCatalogo(${ST.escAttr(query)})">Ver todos los precios de “${ST.escapeHtml(query)}” en el catálogo →</button></div>`;
  }
 
  /**
@@ -204,6 +210,8 @@ import * as ST from './state.js';
  document.getElementById('home-map-material-results').innerHTML = '';
  document.getElementById('home-map-material-search').value = materialName;
  document.getElementById('btn-clear-map-material-search').style.display = 'inline-flex';
+ // (26/11) El buscador está en la portada: se baja al mapa con el resultado.
+ document.querySelector('.section-map-home .home-map-search-row')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
  ST.mapStatusMsg.textContent = `Buscando ofertas de "${materialName}" cerca tuyo...`;
  // Limpia el panel lateral ANTES de esperar la respuesta -- así nunca queda
  // "colgada" la ficha de un proveedor viejo mientras carga la búsqueda nueva.

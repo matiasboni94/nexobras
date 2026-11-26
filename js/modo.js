@@ -124,6 +124,19 @@ async function cargarNivel() {
 export function nivelCalculadora() { return document.documentElement.dataset.nivel || 'simple'; }
 
 /** Pinta el modo. Se llama desde refreshAuthUI (con y sin sesión). */
+/** (26/11) Saludo de la portada: el apodo si lo cargó; si no, el primer nombre de
+ * la cuenta (perfil o, con Google, los datos de la cuenta). Nunca el email. */
+export function actualizarSaludo() {
+  const hola = document.getElementById('portada-hola');
+  if (!hola) return;
+  const p = ST.authState.profile || {};
+  const meta = ST.authState.user?.user_metadata || {};
+  const apodo = String(p.public_nickname || '').trim();
+  const primero = (t) => String(t || '').trim().split(/\s+/)[0];
+  const nombre = apodo || primero(p.full_name) || primero(meta.full_name || meta.name);
+  hola.textContent = nombre ? `Hola, ${nombre}` : 'Hola';
+}
+
 export async function aplicarModo() {
   authListo = true;
   modoCuenta = await modoDeCuenta();
@@ -142,12 +155,7 @@ export async function aplicarModo() {
   // Para pintar el modo correcto desde el primer momento en la próxima visita (index.html)
   try { if (modo === 'visitante') localStorage.removeItem('nexobra_modo'); else localStorage.setItem('nexobra_modo', modo); } catch (e) { /* sin storage */ }
 
-  // (26/11) Saludo de la portada
-  const hola = document.getElementById('portada-hola');
-  if (hola) {
-    const nombre = String(ST.authState.profile?.full_name || '').trim().split(/\s+/)[0];
-    hola.textContent = nombre ? `Hola, ${nombre}` : 'Hola';
-  }
+  actualizarSaludo();
 
   // Insignia junto al botón de la cuenta (solo técnicos y negocios)
   const badge = document.getElementById('auth-modo-badge');
@@ -174,11 +182,9 @@ export async function aplicarModo() {
   }
 
   if (antes !== modo) {
-    // La guía sigue al modo. Sin cuenta, siempre la del visitante; con cuenta,
-    // la del perfil salvo que la persona haya elegido otra a mano.
-    let elegida = null;
-    try { elegida = localStorage.getItem('nexobra_guia_perfil'); } catch (e) { /* sin storage */ }
-    if (document.getElementById('guide-view')?.dataset.perfil && (modo === 'visitante' || !elegida)) window.nexoBraApp?.setGuidePerfil?.(GUIA[modo], false);
+    // (26/11) La guía sigue siempre al modo (sin cuenta, la del visitante).
+    try { localStorage.removeItem('nexobra_guia_perfil'); } catch (e) { /* sin storage; ya no se usa */ }
+    if (document.getElementById('guide-view')?.dataset.perfil) window.nexoBraApp?.setGuidePerfil?.(GUIA[modo]);
     // Técnicos y prestadores: los ajustes de obra (Factor K, fases) a la vista.
     if (html.dataset.nivel === 'completo' && modo === 'profesional') window.nexoBraApp?.toggleApuSettings?.(true);
   }

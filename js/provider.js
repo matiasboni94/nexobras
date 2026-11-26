@@ -498,10 +498,25 @@ import * as ST from './state.js';
  export function searchMaterialsSimple(query, limit = 8) {
  const tokens = ST.normalizeText(query).split(' ').filter(Boolean);
  if (tokens.length === 0) return [];
+ // (26/11) Ordenados por relevancia: primero los que EMPIEZAN con lo buscado
+ // ("cemento" → Cemento portland antes que Hormigón con 300 kg de cemento),
+ // después los que lo tienen en el nombre y al final los que solo coinciden por rubro o etiquetas.
+ const puntaje = (item) => {
+ const nom = ST.normalizeText(item.denominacion || '');
+ return tokens.reduce((t, tok) => {
+ const v = [tok, ST.singularize(tok)];
+ if (v.some(x => nom.startsWith(x))) return t + 4;
+ if (v.some(x => nom.includes(' ' + x))) return t + 3;
+ if (v.some(x => nom.includes(x))) return t + 2;
+ return t;
+ }, 0);
+ };
  return NEXOBRA_DATA.filter(item => {
  const haystack = ST.normalizeText([item.denominacion, item.id, item.categoria, item.rubro, ...(item.tags || [])].join(' '));
  return tokens.every(tok => haystack.includes(tok) || haystack.includes(ST.singularize(tok)));
- }).slice(0, limit);
+ }).map((item, i) => ({ item, i, p: puntaje(item) }))
+ .sort((a, b) => b.p - a.p || a.i - b.i)
+ .slice(0, limit).map(x => x.item);
  }
 
  export function renderProviderAddResults() {

@@ -151,25 +151,31 @@ import * as ST from './state.js';
  // cuenta (modo del sitio). Sin cuenta, siempre la del visitante.
  const GUIA_PERFILES = ['visitante', 'usuario', 'tecnico', 'proveedor'];
  const paraPerfil = (el, perfil) => !el.dataset.para || el.dataset.para.split(' ').includes(perfil);
+ // (26/11) La guía arranca SIEMPRE en la del perfil de la cuenta (Modo.guiaDelModo).
+ // Ver la de otro perfil es solo para mirar: no se guarda.
  function perfilGuiaInicial() {
  if (Modo.modoActual() === 'visitante') return 'visitante';
- try {
- let g = localStorage.getItem('nexobra_guia_perfil');
- if (g === 'vecino') g = 'usuario'; // nombre anterior
- if (GUIA_PERFILES.includes(g) && g !== 'visitante') return g;
- } catch (e) { /* sin storage */ }
- // (24/11-f) si no eligió en la guía, la guía sigue al modo del sitio (js/modo.js)
  return Modo.guiaDelModo();
  }
- function aplicarPerfilGuia(perfil, guardar) {
+ const GUIA_NOMBRE = { usuario: 'Usuario', tecnico: 'Profesional o técnico', proveedor: 'Comercio u oficio' };
+ const MODO_NOMBRE = { usuario: 'Usuario', oficio: 'Oficio', profesional: 'Profesional', materiales: 'Comercio' };
+ function aplicarPerfilGuia(perfil) {
  const view = document.getElementById('guide-view');
  if (!view || !GUIA_PERFILES.includes(perfil)) return;
  view.dataset.perfil = perfil;
- if (guardar) { try { localStorage.setItem('nexobra_guia_perfil', perfil); } catch (e) { /* sin storage */ } }
  document.querySelectorAll('#guide-view .guia-perfil-btn').forEach(b => b.setAttribute('aria-checked', b.dataset.guiaPerfil === perfil ? 'true' : 'false'));
+ const propio = Modo.modoActual() === 'visitante' || perfil === Modo.guiaDelModo();
+ const txt = document.getElementById('guia-perfil-actual');
+ if (txt) {
+ txt.innerHTML = propio
+ ? `Guía para tu perfil: <b>${ST.escapeHtml(MODO_NOMBRE[Modo.modoActual()] || GUIA_NOMBRE[perfil] || '')}</b>.`
+ : `Estás viendo la guía para <b>${ST.escapeHtml(GUIA_NOMBRE[perfil] || '')}</b>.`;
  }
- export function setGuidePerfil(perfil, guardar = true) {
- aplicarPerfilGuia(perfil, guardar);
+ const volver = document.getElementById('guia-perfil-volver');
+ if (volver) volver.hidden = propio;
+ }
+ export function setGuidePerfil(perfil) {
+ aplicarPerfilGuia(perfil);
  // si la solapa abierta no es para este perfil, se abre la primera que sí
  const abierta = document.querySelector('#guide-view .guia-seccion:not([hidden])');
  if (!abierta || !paraPerfil(abierta, perfil)) {
@@ -177,6 +183,12 @@ import * as ST from './state.js';
  if (t) openGuideSection(t.dataset.guideSection);
  }
  }
+
+ /** (26/11) "Precio" en los resultados del buscador de la portada: el catálogo con esa búsqueda. */
+export function buscarEnCatalogo(q) {
+ switchView('catalog', 'Todos', String(q || '').trim());
+ window.scrollTo({ top: 0 });
+}
 
  /** (21/11) Abre la Guía de uso en una sección (precios, calculadora, proveedores, costo-m2, cuenta, factor-k, negocio). */
 // (23/11) La guía va en solapas: se muestra una sección por vez.
@@ -186,11 +198,11 @@ export function openGuideSection(seccion) {
  if (!el || !el.classList.contains('guia-seccion')) { window.scrollTo({ top: 0 }); return; }
  // (24/11) perfil de la guía: si la sección pedida no es para el perfil actual, se cambia al suyo
  const gv = document.getElementById('guide-view');
- if (gv && !gv.dataset.perfil) aplicarPerfilGuia(perfilGuiaInicial(), false);
+ if (gv && !gv.dataset.perfil) aplicarPerfilGuia(perfilGuiaInicial());
  if (gv && !paraPerfil(el, gv.dataset.perfil)) {
  // (25/11) sin cuenta, lo que es para cuentas registradas lleva a "¿Necesito cuenta?"
  if (gv.dataset.perfil === 'visitante') { if (seccion !== 'cuenta') openGuideSection('cuenta'); return; }
- aplicarPerfilGuia(el.dataset.para.split(' ')[0], false);
+ aplicarPerfilGuia(el.dataset.para.split(' ')[0]);
  }
  document.querySelectorAll('#guide-view .guia-seccion').forEach(p => { p.hidden = p !== el; });
  document.querySelectorAll('#guide-view .guia-chip[role="tab"]').forEach(t => {
@@ -206,6 +218,7 @@ export function openGuideSection(seccion) {
 export function switchView(viewName, rubroFilter = null, searchString = null) {
  // (25/11) La Calculadora y los presupuestos piden cuenta: sin sesión, cartel "Creá tu cuenta"
  if (Modo.vistaBloqueada(viewName)) return;
+ const vistaAnterior = ST.state.currentView;
  ST.state.currentView = viewName;
 
  // Si esta vista tiene una URL linda y todavía no estamos ahí, la
@@ -240,7 +253,8 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  if (aboutViewEl) aboutViewEl.style.display = viewName === 'about' ? 'block' : 'none';
  const guideViewEl = document.getElementById('guide-view');
  if (guideViewEl) guideViewEl.style.display = viewName === 'guide' ? 'block' : 'none';
- if (viewName === 'guide' && guideViewEl && !guideViewEl.dataset.perfil) setGuidePerfil(perfilGuiaInicial(), false);
+ // (26/11) cada vez que se entra a la guía, arranca en la del perfil propio
+ if (viewName === 'guide' && guideViewEl && vistaAnterior !== 'guide') setGuidePerfil(perfilGuiaInicial());
  const contactViewEl = document.getElementById('contact-view');
  if (contactViewEl) contactViewEl.style.display = viewName === 'contact' ? 'block' : 'none';
  const directoryViewEl = document.getElementById('providers-directory-view');
@@ -582,6 +596,13 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  openGuideSection(btn.dataset.guideSection);
  });
  // (24/11) Para quién es la guía
+ document.getElementById('guia-perfil-otro')?.addEventListener('click', (e) => {
+ const sel = document.getElementById('guia-perfil-sel');
+ if (!sel) return;
+ sel.hidden = !sel.hidden;
+ e.currentTarget.setAttribute('aria-expanded', sel.hidden ? 'false' : 'true');
+ });
+ document.getElementById('guia-perfil-volver')?.addEventListener('click', () => setGuidePerfil(perfilGuiaInicial()));
  document.querySelector('#guide-view .guia-perfil')?.addEventListener('click', (e) => {
  const b = e.target.closest('[data-guia-perfil]');
  if (b) setGuidePerfil(b.dataset.guiaPerfil);
@@ -596,12 +617,15 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  const sig = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
  sig.focus(); openGuideSection(sig.dataset.guideSection);
  });
- // (26/11) Portada: el buscador lleva al catálogo con lo que escribió
- document.getElementById('portada-buscar-form')?.addEventListener('submit', (e) => {
+ // (26/11) Portada: un solo buscador, el del mapa de proveedores (map.js
+ // escucha el "input"). Con Enter/Buscar se muestran los resultados y, si hay
+ // uno solo, va directo al mapa.
+ document.getElementById('portada-buscar-form')?.addEventListener('submit', async (e) => {
  e.preventDefault();
- const q = (document.getElementById('portada-buscar-input')?.value || '').trim();
- switchView('catalog', 'Todos', q);
- window.scrollTo({ top: 0 });
+ await MapModule.searchMaterialOnMap();
+ const botones = document.querySelectorAll('#home-map-material-results .provider-search-row-acciones .btn-computo');
+ if (botones.length === 1) botones[0].click();
+ else document.querySelector('#home-map-material-results button')?.focus();
  });
  // (24/11-f) "Mi negocio" (corralones y prestadores): su panel si ya tiene
  // ficha; si todavía no, el alta de negocio.
@@ -986,6 +1010,7 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  abrirConfiguracionInicial: Cuenta.abrirConfiguracionInicial,
  loadCuentaView: Cuenta.loadCuentaView,
  aplicarModo: Modo.aplicarModo,
+ actualizarSaludo: Modo.actualizarSaludo,
  actualizarNavAdmin,
  cargarAdmin,
  setGuidePerfil,
@@ -1036,6 +1061,7 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
  closeProviderReview: adm('closeProviderReview'),
  openNewMaterialForm: Provider.openNewMaterialForm,
  selectMaterialOnMap: MapModule.selectMaterialOnMap,
+ buscarEnCatalogo,
  goToProvidersDirectoryWithCategory: MapModule.goToProvidersDirectoryWithCategory,
  reportReview: MapModule.reportReview,
  replyToReview: Provider.replyToReview,
