@@ -1490,3 +1490,5 @@ html[data-modo="visitante"] #guide-view .guia-perfil{display:none}
 .cuenta-gate-login{padding:10px 16px;font-size:.9rem}
 .cuenta-gate-ahora-no{display:block;margin:12px auto 0;min-height:32px;color:var(--text-muted)}
 .cuenta-gate .modal-header p,.cuenta-gate .modal-body p,.cuenta-gate li{text-align:left}
+/* (26/11) Campo trampa del formulario de contacto: fuera de la vista y del lector de pantalla */
+.campo-trampa{position:absolute!important;left:-10000px!important;top:auto!important;width:1px!important;height:1px!important;overflow:hidden!important}

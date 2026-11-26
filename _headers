@@ -2,9 +2,10 @@
 # worker.js (js/, assets/, style.css, data.js, sw.js, etc.). Las páginas HTML los
 # reciben desde worker.js (withSecurityHeaders). Mantener los dos iguales.
 /*
-  Strict-Transport-Security: max-age=15552000
+  Strict-Transport-Security: max-age=31536000
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: SAMEORIGIN
   Permissions-Policy: camera=(), microphone=(), payment=(), usb=(), geolocation=(self)
   Content-Security-Policy: frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'
+  Cross-Origin-Opener-Policy: same-origin-allow-popups

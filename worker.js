@@ -251,9 +251,10 @@ async function sitemapXml(origin) {
 
 // (22/11, seguridad) Headers de seguridad para las respuestas del Worker. Los
 // archivos estáticos que no pasan por el Worker los reciben desde _headers.
-// La CSP que bloquea va mínima (iframes, <base>, plugins y formularios); la
-// completa queda en modo "solo reporte" para probarla antes de activarla.
-const CSP_REPORT_ONLY = [
+// (26/11, hardening) La CSP completa pasa a bloquear (antes iba en "solo
+// reporte" desde el 22/11). Sigue permitiendo inline porque el script del tema y
+// los onclick lo necesitan; lo demás queda cerrado a los orígenes de la lista.
+const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdn.sheetjs.com https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
@@ -266,23 +267,24 @@ const CSP_REPORT_ONLY = [
   "base-uri 'self'",
   "object-src 'none'",
   "form-action 'self'",
+  "upgrade-insecure-requests",
 ].join('; ');
 const SECURITY_HEADERS = {
-  'Strict-Transport-Security': 'max-age=15552000',
+  'Strict-Transport-Security': 'max-age=31536000',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Frame-Options': 'SAMEORIGIN',
   'Permissions-Policy': 'camera=(), microphone=(), payment=(), usb=(), geolocation=(self)',
-  'Content-Security-Policy': "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'",
-  'Content-Security-Policy-Report-Only': CSP_REPORT_ONLY,
+  'Content-Security-Policy': CSP,
+  'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
 };
 function withSecurityHeaders(res) {
   if (!res) return res;
   // Las redirecciones de Response.redirect() tienen headers inmutables: se copian.
   const out = new Response(res.body, res);
-  for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
-    if (!out.headers.has(k)) out.headers.set(k, v);
-  }
+  // (26/11) Se pisan siempre: el index.html servido desde ASSETS ya trae los de
+  // _headers (con la CSP mínima), y las páginas tienen que llevar la completa.
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) out.headers.set(k, v);
   return out;
 }
 
