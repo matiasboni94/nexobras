@@ -29,8 +29,16 @@ import * as ST from './state.js';
  * desde Supabase y los deja cacheados en ST.apuCatalogState. Idempotente: si
  * ya está cargado (o cargando) no vuelve a pedir nada.
  */
-export async function loadApuCatalog() {
- if (ST.apuCatalogState.loaded || ST.apuCatalogState.loading) return;
+// (26/11) Si ya hay una carga en curso, se devuelve esa misma promesa: antes
+// volvía enseguida y quien llamaba (ej. Pedí presupuesto) dibujaba sin tareas.
+let apuCatalogPromise = null;
+export function loadApuCatalog() {
+ if (ST.apuCatalogState.loaded) return Promise.resolve();
+ if (apuCatalogPromise) return apuCatalogPromise;
+ apuCatalogPromise = cargarApuCatalog().finally(() => { apuCatalogPromise = null; });
+ return apuCatalogPromise;
+}
+async function cargarApuCatalog() {
  if (!ST.supabaseClient) return;
  ST.apuCatalogState.loading = true;
 

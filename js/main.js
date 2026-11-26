@@ -868,8 +868,10 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  status.style.display = 'none';
 
  try {
+ // (26/11, hardening) campo trampa y tiempo desde que se abrió la página: la función descarta robots
+ const web = document.getElementById('contact-form-web')?.value || '';
  const { error } = await ST.supabaseClient.functions.invoke('contact-form', {
- body: { name, email, message }
+ body: { name, email, message, web, t: Math.round(performance.now()) }
  });
  if (error) throw error;
 

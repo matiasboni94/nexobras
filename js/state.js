@@ -209,9 +209,9 @@ export function escapeHtml(value) {
  if (chartJsLoadPromise) return chartJsLoadPromise;
  chartJsLoadPromise = new Promise((resolve, reject) => {
  const script = document.createElement('script');
- script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js';
+ script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.6.2/dist/chart.umd.min.js';
  // (22/11, seguridad) Subresource Integrity: si el CDN entrega otro archivo, el navegador no lo ejecuta.
- script.integrity = 'sha384-Emf5ZVIUiarAdhkgtqK+5/Z5qIvM6QoVrS+qAVtfyZVuD5lIHrac0me485+Antp0';
+ script.integrity = 'sha384-wFIO1nJgUOP2XDesMi2Xqyej8+jLnzOfBrJbdvz7Pp+UI88xOiL08fKFupi2KqR0';
  script.crossOrigin = 'anonymous';
  script.onload = () => resolve();
  script.onerror = () => reject(new Error('No se pudo cargar el gráfico. Revisá tu conexión e intentá de nuevo.'));
@@ -232,8 +232,10 @@ export function escapeHtml(value) {
  if (pdfLibsLoadPromise) return pdfLibsLoadPromise;
  pdfLibsLoadPromise = new Promise((resolve, reject) => {
  const script = document.createElement('script');
- script.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
- script.integrity = 'sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/';
+ // (26/11, hardening) 2.5.2 → 4.2.1: la 2.5.2 tenía vulnerabilidades conocidas (ReDoS, DoS, inyección en PDF;
+ // GHSA-w532-jxjh-hjhj, GHSA-8mvj-3j78-4qmw, GHSA-pqxr-3g65-p328). Hash verificado contra el CDN.
+ script.src = 'https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js';
+ script.integrity = 'sha384-qovJwSBbRDPP5cEjCp8S0UP66wrvnjaa60XMOGzTNanrThcrGfXfnZkvgY8N1KT3';
  script.crossOrigin = 'anonymous';
  script.onload = () => resolve();
  script.onerror = () => reject(new Error('No se pudo cargar el generador de PDF. Revisá tu conexión e intentá de nuevo.'));
