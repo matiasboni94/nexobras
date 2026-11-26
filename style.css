@@ -1448,17 +1448,17 @@ html[data-theme=dark] .casa-leyenda .ley.muro{background:#C9CED6}
 /* (24/11-f) El sitio según el perfil (js/modo.js). html[data-modo] = visitante | usuario | tecnico | servicios | materiales.
    Nada se bloquea: data-modos="…" muestra un elemento solo en esos modos; el color de énfasis cambia por modo
    (el logo queda siempre amarillo). Tonos con luminancia parecida al amarillo: texto oscuro encima, se leen igual. */
-html[data-modo="visitante"] [data-modos]:not([data-modos~="visitante"]),html:not([data-modo]) [data-modos]:not([data-modos~="visitante"]),html[data-modo="usuario"] [data-modos]:not([data-modos~="usuario"]),html[data-modo="tecnico"] [data-modos]:not([data-modos~="tecnico"]),html[data-modo="servicios"] [data-modos]:not([data-modos~="servicios"]),html[data-modo="materiales"] [data-modos]:not([data-modos~="materiales"]){display:none!important}
-html[data-modo="tecnico"]{--brand-yellow:#4DA3FF;--brand-yellow-hover:#2F8BEA;--brand-yellow-light:#EAF4FF;--brand-yellow-border:#B9DAFF;--brand-yellow-rgb:77,163,255}
-html[data-modo="servicios"]{--brand-yellow:#2EC48D;--brand-yellow-hover:#1FA876;--brand-yellow-light:#E8F8F1;--brand-yellow-border:#A6E6CD;--brand-yellow-rgb:46,196,141}
+html[data-modo="visitante"] [data-modos]:not([data-modos~="visitante"]),html:not([data-modo]) [data-modos]:not([data-modos~="visitante"]),html[data-modo="usuario"] [data-modos]:not([data-modos~="usuario"]),html[data-modo="profesional"] [data-modos]:not([data-modos~="profesional"]),html[data-modo="oficio"] [data-modos]:not([data-modos~="oficio"]),html[data-modo="materiales"] [data-modos]:not([data-modos~="materiales"]){display:none!important}
+html[data-modo="profesional"]{--brand-yellow:#4DA3FF;--brand-yellow-hover:#2F8BEA;--brand-yellow-light:#EAF4FF;--brand-yellow-border:#B9DAFF;--brand-yellow-rgb:77,163,255}
+html[data-modo="oficio"]{--brand-yellow:#2EC48D;--brand-yellow-hover:#1FA876;--brand-yellow-light:#E8F8F1;--brand-yellow-border:#A6E6CD;--brand-yellow-rgb:46,196,141}
 html[data-modo="materiales"]{--brand-yellow:#FF8A5B;--brand-yellow-hover:#EE6E3C;--brand-yellow-light:#FFF0E9;--brand-yellow-border:#FFC7B0;--brand-yellow-rgb:255,138,91}
-html[data-theme="dark"][data-modo="tecnico"]{--brand-yellow-light:#122236;--brand-yellow-border:#2D5684}
-html[data-theme="dark"][data-modo="servicios"]{--brand-yellow-light:#0F2A20;--brand-yellow-border:#246B52}
+html[data-theme="dark"][data-modo="profesional"]{--brand-yellow-light:#122236;--brand-yellow-border:#2D5684}
+html[data-theme="dark"][data-modo="oficio"]{--brand-yellow-light:#0F2A20;--brand-yellow-border:#246B52}
 html[data-theme="dark"][data-modo="materiales"]{--brand-yellow-light:#2E1A12;--brand-yellow-border:#7A4026}
-@media (prefers-color-scheme:dark){html:not([data-theme=light])[data-modo="tecnico"]{--brand-yellow-light:#122236;--brand-yellow-border:#2D5684}html:not([data-theme=light])[data-modo="servicios"]{--brand-yellow-light:#0F2A20;--brand-yellow-border:#246B52}html:not([data-theme=light])[data-modo="materiales"]{--brand-yellow-light:#2E1A12;--brand-yellow-border:#7A4026}}
+@media (prefers-color-scheme:dark){html:not([data-theme=light])[data-modo="profesional"]{--brand-yellow-light:#122236;--brand-yellow-border:#2D5684}html:not([data-theme=light])[data-modo="oficio"]{--brand-yellow-light:#0F2A20;--brand-yellow-border:#246B52}html:not([data-theme=light])[data-modo="materiales"]{--brand-yellow-light:#2E1A12;--brand-yellow-border:#7A4026}}
 .brand-name span.accent{color:#F5B000}
 .nav-links-desktop #nav-btn-mi-negocio{order:-2}
-html[data-modo="tecnico"] .nav-links-desktop #nav-btn-apu{order:-1}
+html[data-modo="profesional"] .nav-links-desktop #nav-btn-apu{order:-1}
 [data-accion-modo][hidden]{display:none!important}
 .auth-modo-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:var(--brand-yellow);color:#1E2229;font-size:.68rem;font-weight:800;letter-spacing:.2px;line-height:1.4;white-space:nowrap}
 .btn-auth-login .auth-modo-badge{display:inline-flex}
@@ -1492,3 +1492,38 @@ html[data-modo="visitante"] #guide-view .guia-perfil{display:none}
 .cuenta-gate .modal-header p,.cuenta-gate .modal-body p,.cuenta-gate li{text-align:left}
 /* (26/11) Campo trampa del formulario de contacto: fuera de la vista y del lector de pantalla */
 .campo-trampa{position:absolute!important;left:-10000px!important;top:auto!important;width:1px!important;height:1px!important;overflow:hidden!important}
+/* (26/11, paquete 2) Calculadora versión simple (html[data-nivel="simple"]): sin ajustes de obra, Factor K, fases, curva ni APU propias */
+html[data-nivel="simple"] #btn-apu-settings,html[data-nivel="simple"] #apu-settings-panel,html[data-nivel="simple"] #apu-materiales-por-fase-section,html[data-nivel="simple"] #apu-curva-inversion-section,html[data-nivel="simple"] #btn-open-apu-custom-task,html[data-nivel="simple"] .apu-item-extra{display:none!important}
+html[data-nivel="completo"] #apu-nivel-aviso{display:none!important}
+.apu-nivel-aviso{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 14px;margin:0 0 14px;padding:12px 14px;border-radius:10px;background:var(--brand-yellow-light);border:1px solid var(--brand-yellow-border);font-size:.86rem;line-height:1.45;color:var(--text-main)}
+.apu-nivel-aviso span{flex:1 1 320px}
+.apu-rend-fijo{font-variant-numeric:tabular-nums}
+.apu-mercado{display:block;margin-top:3px;font-size:.72rem;color:var(--text-muted);white-space:nowrap}
+/* (26/11, paquete 2) Panel: profesionales, rendimientos e historial (js/panel-datos.js) y Mi cuenta */
+.pd-filtros{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:10px 0 14px;font-size:.85rem}
+.pd-filtros label{display:inline-flex;align-items:center;gap:6px}
+.pd-filtros .form-select{width:auto;min-width:0}
+.pd-corto{max-width:80px}
+.pd-checks{display:inline-flex;flex-wrap:wrap;gap:4px 12px}
+.pd-card{border:1px solid var(--border-light);border-radius:12px;padding:12px 14px;margin:0 0 10px;background:var(--bg-card)}
+.pd-card-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 12px;align-items:flex-start}
+.pd-sub{font-size:.8rem;color:var(--text-muted);margin:4px 0 0}
+.pd-chip{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.72rem;font-weight:700;background:var(--bg-subtle);color:var(--text-main);margin:2px 4px 2px 0}
+.pd-validada,.pd-acceso-aprobado{background:#DCFCE7;color:#166534}
+.pd-rechazada,.pd-acceso-revocado{background:#FEE2E2;color:#991B1B}
+.pd-sin_validar,.pd-acceso-solicitado{background:#FEF3C7;color:#92400E}
+.pd-acciones{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;font-size:.84rem}
+.pd-acciones .form-select{width:auto}
+.pd-acciones .pd-motivo,.pd-acciones .pd-nota{flex:1 1 220px}
+.pd-tabla{width:100%;border-collapse:collapse;font-size:.84rem}
+.pd-tabla th,.pd-tabla td{padding:6px 8px;border-bottom:1px solid var(--border-subtle);text-align:left;vertical-align:top}
+.pd-tabla tr.pd-alerta td{background:rgba(220,38,38,.05)}
+.pd-tabla tr.pd-fila-acciones td{border-bottom:1px solid var(--border-light);padding-top:0}
+.pd-mini{font-size:.8rem}
+.pd-cortes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px 16px;margin:8px 0}
+.pd-cambios{margin:6px 0 0;padding-left:1.1rem;font-size:.82rem;word-break:break-word}
+.cta-nivel{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--bg-subtle);font-size:.86rem;line-height:1.45}
+.cta-nivel p{margin:0 0 6px}
+.cta-ficha{margin-top:12px}
+@media (max-width:640px){.pd-tabla{font-size:.78rem}.pd-tabla th,.pd-tabla td{padding:5px 6px}}
+.admin-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}

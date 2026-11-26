@@ -37,7 +37,7 @@
  document.documentElement.setAttribute('data-theme', saved);
  }
  // (24/11-f) Modo según el perfil de la cuenta (lo confirma js/modo.js al cargar la sesión)
- try { var m = localStorage.getItem('nexobra_modo'); if (m === 'usuario' || m === 'tecnico' || m === 'servicios' || m === 'materiales') document.documentElement.setAttribute('data-modo', m); } catch (e) {}
+ try { var m = localStorage.getItem('nexobra_modo'); if (m === 'usuario' || m === 'oficio' || m === 'profesional' || m === 'materiales') document.documentElement.setAttribute('data-modo', m); } catch (e) {}
  })();
  </script>
  <!-- Prueba de tipografía (05/11, a pedido del usuario): se sacó la carga de Google Fonts "Inter" -- ahora el sitio usa Verdana (fuente del sistema, sin descarga) definida en --font-family en style.css. Para volver a Inter: reponer estos 3 <link> y la declaración original de --font-family. -->
@@ -68,11 +68,11 @@
  <!-- (17/11) Menú de 4 entradas (auditoría 12/11): Precios (materiales + mano de obra) · Calculadora · Proveedores · Costo por m². Quiénes Somos y Contacto pasaron al pie de página y al menú del celular. (21/11) La Guía tiene su botón "?" en el encabezado y "¿Cómo funciona?" en cada sección. -->
  <!-- (24/11-f) Según el perfil (data-modos, ver js/modo.js): "Mi negocio" para corralones y prestadores; la Calculadora y Costo por m² no se le muestran a los corralones. Nada queda bloqueado. -->
  <nav class="nav-links-desktop">
- <button class="nav-link" id="nav-btn-mi-negocio" data-nav="mi-negocio" data-accion-modo="negocio" data-modos="servicios materiales">Mi negocio</button>
+ <button class="nav-link" id="nav-btn-mi-negocio" data-nav="mi-negocio" data-accion-modo="negocio" data-modos="oficio materiales">Mi negocio</button>
  <button class="nav-link" id="nav-btn-catalogo" data-nav="precios" title="Precios de materiales y mano de obra">Precios</button>
- <button class="nav-link" id="nav-btn-apu" data-cuenta="usar la Calculadora de Obra" data-cuenta-vista="apu" data-modos="visitante usuario tecnico servicios" data-nav="apu" title="Calculadora de Obra">Calculadora</button>
+ <button class="nav-link" id="nav-btn-apu" data-cuenta="usar la Calculadora de Obra" data-cuenta-vista="apu" data-modos="visitante usuario profesional oficio" data-nav="apu" title="Calculadora de Obra">Calculadora</button>
  <button class="nav-link" id="nav-btn-proveedores" data-nav="proveedores">Proveedores</button>
- <button class="nav-link" id="nav-btn-costo-m2" data-modos="visitante usuario tecnico" data-nav="costo-m2" data-goto-view="costo-m2">Costo por m²</button>
+ <button class="nav-link" id="nav-btn-costo-m2" data-modos="visitante usuario profesional" data-nav="costo-m2" data-goto-view="costo-m2">Costo por m²</button>
  </nav>
 
  <!-- BOTÓN HAMBURGUESA (solo mobile) -->
@@ -86,10 +86,10 @@
 
  <!-- HEADER ACTIONS -->
  <div class="header-actions">
- <button class="btn-sumate" id="btn-sumate-negocio" data-modos="visitante usuario tecnico" type="button" title="Sumá tu corralón, ferretería u oficio a NEXOBRA">Sumá tu negocio</button>
+ <button class="btn-sumate" id="btn-sumate-negocio" data-modos="visitante usuario profesional" type="button" title="Sumá tu corralón, ferretería u oficio a NEXOBRA">Sumá tu negocio</button>
 
  <!-- (17/11) "Mi Cómputo" se unió con la Calculadora: este botón abre el presupuesto en curso. "Cotizar Excel" pasó adentro de la Calculadora y del catálogo. -->
- <button class="btn-computo" id="btn-open-drawer" data-cuenta="armar tu presupuesto" data-cuenta-vista="apu" data-modos="visitante usuario tecnico servicios" title="Abrir mi presupuesto (Calculadora de Obra)" aria-label="Mi presupuesto">
+ <button class="btn-computo" id="btn-open-drawer" data-cuenta="armar tu presupuesto" data-cuenta-vista="apu" data-modos="visitante usuario profesional oficio" title="Abrir mi presupuesto (Calculadora de Obra)" aria-label="Mi presupuesto">
  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
  <rect x="4" y="2" width="16" height="20" rx="2"></rect>
  <line x1="8" y1="6" x2="16" y2="6"></line>
@@ -159,14 +159,14 @@
  <button class="mobile-menu-close" id="mobile-menu-close" aria-label="Cerrar menú">&times;</button>
  <div class="mobile-modo-row" id="mobile-modo-row" hidden><span class="mobile-modo-dot" aria-hidden="true"></span><span class="mobile-modo-texto"></span><button type="button" class="mobile-modo-btn" data-accion-modo="usuario" hidden>Ver el sitio como usuario</button></div>
  <button class="mobile-menu-link active" id="mobile-nav-btn-home" data-nav="home">Inicio</button>
- <button class="mobile-menu-link" id="mobile-nav-btn-mi-negocio" data-nav="mi-negocio" data-accion-modo="negocio" data-modos="servicios materiales">Mi negocio</button>
+ <button class="mobile-menu-link" id="mobile-nav-btn-mi-negocio" data-nav="mi-negocio" data-accion-modo="negocio" data-modos="oficio materiales">Mi negocio</button>
  <button class="mobile-menu-link" id="mobile-nav-btn-catalogo" data-nav="precios-materiales">Precios de materiales</button>
  <button class="mobile-menu-link mobile-menu-sublink" id="mobile-nav-btn-manoobra" data-nav="precios-mano-obra">Mano de obra (UOCRA)</button>
- <button class="mobile-menu-link" id="mobile-nav-btn-apu" data-cuenta="usar la Calculadora de Obra" data-cuenta-vista="apu" data-modos="visitante usuario tecnico servicios" data-nav="apu">Calculadora de Obra</button>
+ <button class="mobile-menu-link" id="mobile-nav-btn-apu" data-cuenta="usar la Calculadora de Obra" data-cuenta-vista="apu" data-modos="visitante usuario profesional oficio" data-nav="apu">Calculadora de Obra</button>
  <button class="mobile-menu-link" id="mobile-nav-btn-proveedores" data-nav="proveedores">Proveedores</button>
- <button class="mobile-menu-link" id="mobile-nav-btn-costo-m2" data-modos="visitante usuario tecnico" data-nav="costo-m2" data-goto-view="costo-m2">Costo por m²</button>
+ <button class="mobile-menu-link" id="mobile-nav-btn-costo-m2" data-modos="visitante usuario profesional" data-nav="costo-m2" data-goto-view="costo-m2">Costo por m²</button>
  <button class="mobile-menu-link" id="mobile-nav-btn-guia" data-nav="guide">Guía de uso</button>
- <button class="mobile-menu-link mobile-menu-cta" id="mobile-nav-btn-sumate" data-modos="visitante usuario tecnico" type="button">Sumá tu negocio</button>
+ <button class="mobile-menu-link mobile-menu-cta" id="mobile-nav-btn-sumate" data-modos="visitante usuario profesional" type="button">Sumá tu negocio</button>
  <div class="mobile-menu-secondary">
  <button class="mobile-menu-link" id="mobile-nav-btn-quienes-somos" data-nav="about">Quiénes Somos</button>
  <button class="mobile-menu-link" id="mobile-nav-btn-contacto" data-nav="contact">Contacto</button>
@@ -181,14 +181,14 @@
  <!-- HERO PRINCIPAL -->
  <section class="hero-home">
  <div class="container hero-home-content">
- <h1 class="hero-main-title" data-modos="visitante usuario tecnico">Calculá, presupuestá y comprá tu obra <span class="accent-word">en un solo lugar</span>
+ <h1 class="hero-main-title" data-modos="visitante usuario profesional">Calculá, presupuestá y comprá tu obra <span class="accent-word">en un solo lugar</span>
  </h1>
  <!-- (24/11-f) Inicio para corralones y prestadores (data-modos) -->
  <h2 class="hero-main-title" data-modos="materiales">Tu negocio, a la vista de <span class="accent-word">las obras de tu zona</span></h2>
  <p class="hero-main-desc" data-modos="materiales">Mantené tu ficha y tu lista de precios al día: quien arma su presupuesto en NEXOBRA te pide precio directo por WhatsApp, sin intermediarios.</p>
- <h2 class="hero-main-title" data-modos="servicios">Tu oficio, a la vista de <span class="accent-word">quien arranca su obra</span></h2>
- <p class="hero-main-desc" data-modos="servicios">Presupuestá tus trabajos con la Calculadora y los precios de referencia (materiales y mano de obra UOCRA), y mantené tu ficha al día para que te contacten por WhatsApp.</p>
- <p class="hero-main-desc" data-modos="visitante usuario tecnico">
+ <h2 class="hero-main-title" data-modos="oficio">Tu oficio, a la vista de <span class="accent-word">quien arranca su obra</span></h2>
+ <p class="hero-main-desc" data-modos="oficio">Calculá los materiales de cada trabajo con los precios de referencia (y la mano de obra UOCRA), y mantené tu ficha al día para que te contacten por WhatsApp.</p>
+ <p class="hero-main-desc" data-modos="visitante usuario profesional">
  <strong>NEXOBRA</strong> es el nexo entre tu obra y los proveedores de tu zona. Calculá cada tarea con precios de referencia trazables (con fecha, fuente y fórmula), armá tu presupuesto y pedile precio a los corralones por WhatsApp, sin intermediarios en la compra.
  </p>
  <!-- (21/11, auditoría de pulido) Acciones principales arriba de todo -->
@@ -202,15 +202,15 @@
  <button type="button" class="btn-hero-primary" data-goto-view="apu" data-cuenta="usar la Calculadora de Obra" data-cuenta-vista="apu">Calcular mi obra</button>
  <button type="button" class="btn-hero-secondary" data-goto-view="catalog">Ver precios de materiales</button>
  </div>
- <div class="hero-cta-row" data-modos="tecnico">
+ <div class="hero-cta-row" data-modos="profesional">
  <button type="button" class="btn-hero-primary" data-goto-view="apu" data-cuenta="usar la Calculadora de Obra" data-cuenta-vista="apu">Abrir la Calculadora</button>
  <button type="button" class="btn-hero-secondary" data-action="open-excel" data-cuenta="cotizar tu lista en Excel">Cotizar mi Excel</button>
  <button type="button" class="btn-hero-secondary" data-goto-view="labor">Mano de obra UOCRA</button>
  <button type="button" class="btn-hero-secondary" data-goto-view="my-apu-budgets" data-cuenta="ver tus presupuestos" data-cuenta-vista="my-apu-budgets">Mis presupuestos</button>
  </div>
- <div class="hero-cta-row" data-modos="servicios">
+ <div class="hero-cta-row" data-modos="oficio">
  <button type="button" class="btn-hero-primary" data-accion-modo="negocio">Mi negocio</button>
- <button type="button" class="btn-hero-secondary" data-goto-view="apu" data-cuenta="usar la Calculadora de Obra" data-cuenta-vista="apu">Presupuestar un trabajo</button>
+ <button type="button" class="btn-hero-secondary" data-goto-view="apu" data-cuenta="usar la Calculadora de Obra" data-cuenta-vista="apu">Calcular materiales</button>
  <button type="button" class="btn-hero-secondary" data-goto-view="labor">Mano de obra UOCRA</button>
  <button type="button" class="btn-hero-secondary" data-goto-view="catalog">Precios de materiales</button>
  </div>
@@ -219,7 +219,7 @@
  <button type="button" class="btn-hero-secondary" data-goto-view="catalog">Precios de referencia</button>
  <button type="button" class="btn-hero-secondary" data-goto-view="providers-directory">Directorio de proveedores</button>
  </div>
- <p class="hero-modo-nota" data-modos="tecnico servicios materiales">El sitio está acomodado para tu perfil; lo demás sigue en el menú. <button type="button" class="hero-modo-link" data-accion-modo="usuario">Ver el sitio como usuario</button></p>
+ <p class="hero-modo-nota" data-modos="profesional oficio materiales">El sitio está acomodado para tu perfil; lo demás sigue en el menú. <button type="button" class="hero-modo-link" data-accion-modo="usuario">Ver el sitio como usuario</button></p>
 
  <!-- (16/11, auditoría 12/11 falla 4) Los contadores de proveedores, usuarios y visitas pasaron al tablero del Panel de Administración (uso interno). En su lugar, lo que el sitio ya ofrece hoy. -->
  <div class="home-stats-row">
@@ -312,7 +312,7 @@
  </section>
 
  <!-- BANNER: COTIZADOR DE EXCEL -->
- <section class="section-excel-cta" data-modos="visitante usuario tecnico servicios">
+ <section class="section-excel-cta" data-modos="visitante usuario profesional oficio">
  <div class="container">
  <div class="excel-banner-card">
  <div class="excel-banner-content">
@@ -344,7 +344,7 @@
  </section>
 
  <!-- BANNER: CALCULADORA DE OBRA (APU) -- (06/11, a pedido del usuario: la función solo se veía desde el menú de arriba, le faltaba visibilidad en el home). Reusa las mismas clases que el banner de "Excel" de arriba (.excel-banner-card/.mock-excel-sheet), solo cambia el contenido. -->
- <section class="section-excel-cta" data-modos="visitante usuario tecnico servicios">
+ <section class="section-excel-cta" data-modos="visitante usuario profesional oficio">
  <div class="container">
  <div class="excel-banner-card">
  <div class="excel-banner-content">
@@ -370,7 +370,7 @@
  </section>
 
  <!-- (18/11, auditoría 12/11) Llamado para proveedores en el home. -->
- <section class="section-provider-cta" data-modos="visitante usuario tecnico">
+ <section class="section-provider-cta" data-modos="visitante usuario profesional">
  <div class="container">
  <div class="provider-cta-card">
  <div class="provider-cta-text">
@@ -1482,6 +1482,7 @@
  <h2 class="section-title">Tu presupuesto en 3 pasos</h2>
  <p class="section-desc" data-para="usuario">Contale qué querés hacer (una pared, un contrapiso, pintar una pieza) y cuánto mide. Te dice qué materiales comprar, cuántos y cuánto sale todo, con la mano de obra.</p>
  <p class="section-desc" data-para="tecnico proveedor">Armás la obra tarea por tarea. Cada tarea tiene su análisis de precio unitario (APU): qué materiales, cuánta mano de obra y qué equipos lleva por unidad.</p>
+ <p class="section-desc" data-para="tecnico proveedor"><b>Dos versiones.</b> La <b>simple</b> (oficio y profesionales sin verificar) muestra materiales, mano de obra y total de cada trabajo con los rendimientos de NEXOBRA. La <b>profesional</b> permite cambiar rendimientos, desperdicio, Factor K y fases, y muestra el rango de mercado de la mano de obra: se habilita con la matrícula verificada o pidiendo acceso desde Mi cuenta.</p>
  </div>
 
  <div class="pilares-grid guia-pasos guia-pasos-flujo">
@@ -1881,6 +1882,11 @@
  </nav>
 
  <!-- Aviso para quien usa la Calculadora de Obra sin cuenta (06/11): sin registrarse solo puede calcular una tarea a la vez (ver Apu.enforceApuAnonSingleItemLimit/updateApuGatingUI) -- armar un presupuesto con varias tareas, organizarlo en fases, guardarlo y compartirlo queda para cuentas registradas. -->
+ <!-- (26/11, paquete 2) Versión simple de la Calculadora (oficio, profesional sin matrícula verificada). js/modo.js pone data-nivel en <html>. -->
+ <div id="apu-nivel-aviso" class="apu-nivel-aviso" data-modos="oficio profesional">
+ <span><b>Versión simple de la Calculadora.</b> Ves los materiales, la mano de obra y el total de cada trabajo. Cambiar rendimientos, desperdicio, Factor K y fases es de la versión profesional: se habilita con la matrícula verificada, o pidiendo acceso desde tu cuenta.</span>
+ <button type="button" class="btn-action-drawer" data-goto-view="cuenta">Ir a Mi cuenta</button>
+ </div>
  <div id="apu-anon-banner" class="provider-announcement-banner" style="display:none; margin-bottom:16px; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
  <span><strong>Sin cuenta:</strong> una tarea a la vez, materiales y mano de obra sueltos sin límite, y pedidos a proveedores por WhatsApp. Registrate gratis para sumar varias tareas, fases, guardar, compartir por link y bajar el Excel.</span>
  <button type="button" class="btn-computo" onclick="window.nexoBraApp.openApuRegisterPrompt()" style="white-space:nowrap;">Registrarme gratis</button>
@@ -2448,6 +2454,10 @@
  <button type="button" class="admin-menu-card" data-admin-go="proveedores"><strong>Proveedores</strong><span>Crear y editar fichas, cargar precios, importar Excel y transferir.</span></button>
  <button type="button" class="admin-menu-card" data-admin-go="relevamiento"><strong>Relevamiento de precios</strong><span>Canasta para pedir presupuesto a corralones y precios de la zona.</span></button>
  <button type="button" class="admin-menu-card" data-admin-go="apus"><strong>APUs de la Calculadora</strong><span>Revisar, describir y habilitar tareas.</span></button>
+ <!-- (26/11, paquete 2) js/panel-datos.js, migración 048 -->
+ <button type="button" class="admin-menu-card" data-admin-go="profesionales"><strong>Profesionales y oficios</strong><span>Verificar matrículas y aprobar el acceso a la versión profesional de la Calculadora.</span><em class="admin-menu-badge" id="admin-menu-badge-profesionales" hidden></em></button>
+ <button type="button" class="admin-menu-card" data-admin-go="rendimientos"><strong>Rendimientos de mercado</strong><span>Lo que usan los usuarios frente a tu base: alertas, cortes por ciudad y rol, y decisiones.</span><em class="admin-menu-badge" id="admin-menu-badge-rendimientos" hidden></em></button>
+ <button type="button" class="admin-menu-card" data-admin-go="historial"><strong>Historial de cambios</strong><span>Cada cambio en APU, jornales, materiales, precios base e índices, con restaurar.</span></button>
  </nav>
  <div id="admin-page-bar" class="admin-page-bar" hidden>
  <button type="button" class="btn-action-drawer" data-admin-go="">&larr; Menú del panel</button>
@@ -2961,6 +2971,20 @@
  </p>
  <div id="admin-reported-reviews-list"></div>
  </div>
+ </details>
+
+ <!-- (26/11, paquete 2) Profesionales, rendimientos e historial (js/panel-datos.js) -->
+ <details class="provider-section" open data-admin-page="profesionales">
+ <summary>Profesionales y oficios</summary>
+ <div class="provider-section-body" id="pd-prof-root"></div>
+ </details>
+ <details class="provider-section" open data-admin-page="rendimientos">
+ <summary>Rendimientos de mercado</summary>
+ <div class="provider-section-body" id="pd-rend-root"></div>
+ </details>
+ <details class="provider-section" open data-admin-page="historial">
+ <summary>Historial de cambios</summary>
+ <div class="provider-section-body" id="pd-hist-root"></div>
  </details>
 
  <!-- ADMINISTRAR APUs (16/11, pedido del usuario): habilitar cada tarea a medida que se revisa, con descripción, imagen de referencia y rubro. Solo las habilitadas aparecen en la Calculadora (migración 033). -->
