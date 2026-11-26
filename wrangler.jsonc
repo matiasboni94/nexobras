@@ -46,7 +46,9 @@
       "!/manifest.json",
       "!/supabase-config.js",
       "!/privacidad.html",
-      "!/terminos.html"
+      "!/terminos.html",
+      "!/terminos",
+      "!/privacidad"
     ]
   }
 }

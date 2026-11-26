@@ -308,6 +308,10 @@ async function handleRequest(request, env) {
       return new Response(await sitemapXml(url.origin), { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=21600' } });
     }
 
+    // (26/11) Páginas legales: Cloudflare redirige /terminos.html → /terminos y,
+    // si esa ruta caía acá, devolvía 404. Las sirven los assets (terminos.html).
+    if (path === '/terminos' || path === '/privacidad') return env.ASSETS.fetch(request);
+
     // Archivos (cualquier cosa con extensión): tal cual, sin tocar.
     if (/\.[a-z0-9]{1,8}$/i.test(path)) return env.ASSETS.fetch(request);
 

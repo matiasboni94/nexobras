@@ -25,7 +25,7 @@
 // este archivo TAMBIÉN y cambiá el número de acá abajo (SW_VERSION) --
 // alcanza con sumarle 1. Eso hace que el Service Worker se reinstale solo y
 // tire a la basura la caché anterior.
-const SW_VERSION = 'v61';
+const SW_VERSION = 'v62';
 
 const SHELL_CACHE = `nexobra-shell-${SW_VERSION}`;
 const DATA_CACHE = `nexobra-data-${SW_VERSION}`;
@@ -45,15 +45,15 @@ const SHELL_ASSETS = [
   '/js/excel.js',
   '/js/provider.js',
   '/js/map.js',
-  '/js/admin.js',
   '/js/apu.js',
   '/js/costo-m2.js',
-  '/js/casa.js',
   '/js/trabajos.js',
   '/js/cuenta.js',
   '/js/modo.js',
-  '/js/panel-datos.js',
   '/js/main.js',
+  // (26/11) admin.js, casa.js y panel-datos.js NO van acá: son solo para el
+  // admin y se bajan a pedido (import dinámico). Igual quedan en caché la
+  // primera vez que el admin los usa.
   '/assets/nexobra-icon.png',
   '/assets/icon-192.png',
   '/assets/icon-512.png',

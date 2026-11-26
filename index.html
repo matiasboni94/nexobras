@@ -179,65 +179,119 @@
  <div id="home-view" class="view-section active">
  
  <!-- HERO PRINCIPAL -->
- <section class="hero-home">
- <div class="container hero-home-content">
- <h1 class="hero-main-title" data-modos="visitante usuario profesional">Calculá, presupuestá y comprá tu obra <span class="accent-word">en un solo lugar</span>
- </h1>
- <!-- (24/11-f) Inicio para corralones y prestadores (data-modos) -->
- <h2 class="hero-main-title" data-modos="materiales">Tu negocio, a la vista de <span class="accent-word">las obras de tu zona</span></h2>
- <p class="hero-main-desc" data-modos="materiales">Mantené tu ficha y tu lista de precios al día: quien arma su presupuesto en NEXOBRA te pide precio directo por WhatsApp, sin intermediarios.</p>
- <h2 class="hero-main-title" data-modos="oficio">Tu oficio, a la vista de <span class="accent-word">quien arranca su obra</span></h2>
- <p class="hero-main-desc" data-modos="oficio">Calculá los materiales de cada trabajo con los precios de referencia (y la mano de obra UOCRA), y mantené tu ficha al día para que te contacten por WhatsApp.</p>
- <p class="hero-main-desc" data-modos="visitante usuario profesional">
- <strong>NEXOBRA</strong> es el nexo entre tu obra y los proveedores de tu zona. Calculá cada tarea con precios de referencia trazables (con fecha, fuente y fórmula), armá tu presupuesto y pedile precio a los corralones por WhatsApp, sin intermediarios en la compra.
- </p>
- <!-- (21/11, auditoría de pulido) Acciones principales arriba de todo -->
- <!-- (25/11) Sin cuenta lo principal es el buscador; la Calculadora es para cuentas registradas -->
- <div class="hero-cta-row" data-modos="visitante">
- <button type="button" class="btn-hero-primary" data-goto-view="catalog">Buscar precios de materiales</button>
- <button type="button" class="btn-hero-secondary" data-goto-view="providers-directory">Proveedores de tu zona</button>
- <button type="button" class="btn-hero-secondary" data-accion-modo="registro">Crear cuenta gratis</button>
+ <!-- (26/11) PORTADA: la marca grande arriba de todo, sin sumar un paso: el buscador está acá mismo.
+ Cada perfil ve sus opciones (data-modos) y el color de su perfil (var(--brand-yellow)). Maqueta: canvas, fila "Portada". -->
+ <section class="portada" aria-labelledby="portada-titulo">
+ <div class="portada-inner">
+ <p class="portada-kicker anim" data-modos="visitante">Planificador de obra · Oberá, Misiones</p>
+ <p class="portada-kicker portada-hola anim" id="portada-hola" data-modos="usuario oficio profesional materiales">Hola</p>
+ <h1 id="portada-titulo" class="portada-marca anim d1">NEX<span>OBRA</span></h1>
+ <div class="portada-trazo" aria-hidden="true"></div>
+ <p class="portada-frase anim d2" data-modos="visitante usuario">Precios de materiales, quién te hace el trabajo y cuánto cuesta construir. En tu zona, en un solo lugar.</p>
+ <p class="portada-frase anim d2" data-modos="profesional">Tus presupuestos, los precios del mes y la mano de obra UOCRA, con la Calculadora de Obra.</p>
+ <p class="portada-frase anim d2" data-modos="oficio">Calculá los materiales de cada trabajo y mantené tu ficha al día para que te llamen.</p>
+ <p class="portada-frase anim d2" data-modos="materiales">Mantené tu ficha y tu lista de precios al día: quien arma su presupuesto en NEXOBRA te pide precio directo por WhatsApp.</p>
+ <form class="portada-buscar anim d3" id="portada-buscar-form" role="search">
+ <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5E6977" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
+ <label for="portada-buscar-input" class="sr-only">Buscar un material</label>
+ <input type="search" id="portada-buscar-input" placeholder="Buscá un material: cemento, ladrillo, durlock…" autocomplete="off" maxlength="80">
+ <button type="submit">Buscar</button>
+ </form>
+ <p class="portada-datos anim d4"><strong id="home-fact-materiales">943</strong> materiales con precio de referencia · precios de <strong id="home-fact-periodo">–</strong><span id="home-fact-apu" hidden>–</span></p>
  </div>
- <div class="hero-cta-row" data-modos="usuario">
- <button type="button" class="btn-hero-primary" data-goto-view="apu" data-cuenta="usar la Calculadora de Obra" data-cuenta-vista="apu">Calcular mi obra</button>
- <button type="button" class="btn-hero-secondary" data-goto-view="catalog">Ver precios de materiales</button>
+ </section>
+
+ <section class="portada-opciones" aria-label="Qué querés hacer">
+ <div class="portada-grid" data-modos="visitante">
+ <button type="button" class="portada-card anim d3" data-goto-view="catalog">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg></span></span>
+ <span class="pc-texto"><strong>Buscar materiales</strong><span class="pc-desc">El precio de referencia del mes y qué corralones de la zona lo tienen.</span></span>
+ <span class="pc-ir">Ver precios <span aria-hidden="true">→</span></span>
+ </button>
+ <button type="button" class="portada-card anim d4" data-goto-view="providers-directory">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.7.8 2.7 2.5 3 5.2"></path></svg></span></span>
+ <span class="pc-texto"><strong>Encontrar quién lo haga</strong><span class="pc-desc">Corralones, oficios y profesionales cerca tuyo. Les escribís directo por WhatsApp.</span></span>
+ <span class="pc-ir">Ver proveedores <span aria-hidden="true">→</span></span>
+ </button>
+ <button type="button" class="portada-card anim d5" data-goto-view="costo-m2">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-7 9 7"></path><path d="M5 10v10h14V10"></path><path d="M10 20v-5h4v5"></path></svg></span><span class="pc-pronto">Próximamente</span></span>
+ <span class="pc-texto"><strong>¿Cuánto cuesta construir?</strong><span class="pc-desc">Viviendas tipo con su precio por m² del mes, explicadas sin tecnicismos.</span></span>
+ <span class="pc-ir">Ver viviendas tipo <span aria-hidden="true">→</span></span>
+ </button>
  </div>
- <div class="hero-cta-row" data-modos="profesional">
- <button type="button" class="btn-hero-primary" data-goto-view="apu" data-cuenta="usar la Calculadora de Obra" data-cuenta-vista="apu">Abrir la Calculadora</button>
- <button type="button" class="btn-hero-secondary" data-action="open-excel" data-cuenta="cotizar tu lista en Excel">Cotizar mi Excel</button>
- <button type="button" class="btn-hero-secondary" data-goto-view="labor">Mano de obra UOCRA</button>
- <button type="button" class="btn-hero-secondary" data-goto-view="my-apu-budgets" data-cuenta="ver tus presupuestos" data-cuenta-vista="my-apu-budgets">Mis presupuestos</button>
+ <div class="portada-grid" data-modos="usuario">
+ <button type="button" class="portada-card anim d3" data-goto-view="catalog">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg></span></span>
+ <span class="pc-texto"><strong>Buscar materiales</strong><span class="pc-desc">El precio de referencia del mes y qué corralones de la zona lo tienen.</span></span>
+ <span class="pc-ir">Ver precios <span aria-hidden="true">→</span></span>
+ </button>
+ <button type="button" class="portada-card anim d4" data-goto-view="providers-directory">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.7.8 2.7 2.5 3 5.2"></path></svg></span></span>
+ <span class="pc-texto"><strong>Encontrar quién lo haga</strong><span class="pc-desc">Corralones, oficios y profesionales cerca tuyo. Les escribís directo por WhatsApp.</span></span>
+ <span class="pc-ir">Ver proveedores <span aria-hidden="true">→</span></span>
+ </button>
+ <button type="button" class="portada-card anim d5" data-goto-view="apu">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="11" x2="10" y2="11"></line><line x1="14" y1="11" x2="16" y2="11"></line><line x1="8" y1="15" x2="10" y2="15"></line><line x1="14" y1="15" x2="16" y2="15"></line></svg></span></span>
+ <span class="pc-texto"><strong>Calcular un trabajo</strong><span class="pc-desc">Qué materiales comprar y cuánto sale, con la mano de obra.</span></span>
+ <span class="pc-ir">Abrir la Calculadora <span aria-hidden="true">→</span></span>
+ </button>
  </div>
- <div class="hero-cta-row" data-modos="oficio">
- <button type="button" class="btn-hero-primary" data-accion-modo="negocio">Mi negocio</button>
- <button type="button" class="btn-hero-secondary" data-goto-view="apu" data-cuenta="usar la Calculadora de Obra" data-cuenta-vista="apu">Calcular materiales</button>
- <button type="button" class="btn-hero-secondary" data-goto-view="labor">Mano de obra UOCRA</button>
- <button type="button" class="btn-hero-secondary" data-goto-view="catalog">Precios de materiales</button>
+ <div class="portada-grid" data-modos="profesional">
+ <button type="button" class="portada-card anim d3" data-goto-view="apu">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="11" x2="10" y2="11"></line><line x1="14" y1="11" x2="16" y2="11"></line><line x1="8" y1="15" x2="10" y2="15"></line><line x1="14" y1="15" x2="16" y2="15"></line></svg></span></span>
+ <span class="pc-texto"><strong>Abrir la Calculadora</strong><span class="pc-desc">Tus APU con rendimientos, desperdicio, Factor K y fases.</span></span>
+ <span class="pc-ir">Calcular una obra <span aria-hidden="true">→</span></span>
+ </button>
+ <button type="button" class="portada-card anim d4" data-goto-view="my-apu-budgets">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h12l4 4v12H4z"></path><path d="M8 12h8M8 16h5"></path></svg></span></span>
+ <span class="pc-texto"><strong>Mis presupuestos</strong><span class="pc-desc">Los que guardaste, para seguirlos, compartirlos por link o bajarlos en Excel.</span></span>
+ <span class="pc-ir">Ver mis presupuestos <span aria-hidden="true">→</span></span>
+ </button>
+ <button type="button" class="portada-card anim d5" data-goto-view="catalog">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M7 15l4-4 3 3 5-6"></path></svg></span></span>
+ <span class="pc-texto"><strong>Precios y mano de obra</strong><span class="pc-desc">Materiales con su evolución y los jornales UOCRA del mes.</span></span>
+ <span class="pc-ir">Ver precios <span aria-hidden="true">→</span></span>
+ </button>
  </div>
- <div class="hero-cta-row" data-modos="materiales">
- <button type="button" class="btn-hero-primary" data-accion-modo="negocio">Mi ficha, precios y ofertas</button>
- <button type="button" class="btn-hero-secondary" data-goto-view="catalog">Precios de referencia</button>
- <button type="button" class="btn-hero-secondary" data-goto-view="providers-directory">Directorio de proveedores</button>
+ <div class="portada-grid" data-modos="oficio">
+ <button type="button" class="portada-card anim d3" data-goto-view="apu">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="11" x2="10" y2="11"></line><line x1="14" y1="11" x2="16" y2="11"></line><line x1="8" y1="15" x2="10" y2="15"></line><line x1="14" y1="15" x2="16" y2="15"></line></svg></span></span>
+ <span class="pc-texto"><strong>Calcular materiales</strong><span class="pc-desc">Qué comprar y cuánto sale cada trabajo.</span></span>
+ <span class="pc-ir">Abrir la Calculadora <span aria-hidden="true">→</span></span>
+ </button>
+ <button type="button" class="portada-card anim d4" data-accion-modo="negocio">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1-4 4.2-6 8-6s7 2 8 6"></path></svg></span></span>
+ <span class="pc-texto"><strong>Mi negocio</strong><span class="pc-desc">Tu ficha de prestador, tus trabajos y tus reseñas.</span></span>
+ <span class="pc-ir">Ir a mi ficha <span aria-hidden="true">→</span></span>
+ </button>
+ <button type="button" class="portada-card anim d5" data-goto-view="labor">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M7 15l4-4 3 3 5-6"></path></svg></span></span>
+ <span class="pc-texto"><strong>Mano de obra UOCRA</strong><span class="pc-desc">Los jornales de referencia del mes.</span></span>
+ <span class="pc-ir">Ver jornales <span aria-hidden="true">→</span></span>
+ </button>
+ </div>
+ <div class="portada-grid" data-modos="materiales">
+ <button type="button" class="portada-card anim d3" data-accion-modo="negocio">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"></path><path d="M4 9v11h16V9"></path><path d="M3 9h18"></path><path d="M9 20v-6h6v6"></path></svg></span></span>
+ <span class="pc-texto"><strong>Mi ficha, precios y ofertas</strong><span class="pc-desc">Tu lista de precios al día para que te pidan presupuesto por WhatsApp.</span></span>
+ <span class="pc-ir">Ir a mi ficha <span aria-hidden="true">→</span></span>
+ </button>
+ <button type="button" class="portada-card anim d4" data-goto-view="catalog">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M7 15l4-4 3 3 5-6"></path></svg></span></span>
+ <span class="pc-texto"><strong>Precios de referencia</strong><span class="pc-desc">Los precios del mes, para comparar con los tuyos.</span></span>
+ <span class="pc-ir">Ver precios <span aria-hidden="true">→</span></span>
+ </button>
+ <button type="button" class="portada-card anim d5" data-goto-view="providers-directory">
+ <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.7.8 2.7 2.5 3 5.2"></path></svg></span></span>
+ <span class="pc-texto"><strong>Directorio de proveedores</strong><span class="pc-desc">Cómo te ven los clientes en el mapa y el directorio.</span></span>
+ <span class="pc-ir">Ver el directorio <span aria-hidden="true">→</span></span>
+ </button>
+ </div>
+ <div class="portada-cuenta anim d5" data-modos="visitante">
+ <div><h2>Con tu cuenta gratis, además</h2><p>La Calculadora de Obra, tu presupuesto guardado, pedidos a los corralones por WhatsApp y alertas de precio.</p></div>
+ <button type="button" class="portada-cuenta-btn" data-accion-modo="registro">Crear cuenta gratis</button>
  </div>
  <p class="hero-modo-nota" data-modos="profesional oficio materiales">El sitio está acomodado para tu perfil; lo demás sigue en el menú. <button type="button" class="hero-modo-link" data-accion-modo="usuario">Ver el sitio como usuario</button></p>
-
- <!-- (16/11, auditoría 12/11 falla 4) Los contadores de proveedores, usuarios y visitas pasaron al tablero del Panel de Administración (uso interno). En su lugar, lo que el sitio ya ofrece hoy. -->
- <div class="home-stats-row">
- <div class="home-stat-tile">
- <strong id="home-fact-materiales">943</strong>
- <span>materiales con precio de referencia</span>
- </div>
- <div class="home-stat-tile" style="display:none">
- <strong id="home-fact-apu">–</strong>
- <span>análisis de costos de obra (APU)</span>
- </div>
- <div class="home-stat-tile">
- <strong id="home-fact-periodo">–</strong>
- <span>mes de los precios de referencia</span>
- </div>
- </div>
-
- </div>
  </section>
 
  <!-- MAPA DE PROVEEDORES CON BÚSQUEDA DE MATERIAL (Fase G5) -->
@@ -3065,9 +3119,9 @@
  <div class="footer-bottom">
  &copy; 2026 NEXOBRA • Todos los derechos reservados. Desarrollado para profesionales y constructores.
  <br>
- <a href="/privacidad.html" style="color: inherit; text-decoration: underline;">Política de Privacidad</a>
+ <a href="/privacidad" style="color: inherit; text-decoration: underline;">Política de Privacidad</a>
  &nbsp;·&nbsp;
- <a href="/terminos.html" style="color: inherit; text-decoration: underline;">Términos y Condiciones</a>
+ <a href="/terminos" style="color: inherit; text-decoration: underline;">Términos y Condiciones</a>
  </div>
  </div>
  </footer>
