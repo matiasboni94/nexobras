@@ -1,13 +1,31 @@
 // NEXOBRA - main.js
 
-import * as Admin from './admin.js';
+// (26/11, velocidad) admin.js (~160 KB, más panel-datos.js) ya no lo descarga todo el
+// mundo: se carga a pedido solo si la cuenta es admin (cargarAdmin, más abajo).
 import * as Apu from './apu.js';
 import * as Auth from './auth.js';
 import * as Catalog from './catalog.js';
 import * as Computo from './computo.js';
 // (21/11, auditoría de pulido) casa.js ("Armá tu casa", solo admin) se carga a pedido.
+const esAdmin = () => ST.authState.profile?.role === 'admin';
+let adminMod = null, adminCarga = null;
+/** Carga admin.js la primera vez (y arma sus listeners). Devuelve el módulo. */
+export function cargarAdmin() {
+ if (adminMod) return Promise.resolve(adminMod);
+ if (!adminCarga) adminCarga = import('./admin.js').then(m => { adminMod = m; m.setupAdminListeners(); return m; })
+ .catch(err => { adminCarga = null; console.error('[NEXOBRA] No se pudo cargar el panel de admin', err); throw err; });
+ return adminCarga;
+}
+/** Menú de la cuenta: el acceso al panel (y a Pedí presupuesto, en prueba) solo para el admin. */
+function actualizarNavAdmin() {
+ if (esAdmin()) { cargarAdmin().then(m => m.updateAdminNavVisibility()).catch(() => {}); return; }
+ ['btn-open-admin', 'btn-open-trabajos'].forEach(id => { const b = document.getElementById(id); if (b) b.style.display = 'none'; });
+}
+// Las funciones del panel que se llaman desde el HTML que arma admin.js (onclick):
+// para cuando existen esos botones, el módulo ya está cargado.
+const adm = (fn) => (...args) => (adminMod ? adminMod[fn](...args) : cargarAdmin().then(m => m[fn](...args)));
 function loadCasaView() {
- if (!Admin.isAdmin()) { const r = document.getElementById('casa-root'); if (r) { r.hidden = true; r.innerHTML = ''; } return; }
+ if (!esAdmin()) { const r = document.getElementById('casa-root'); if (r) { r.hidden = true; r.innerHTML = ''; } return; }
  return import('./casa.js').then(m => m.loadCasaView()).catch(err => console.error('No se pudo cargar Armá tu casa', err));
 }
 import * as CostoM2 from './costo-m2.js';
@@ -357,13 +375,13 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  }
  }
  if (viewName === 'admin') {
- if (!ST.authState.user || !Admin.isAdmin()) {
+ if (!ST.authState.user || !esAdmin()) {
  ST.showToast('Esta sección es solo para administradores.');
  ST.state.currentView = 'home';
  ST.homeView.style.display = 'block';
  if (adminViewEl) adminViewEl.style.display = 'none';
  } else {
- Admin.loadAdminPanel();
+ cargarAdmin().then(m => m.loadAdminPanel()).catch(() => ST.showToast('No se pudo abrir el panel. Revisá tu conexión.'));
  }
  }
  if (viewName === 'home') {
@@ -478,7 +496,6 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  Apu.setupApuListeners();
  Provider.setupProviderListeners();
  Provider.setupNewMaterialListeners();
- Admin.setupAdminListeners();
  MapModule.setupMapListeners();
  MapModule.setupPricingSourceListeners();
  MapModule.setupOfferPickerListeners();
@@ -578,6 +595,13 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  if (i < 0) return;
  const sig = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
  sig.focus(); openGuideSection(sig.dataset.guideSection);
+ });
+ // (26/11) Portada: el buscador lleva al catálogo con lo que escribió
+ document.getElementById('portada-buscar-form')?.addEventListener('submit', (e) => {
+ e.preventDefault();
+ const q = (document.getElementById('portada-buscar-input')?.value || '').trim();
+ switchView('catalog', 'Todos', q);
+ window.scrollTo({ top: 0 });
  });
  // (24/11-f) "Mi negocio" (corralones y prestadores): su panel si ya tiene
  // ficha; si todavía no, el alta de negocio.
@@ -962,6 +986,8 @@ export function switchView(viewName, rubroFilter = null, searchString = null) {
  abrirConfiguracionInicial: Cuenta.abrirConfiguracionInicial,
  loadCuentaView: Cuenta.loadCuentaView,
  aplicarModo: Modo.aplicarModo,
+ actualizarNavAdmin,
+ cargarAdmin,
  setGuidePerfil,
  toggleApuSettings: Apu.toggleApuSettings,
  // (26/11) cambió el nivel de la Calculadora (simple / completa): se vuelve a dibujar
@@ -1001,20 +1027,20 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
  removeAlert: MapModule.removeAlert,
  toggleCategoryAlert: MapModule.toggleCategoryAlert,
  removeCategoryAlert: MapModule.removeCategoryAlert,
- openMaterialEditor: Admin.openMaterialEditor,
- approveProvider: Admin.approveProvider,
- rejectProvider: Admin.rejectProvider,
- approveOffer: Admin.approveOffer,
- rejectOffer: Admin.rejectOffer,
- openProviderReview: Admin.openProviderReview,
- closeProviderReview: Admin.closeProviderReview,
+ openMaterialEditor: adm('openMaterialEditor'),
+ approveProvider: adm('approveProvider'),
+ rejectProvider: adm('rejectProvider'),
+ approveOffer: adm('approveOffer'),
+ rejectOffer: adm('rejectOffer'),
+ openProviderReview: adm('openProviderReview'),
+ closeProviderReview: adm('closeProviderReview'),
  openNewMaterialForm: Provider.openNewMaterialForm,
  selectMaterialOnMap: MapModule.selectMaterialOnMap,
  goToProvidersDirectoryWithCategory: MapModule.goToProvidersDirectoryWithCategory,
  reportReview: MapModule.reportReview,
  replyToReview: Provider.replyToReview,
- deleteReportedReview: Admin.deleteReportedReview,
- dismissReviewReport: Admin.dismissReviewReport,
+ deleteReportedReview: adm('deleteReportedReview'),
+ dismissReviewReport: adm('dismissReviewReport'),
  openMaterialHistoryChart: Pricing.openMaterialHistoryChart,
  loadBranchReviews: MapModule.loadBranchReviews,
  setReviewStars: MapModule.setReviewStars,
@@ -1023,29 +1049,29 @@ toggleMaterialAlert: MapModule.toggleMaterialAlert,
  logProviderInteraction: ST.logProviderInteraction,
 logEvent: ST.logEvent,
  unshareComputation: Computo.unshareComputation,
- approveTechSuggestion: Admin.approveTechSuggestion,
- rejectTechSuggestion: Admin.rejectTechSuggestion,
+ approveTechSuggestion: adm('approveTechSuggestion'),
+ rejectTechSuggestion: adm('rejectTechSuggestion'),
  suggestTechnicalData: Provider.suggestTechnicalData,
  downloadProviderMonthlyReport: Provider.downloadProviderMonthlyReport,
- deleteIndexValue: Admin.deleteIndexValue,
+ deleteIndexValue: adm('deleteIndexValue'),
  unassignProvider: Computo.unassignProvider,
- openAdminProviderEditor: Admin.openAdminProviderEditor,
- toggleAdminProviderPublicado: Admin.toggleAdminProviderPublicado,
- addAdminOfferFromSearch: Admin.addAdminOfferFromSearch,
- updateAdminOfferPrice: Admin.updateAdminOfferPrice,
- updateAdminOfferStock: Admin.updateAdminOfferStock,
- deleteAdminOffer: Admin.deleteAdminOffer,
- removeAdminProviderKeyword: Admin.removeAdminProviderKeyword,
- deleteAdminProviderAnnouncement: Admin.deleteAdminProviderAnnouncement,
- deleteAdminProviderBranchPhoto: Admin.deleteAdminProviderBranchPhoto,
+ openAdminProviderEditor: adm('openAdminProviderEditor'),
+ toggleAdminProviderPublicado: adm('toggleAdminProviderPublicado'),
+ addAdminOfferFromSearch: adm('addAdminOfferFromSearch'),
+ updateAdminOfferPrice: adm('updateAdminOfferPrice'),
+ updateAdminOfferStock: adm('updateAdminOfferStock'),
+ deleteAdminOffer: adm('deleteAdminOffer'),
+ removeAdminProviderKeyword: adm('removeAdminProviderKeyword'),
+ deleteAdminProviderAnnouncement: adm('deleteAdminProviderAnnouncement'),
+ deleteAdminProviderBranchPhoto: adm('deleteAdminProviderBranchPhoto'),
  deleteProviderAnnouncement: Provider.deleteProviderAnnouncement,
  deleteProviderBranchPhoto: Provider.deleteProviderBranchPhoto,
- deleteAdminApuTask: Admin.deleteAdminApuTask,
- editAdminApuTask: Admin.editAdminApuTask,
-toggleAdminApuHabilitada: Admin.toggleAdminApuHabilitada,
-updateAdminApuDraftRend: Admin.updateAdminApuDraftRend,
- addAdminApuMaterialDraft: Admin.addAdminApuMaterialDraft,
- removeAdminApuComponentDraft: Admin.removeAdminApuComponentDraft,
+ deleteAdminApuTask: adm('deleteAdminApuTask'),
+ editAdminApuTask: adm('editAdminApuTask'),
+toggleAdminApuHabilitada: adm('toggleAdminApuHabilitada'),
+updateAdminApuDraftRend: adm('updateAdminApuDraftRend'),
+ addAdminApuMaterialDraft: adm('addAdminApuMaterialDraft'),
+ removeAdminApuComponentDraft: adm('removeAdminApuComponentDraft'),
  addApuTaskToBudget: Apu.addApuTaskToBudget,
  removeApuBudgetItem: Apu.removeApuBudgetItem,
  registerApuPurchase: Apu.registerApuPurchase,
@@ -1074,9 +1100,9 @@ updateAdminApuDraftRend: Admin.updateAdminApuDraftRend,
  openApuProviderPicker: Apu.openApuProviderPicker,
  startProviderSignup: Auth.startProviderSignup,
  openProviderClaim: MapModule.openProviderClaim,
- resolveProviderClaim: Admin.resolveProviderClaim,
- removeSurveyItem: Admin.removeSurveyItem,
- addSurveyItem: Admin.addSurveyItem,
+ resolveProviderClaim: adm('resolveProviderClaim'),
+ removeSurveyItem: adm('removeSurveyItem'),
+ addSurveyItem: adm('addSurveyItem'),
  closeProviderClaim: MapModule.closeProviderClaim,
  claimGoToAuth: MapModule.claimGoToAuth,
  addProviderPublicOfferToBudget: MapModule.addProviderPublicOfferToBudget,

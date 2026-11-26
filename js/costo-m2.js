@@ -13,7 +13,6 @@
  * APU: se listan aparte y NO entran en el costo (el total queda incompleto
  * hasta cargarlas).
  * ========================================================================== */
-import * as Admin from './admin.js';
 import * as Apu from './apu.js';
 import * as ST from './state.js';
 
@@ -112,7 +111,7 @@ export async function computeCostoM2(proto = PROTOTIPO_A_2021) {
 export async function loadCostoM2View() {
  const box = document.getElementById('costo-m2-draft');
  if (!box) return;
- if (!Admin.isAdmin()) { box.hidden = true; box.innerHTML = ''; return; }
+ if (ST.authState.profile?.role !== 'admin') { box.hidden = true; box.innerHTML = ''; return; }
  box.hidden = false;
  box.innerHTML = '<p class="material-muted">Calculando el borrador...</p>';
  try {

@@ -1,6 +1,5 @@
 // NEXOBRA - auth.js
 
-import * as Admin from './admin.js';
 import * as Computo from './computo.js';
 import * as MapModule from './map.js';
 import * as Provider from './provider.js';
@@ -97,7 +96,7 @@ import * as ST from './state.js';
       ST.authHeaderLabel.textContent = nombre.length > 18 ? nombre.slice(0, 16) + '…' : nombre;
 
       Provider.updateProviderNavVisibility();
-      Admin.updateAdminNavVisibility();
+      window.nexoBraApp?.actualizarNavAdmin?.(); // (26/11) carga admin.js solo si es admin
       MapModule.loadFavoriteIds();
       MapModule.loadAlertIds();
       MapModule.loadOfferSubscriptionIds();

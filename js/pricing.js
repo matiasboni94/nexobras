@@ -245,6 +245,8 @@ import * as ST from './state.js';
 
 
  export async function renderIpcChart() {
+ // (26/11, velocidad) El gráfico solo está en "Quiénes Somos": no se baja Chart.js (~200 KB) en las demás vistas.
+ if (ST.state.currentView !== 'about') return;
  const canvas = document.getElementById('ipc-evolution-chart');
  if (!canvas || ST.indexState.months.length === 0) return;
 

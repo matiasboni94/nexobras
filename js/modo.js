@@ -142,6 +142,13 @@ export async function aplicarModo() {
   // Para pintar el modo correcto desde el primer momento en la próxima visita (index.html)
   try { if (modo === 'visitante') localStorage.removeItem('nexobra_modo'); else localStorage.setItem('nexobra_modo', modo); } catch (e) { /* sin storage */ }
 
+  // (26/11) Saludo de la portada
+  const hola = document.getElementById('portada-hola');
+  if (hola) {
+    const nombre = String(ST.authState.profile?.full_name || '').trim().split(/\s+/)[0];
+    hola.textContent = nombre ? `Hola, ${nombre}` : 'Hola';
+  }
+
   // Insignia junto al botón de la cuenta (solo técnicos y negocios)
   const badge = document.getElementById('auth-modo-badge');
   if (badge) {
