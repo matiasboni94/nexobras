@@ -182,6 +182,7 @@
  <!-- (26/11) PORTADA: la marca grande arriba de todo, sin sumar un paso: el buscador está acá mismo.
  Cada perfil ve sus opciones (data-modos) y el color de su perfil (var(--brand-yellow)). Maqueta: canvas, fila "Portada". -->
  <section class="portada" aria-labelledby="portada-titulo">
+ <div class="container">
  <div class="portada-inner">
  <p class="portada-kicker anim" data-modos="visitante">Planificador de obra · Oberá, Misiones</p>
  <p class="portada-kicker portada-hola anim" id="portada-hola" data-modos="usuario oficio profesional materiales">Hola</p>
@@ -201,9 +202,62 @@
  <div id="home-map-material-results" class="provider-search-results portada-resultados" aria-live="polite"></div>
  <p class="portada-datos anim d4"><strong id="home-fact-materiales">943</strong> materiales con precio de referencia · precios de <strong id="home-fact-periodo">–</strong><span id="home-fact-apu" hidden>–</span></p>
  </div>
+ </div>
  </section>
 
- <section class="portada-opciones" aria-label="Qué querés hacer">
+
+
+ <!-- MAPA DE PROVEEDORES CON BÚSQUEDA DE MATERIAL (Fase G5) -->
+ <section class="section-map-home">
+ <div class="container">
+ <h2 class="section-title" style="margin-bottom: 1.5rem;">Mapa de Proveedores</h2>
+ <p class="section-desc" style="max-width: none; margin-bottom: 1.25rem;">Buscá un material en el buscador de arriba y mirá qué proveedores lo tienen cerca tuyo, o explorá todos los proveedores de la zona.</p>
+
+ <div class="home-map-search-row">
+ <button class="btn-action-drawer btn-copy" id="btn-clear-map-material-search" type="button" style="display:none;">✕ Ver todos los proveedores</button>
+ </div>
+
+ <div class="catalog-header-banner" style="margin-top: 0;">
+ <p id="map-status-msg" style="font-size: 0.8rem; color: var(--text-muted); margin: 0;"></p>
+ <div class="map-controls">
+ <button class="btn-computo" id="btn-geolocate" style="padding: 9px 14px;">Usar mi ubicación</button>
+ <label for="map-radius-select" style="font-size: 0.8rem; font-weight: 700; margin-left: 6px;">Radio:</label>
+ <select id="map-radius-select" class="sort-select">
+ <option value="10">10 km</option>
+ <option value="25" selected>25 km</option>
+ <option value="50">50 km</option>
+ <option value="100">100 km</option>
+ </select>
+ </div>
+ </div>
+
+ <div class="map-layout">
+ <div id="provider-map" class="provider-map-container"></div>
+ <div id="map-branch-panel" class="map-branch-panel">
+ <div class="map-branch-panel-empty">
+ <div style="font-size: 2rem;"></div>
+ <p>Buscá un material arriba, o tocá un pin para ver la ficha del proveedor.</p>
+ </div>
+ </div>
+ </div>
+
+ <!-- Barra del comparador: vive fuera de #map-branch-panel para no perderse
+ cada vez que se pinta la ficha de un proveedor distinto. -->
+ <div id="compare-bar" class="compare-bar" style="display:none;"></div>
+
+ <div style="display:flex; justify-content:center; gap:10px; margin-top: 1.5rem; flex-wrap:wrap;">
+ <button class="btn-action-drawer btn-copy" id="btn-catalog-from-map" type="button">Ver catálogo completo &rarr;
+ </button>
+ <button class="btn-action-drawer btn-copy" id="btn-methodology-from-map" type="button">
+ ¿Cómo se obtiene el valor? &rarr;
+ </button>
+ </div>
+
+ <p class="quick-tags-label" style="margin-top: 1.5rem;">NEXOBRA no vende materiales ni garantiza stock: te muestra información para comparar y te conecta directamente con el proveedor.
+ </p>
+
+ <!-- (26/11-f) Opciones del perfil DEBAJO del mapa (pedido de Matías): portada (bienvenida + buscador) → mapa → opciones del perfil. -->
+ <div class="portada-opciones" role="region" aria-label="Qué querés hacer">
  <div class="portada-grid" data-modos="visitante">
  <button type="button" class="portada-card anim d3" data-goto-view="catalog">
  <span class="pc-cabeza"><span class="portada-icono"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg></span></span>
@@ -294,58 +348,9 @@
  <button type="button" class="portada-cuenta-btn" data-accion-modo="registro">Crear cuenta gratis</button>
  </div>
  <p class="hero-modo-nota" data-modos="profesional oficio materiales">El sitio está acomodado para tu perfil; lo demás sigue en el menú. <button type="button" class="hero-modo-link" data-accion-modo="usuario">Ver el sitio como usuario</button></p>
- </section>
-
- <!-- MAPA DE PROVEEDORES CON BÚSQUEDA DE MATERIAL (Fase G5) -->
- <section class="section-map-home">
- <div class="container">
- <h2 class="section-title" style="margin-bottom: 1.5rem;">Mapa de Proveedores</h2>
- <p class="section-desc" style="max-width: none; margin-bottom: 1.25rem;">Buscá un material en el buscador de arriba y mirá qué proveedores lo tienen cerca tuyo, o explorá todos los proveedores de la zona.</p>
-
- <div class="home-map-search-row">
- <button class="btn-action-drawer btn-copy" id="btn-clear-map-material-search" type="button" style="display:none;">✕ Ver todos los proveedores</button>
  </div>
 
- <div class="catalog-header-banner" style="margin-top: 0;">
- <p id="map-status-msg" style="font-size: 0.8rem; color: var(--text-muted); margin: 0;"></p>
- <div class="map-controls">
- <button class="btn-computo" id="btn-geolocate" style="padding: 9px 14px;">Usar mi ubicación</button>
- <label for="map-radius-select" style="font-size: 0.8rem; font-weight: 700; margin-left: 6px;">Radio:</label>
- <select id="map-radius-select" class="sort-select">
- <option value="10">10 km</option>
- <option value="25" selected>25 km</option>
- <option value="50">50 km</option>
- <option value="100">100 km</option>
- </select>
- </div>
- </div>
-
- <div class="map-layout">
- <div id="provider-map" class="provider-map-container"></div>
- <div id="map-branch-panel" class="map-branch-panel">
- <div class="map-branch-panel-empty">
- <div style="font-size: 2rem;"></div>
- <p>Buscá un material arriba, o tocá un pin para ver la ficha del proveedor.</p>
- </div>
- </div>
- </div>
-
- <!-- Barra del comparador: vive fuera de #map-branch-panel para no perderse
- cada vez que se pinta la ficha de un proveedor distinto. -->
- <div id="compare-bar" class="compare-bar" style="display:none;"></div>
-
- <div style="display:flex; justify-content:center; gap:10px; margin-top: 1.5rem; flex-wrap:wrap;">
- <button class="btn-action-drawer btn-copy" id="btn-catalog-from-map" type="button">Ver catálogo completo &rarr;
- </button>
- <button class="btn-action-drawer btn-copy" id="btn-methodology-from-map" type="button">
- ¿Cómo se obtiene el valor? &rarr;
- </button>
- </div>
-
- <p class="quick-tags-label" style="margin-top: 1.5rem;">NEXOBRA no vende materiales ni garantiza stock: te muestra información para comparar y te conecta directamente con el proveedor.
- </p>
-
- <div class="home-computo-cta">
+  <div class="home-computo-cta">
  <div class="home-computo-cta-icon"></div>
  <div>
  <h3 class="pilar-title" style="margin-bottom: 4px;">¿Ya sabés qué necesitás?</h3>
@@ -356,6 +361,8 @@
  </div>
  </div>
  </section>
+
+
 
  <!-- BANNER: COTIZADOR DE EXCEL -->
  <section class="section-excel-cta" data-modos="visitante usuario profesional oficio">

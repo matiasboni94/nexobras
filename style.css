@@ -1623,3 +1623,26 @@ html[data-modo="profesional"] .nx-icono-acento,html[data-modo="oficio"] .nx-icon
 .guia-perfil-linea{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin:4px 0 12px;font-size:.88rem;color:var(--text-muted)}
 .guia-perfil-linea b{color:var(--text-main)}
 .guia-perfil[hidden],.guia-perfil-linea [hidden]{display:none}
+/* (26/11-f) Portada a lo ancho de la página: bienvenida + buscador, e inmediatamente el mapa; las opciones del perfil van debajo del mapa */
+.portada{padding:40px 0 36px}
+.portada-inner{max-width:none}
+.portada-frase{max-width:none}
+.portada-buscar,.portada-resultados{max-width:none}
+.portada-buscar{padding:10px 10px 10px 20px}
+.portada-buscar input{font-size:1.15rem}
+.portada-buscar button{min-height:52px;padding:0 32px}
+.section-map-home{padding:2rem 0 3rem}
+.portada-opciones{max-width:none;margin:2rem 0 1.5rem;padding:0}
+@media (max-width:720px){
+.portada{padding:24px 0 24px}
+.portada-buscar{padding:6px 6px 6px 14px}
+.portada-buscar input{font-size:16px}
+.portada-buscar button{min-height:44px;padding:0 16px}
+.portada-opciones{margin:1.5rem 0 1rem}
+.section-map-home{padding:1.5rem 0 2rem}
+}
+@media (max-width:720px){
+.section-map-home .section-title{font-size:1.6rem;margin-bottom:.4rem!important}
+.section-map-home .section-desc{font-size:.92rem;margin-bottom:.9rem!important}
+}
+.portada-datos strong,.portada-datos #home-fact-periodo{font-size:inherit;line-height:inherit;letter-spacing:inherit}
